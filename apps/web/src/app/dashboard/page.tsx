@@ -58,7 +58,7 @@ export default function DashboardPage() {
       if (!user) throw new Error('Not authenticated')
 
       // Create track record
-      const { data: track, error: trackError } = await supabase
+      const { data: track, error: trackError } = await (supabase as any)
         .from('user_tracks')
         .insert({
           user_id: user.id,
