@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       .eq('id', user.id)
       .single()
     
-    const artistLevel = profile?.career_level || 'emerging'
+    const artistLevel = (profile as any)?.career_level || 'emerging'
     
     // Get public URL for the track
     const { data: publicUrlData } = supabase.storage
