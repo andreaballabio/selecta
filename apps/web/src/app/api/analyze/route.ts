@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     // Get public URL for the track
     const { data: publicUrlData } = supabase.storage
       .from('audio-tracks')
-      .getPublicUrl(track.storage_path)
+      .getPublicUrl((track as any).storage_path)
     
     // Update track status to processing
     await supabase
