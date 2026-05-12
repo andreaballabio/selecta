@@ -70,7 +70,7 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
         throw new Error('Failed to get upload URL')
       }
 
-      const { uploadUrl, filePath, publicUrl } = await response.json()
+      const { uploadUrl, filePath } = await response.json()
 
       // Upload file to storage
       const xhr = new XMLHttpRequest()
