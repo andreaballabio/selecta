@@ -140,7 +140,12 @@ async def extract_features(audio_path: str) -> AudioFeatures:
     duration = librosa.get_duration(y=y, sr=sr)
     
     # Basic features
-    tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
+    tempo_result = librosa.beat.beat_track(y=y, sr=sr)
+    # In librosa 0.10+, beat_track returns (tempo, beats) where tempo is a scalar or array
+    if isinstance(tempo_result, tuple):
+        tempo = float(tempo_result[0])
+    else:
+        tempo = float(tempo_result)
     
     # Spectral features
     spectral_centroids = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
@@ -151,7 +156,11 @@ async def extract_features(audio_path: str) -> AudioFeatures:
     hop_length = 512
     frame_length = 2048
     rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)[0]
-    energy_curve = (rms / np.max(rms)).tolist()
+    max_rms = float(np.max(rms))
+    if max_rms > 0:
+        energy_curve = [float(x) for x in (rms / max_rms).tolist()]
+    else:
+        energy_curve = [0.0] * len(rms)
     
     # Key detection with librosa
     chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
@@ -169,8 +178,8 @@ async def extract_features(audio_path: str) -> AudioFeatures:
     correlations = []
     for i in range(12):
         rolled = np.roll(chroma_mean, i)
-        corr_major = np.corrcoef(rolled, major_profile)[0,1]
-        corr_minor = np.corrcoef(rolled, minor_profile)[0,1]
+        corr_major = float(np.corrcoef(rolled, major_profile)[0,1])
+        corr_minor = float(np.corrcoef(rolled, minor_profile)[0,1])
         correlations.append((corr_major, i, 'major'))
         correlations.append((corr_minor, i, 'minor'))
     
@@ -180,7 +189,7 @@ async def extract_features(audio_path: str) -> AudioFeatures:
     
     # LUFS estimation (simplified)
     # In production, use proper LUFS measurement
-    lufs_estimate = -14 - (np.mean(rms) * 10)
+    lufs_estimate = -14.0 - (float(np.mean(rms)) * 10.0)
     
     return AudioFeatures(
         bpm=float(tempo),

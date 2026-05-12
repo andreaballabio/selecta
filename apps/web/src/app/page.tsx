@@ -6,9 +6,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-black">
       {/* Hero */}
       <section className="relative overflow-hidden px-4 pt-20 pb-16 sm:px-6 lg:px-8">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/20 via-black to-black"
-3e
-        </div>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/20 via-black to-black" />
         
         <div className="relative mx-auto max-w-4xl text-center">
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
@@ -125,7 +123,7 @@ export default function HomePage() {
             </div>
             
             <p className="text-sm text-zinc-600">
-              © 2026 Selecta. Built for tech house producers.
+              2026 Selecta. Built for tech house producers.
             </p>
           </div>
         </div>

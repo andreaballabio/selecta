@@ -5,7 +5,7 @@ const WORKER_URL = process.env.WORKER_URL || 'http://localhost:8000'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = await createClient()
     
     // Verify user is authenticated
     const { data: { user }, error: authError } = await supabase.auth.getUser()
