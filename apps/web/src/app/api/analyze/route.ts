@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Get user profile for artist level
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
       .select('career_level')
       .eq('id', user.id)
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       .getPublicUrl((track as any).storage_path)
     
     // Update track status to processing
-    await supabase
+    await (supabase as any)
       .from('user_tracks')
       .update({ analysis_status: 'processing' })
       .eq('id', trackId)
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       console.error('Worker error:', errorText)
       
       // Update track status to failed
-      await supabase
+      await (supabase as any)
         .from('user_tracks')
         .update({ 
           analysis_status: 'failed',
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     const analysisResult = await workerResponse.json()
     
     // Store analysis results in database
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabase as any)
       .from('user_tracks')
       .update({
         bpm: analysisResult.features.bpm,
@@ -120,12 +120,12 @@ export async function POST(request: NextRequest) {
     }
     
     // Store analysis result
-    await supabase.from('analysis_results').upsert({
+    await (supabase as any).from('analysis_results').upsert({
       track_id: trackId,
       user_id: user.id,
       ar_feedback: analysisResult.ar_feedback,
-      strengths: [], // Extract from LLM response
-      weaknesses: [], // Extract from LLM response
+      strengths: [],
+      weaknesses: [],
     }, { onConflict: 'track_id' })
     
     // Store label matches
@@ -141,15 +141,15 @@ export async function POST(request: NextRequest) {
     }))
     
     // Delete existing matches first
-    await supabase
+    await (supabase as any)
       .from('label_matches')
       .delete()
       .eq('track_id', trackId)
     
-    await supabase.from('label_matches').insert(matches)
+    await (supabase as any).from('label_matches').insert(matches)
     
     // Update user's monthly quota
-    await supabase.rpc('increment_analysis_used', { user_id: user.id })
+    await (supabase as any).rpc('increment_analysis_used', { user_id: user.id })
     
     return NextResponse.json({
       success: true,
