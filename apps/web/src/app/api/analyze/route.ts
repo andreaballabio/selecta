@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       }
     ]
     
-    // Update track with analysis results
+    // Update track with analysis results - ONLY use fields that exist in the database
     const { error: updateError } = await (supabase as any)
       .from('user_tracks')
       .update({
@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
         scale: mockFeatures.scale,
         lufs: mockFeatures.lufs,
         duration_seconds: mockFeatures.duration,
-        audio_embedding: JSON.stringify(mockFeatures.embedding),
-        energy_curve: mockFeatures.energy_curve,
+        audio_embedding: mockFeatures.embedding, // vector type
+        energy_curve: mockFeatures.energy_curve, // jsonb type
         features: {
           spectral_centroid: mockFeatures.spectral_centroid_mean,
           spectral_rolloff: mockFeatures.spectral_rolloff_mean,
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
         },
         analysis_status: 'completed',
         analyzed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(), // Add this!
+        // NO updated_at - this column doesn't exist!
       })
       .eq('id', trackId)
     
