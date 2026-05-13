@@ -78,6 +78,7 @@ export default function DashboardPage() {
       const response = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ trackId: track.id }),
       })
 

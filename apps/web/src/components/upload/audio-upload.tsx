@@ -59,6 +59,7 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           fileName: file.name,
           fileSize: file.size,
