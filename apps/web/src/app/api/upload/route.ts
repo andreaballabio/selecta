@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     
     // TEMP: Bypass authentication for testing
-    const userId = 'anonymous-user-' + Date.now()
+    const userId = '00000000-0000-0000-0000-000000000001'
     
     const body = await request.json()
     const { fileName, fileSize, contentType } = body

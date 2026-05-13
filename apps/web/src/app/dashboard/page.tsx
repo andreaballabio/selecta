@@ -42,8 +42,8 @@ export default function DashboardPage() {
     setError(null)
 
     try {
-      // TEMP: Bypass authentication check
-      const userId = 'anonymous-user'
+      // TEMP: Bypass authentication check with valid UUID
+      const userId = '00000000-0000-0000-0000-000000000001'
 
       // Create track record
       const { data: track, error: trackError } = await (supabase as any)
