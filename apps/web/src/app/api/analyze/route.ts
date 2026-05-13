@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         },
         analysis_status: 'completed',
         analyzed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(), // Add this!
       })
       .eq('id', trackId)
     
