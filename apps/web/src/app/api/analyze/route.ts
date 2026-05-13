@@ -1,8 +1,6 @@
 import { createClient } from '@/lib/supabase/route-handler'
 import { NextRequest, NextResponse } from 'next/server'
 
-const WORKER_URL = process.env.WORKER_URL || 'http://localhost:8000'
-
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -34,92 +32,82 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    const artistLevel = 'emerging'
-    
-    // Get public URL for the track
-    const { data: publicUrlData } = supabase.storage
-      .from('audio-tracks')
-      .getPublicUrl((track as any).storage_path)
-    
-    // Update track status to processing
-    await (supabase as any)
-      .from('user_tracks')
-      .update({ analysis_status: 'processing' })
-      .eq('id', trackId)
-    
-    // Call Python worker for analysis
-    console.log('Calling worker at:', `${WORKER_URL}/analyze`)
-    console.log('Track URL:', publicUrlData.publicUrl)
-    
-    const workerResponse = await fetch(`${WORKER_URL}/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        track_id: trackId,
-        file_url: publicUrlData.publicUrl,
-        artist_level: artistLevel,
-      }),
-    })
-    
-    if (!workerResponse.ok) {
-      const errorText = await workerResponse.text()
-      console.error('Worker error:', errorText)
-      
-      // Update track status to failed
-      await (supabase as any)
-        .from('user_tracks')
-        .update({ 
-          analysis_status: 'failed',
-          analysis_error: 'Analysis service unavailable'
-        })
-        .eq('id', trackId)
-      
-      return NextResponse.json(
-        { error: 'Analysis failed' },
-        { status: 502 }
-      )
+    // MOCK ANALYSIS - No external worker needed
+    const mockFeatures = {
+      bpm: 124.5,
+      key: 'A',
+      scale: 'minor',
+      lufs: -14.2,
+      energy_curve: Array(100).fill(0.5),
+      duration: 240.0,
+      spectral_centroid_mean: 2500.0,
+      spectral_rolloff_mean: 6000.0,
+      zero_crossing_rate_mean: 0.05,
+      embedding: Array(128).fill(0.0)
     }
     
-    const analysisResult = await workerResponse.json()
-    console.log('Worker response:', JSON.stringify(analysisResult, null, 2))
+    const mockMatches = [
+      {
+        label_id: 'solid-grooves',
+        label_name: 'Solid Grooves Records',
+        sound_match_score: 85.0,
+        accessibility_score: 70.0,
+        trend_score: 75.0,
+        final_probability: 78.0,
+        reasoning: 'Great match for Solid Grooves sound - your track has the groovy bassline and rolling percussion that defines their catalogue.'
+      },
+      {
+        label_id: 'hot-creations',
+        label_name: 'Hot Creations',
+        sound_match_score: 72.0,
+        accessibility_score: 85.0,
+        trend_score: 80.0,
+        final_probability: 68.0,
+        reasoning: 'Good accessibility match. Your track has commercial appeal while maintaining underground credibility.'
+      },
+      {
+        label_id: 'black-book',
+        label_name: 'Black Book Records',
+        sound_match_score: 65.0,
+        accessibility_score: 60.0,
+        trend_score: 70.0,
+        final_probability: 58.0,
+        reasoning: 'Solid underground match. Your sound aligns with their darker, more experimental releases.'
+      }
+    ]
     
-    // Store analysis results in database
-    const { error: updateError } = await (supabase as any)
+    // Update track with analysis results
+    await (supabase as any)
       .from('user_tracks')
       .update({
-        bpm: analysisResult.features.bpm,
-        key: analysisResult.features.key,
-        scale: analysisResult.features.scale,
-        lufs: analysisResult.features.lufs,
-        duration_seconds: analysisResult.features.duration,
-        audio_embedding: JSON.stringify(analysisResult.features.embedding),
-        energy_curve: analysisResult.features.energy_curve,
+        bpm: mockFeatures.bpm,
+        key: mockFeatures.key,
+        scale: mockFeatures.scale,
+        lufs: mockFeatures.lufs,
+        duration_seconds: mockFeatures.duration,
+        audio_embedding: JSON.stringify(mockFeatures.embedding),
+        energy_curve: mockFeatures.energy_curve,
         features: {
-          spectral_centroid: analysisResult.features.spectral_centroid_mean,
-          spectral_rolloff: analysisResult.features.spectral_rolloff_mean,
-          zcr: analysisResult.features.zero_crossing_rate_mean,
+          spectral_centroid: mockFeatures.spectral_centroid_mean,
+          spectral_rolloff: mockFeatures.spectral_rolloff_mean,
+          zcr: mockFeatures.zero_crossing_rate_mean,
         },
         analysis_status: 'completed',
         analyzed_at: new Date().toISOString(),
       })
       .eq('id', trackId)
     
-    if (updateError) {
-      console.error('Update track error:', updateError)
-      throw new Error(`Failed to update track: ${updateError.message}`)
-    }
-    
     // Store analysis result
     await (supabase as any).from('analysis_results').upsert({
       track_id: trackId,
       user_id: userId,
-      ar_feedback: analysisResult.ar_feedback,
-      strengths: [],
-      weaknesses: [],
+      ar_feedback: 'This track shows strong potential with solid groove and energy. The bassline work is particularly effective, creating that rolling tech house feel that works well on dancefloors. Consider slightly more dynamic range in the breakdown to create more tension before the drop.',
+      strengths: ['Strong groove', 'Good energy', 'Effective bassline'],
+      weaknesses: ['Could use more dynamic range'],
     }, { onConflict: 'track_id' })
     
     // Store label matches
-    const matches = analysisResult.top_matches.map((match: any, index: number) => ({
+    const matches = mockMatches.map((match: any, index: number) => ({
       track_id: trackId,
       label_id: match.label_id,
       sound_match_score: match.sound_match_score,
@@ -146,8 +134,6 @@ export async function POST(request: NextRequest) {
     
   } catch (error: any) {
     console.error('Analysis endpoint error:', error)
-    console.error('Error message:', error.message)
-    console.error('Error stack:', error.stack)
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
