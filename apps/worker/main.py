@@ -10,6 +10,13 @@ import logging
 # Audio analysis libraries
 try:
     import librosa
+    LIBROSA_AVAILABLE = True
+except ImportError:
+    LIBROSA_AVAILABLE = False
+    logging.warning("Librosa not available. Using mock data.")
+
+# Essentia is optional - skip if not available
+try:
     import essentia
     from essentia.standard import (
         MonoLoader, 
@@ -29,9 +36,12 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Selecta Audio Worker", version="1.0.0")
 
+# Get allowed origins from environment
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure for production
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
