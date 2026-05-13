@@ -69,11 +69,8 @@ export default function TrackAnalysisPage() {
 
   const loadTrackData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/')
-        return
-      }
+      // TEMP: Bypass authentication for testing
+      const userId = '00000000-0000-0000-0000-000000000001'
 
       const { data, error } = await supabase
         .from('user_tracks')
@@ -83,7 +80,7 @@ export default function TrackAnalysisPage() {
           label_matches (*, labels (*))
         `)
         .eq('id', trackId)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single()
 
       if (error) throw error
