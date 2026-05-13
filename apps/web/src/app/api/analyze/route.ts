@@ -33,12 +33,14 @@ export async function POST(request: NextRequest) {
     }
     
     // MOCK ANALYSIS - No external worker needed
+    console.log('Starting mock analysis for track:', trackId)
+    
     const mockFeatures = {
       bpm: 124.5,
       key: 'A',
       scale: 'minor',
       lufs: -14.2,
-      energy_curve: Array(100).fill(0.5),
+      energy_curve: [0.5, 0.6, 0.7, 0.8, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4], // Smaller array
       duration: 240.0,
       spectral_centroid_mean: 2500.0,
       spectral_rolloff_mean: 6000.0,
@@ -139,6 +141,8 @@ export async function POST(request: NextRequest) {
     
   } catch (error: any) {
     console.error('Analysis endpoint error:', error)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }
