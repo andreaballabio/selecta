@@ -1,9 +1,4 @@
 fastapi==0.109.0
 uvicorn[standard]==0.27.0
 python-multipart==0.0.6
-pydantic==1.10.13
-numpy==1.26.3
-librosa==0.10.1
-soundfile==0.12.1
-httpx==0.26.0
-python-dotenv==1.0.0
+pydantic==2.5.0
