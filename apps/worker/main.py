@@ -98,35 +98,60 @@ async def analyze_track(request: AnalysisRequest):
     matches with labels, generates A&R feedback.
     """
     logger.info(f"Starting analysis for track {request.track_id}")
+    logger.info(f"File URL: {request.file_url}")
+    
+    tmp_path = None
     
     try:
         # 1. Download file from URL (temporary for analysis)
-        import urllib.request
+        logger.info("Downloading file...")
+        import httpx
         
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp:
-            urllib.request.urlretrieve(request.file_url, tmp.name)
-            tmp_path = tmp.name
+        async with httpx.AsyncClient() as client:
+            response = await client.get(request.file_url, timeout=30.0)
+            logger.info(f"Download response status: {response.status_code}")
+            
+            if response.status_code != 200:
+                raise HTTPException(status_code=400, detail=f"Failed to download file: {response.status_code}")
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as tmp:
+                tmp.write(response.content)
+                tmp_path = tmp.name
+                logger.info(f"File saved to: {tmp_path}, size: {len(response.content)} bytes")
         
         # 2. Extract audio features
+        logger.info("Extracting features...")
         features = await extract_features(tmp_path)
+        logger.info(f"Features extracted: BPM={features.bpm}, Key={features.key}")
         
-        # 3. Generate embedding (using pre-trained model)
+        # 3. Generate embedding
+        logger.info("Generating embedding...")
         features.embedding = await generate_embedding(tmp_path)
+        logger.info(f"Embedding generated: {len(features.embedding)} dimensions")
         
         # 4. Match with label database
+        logger.info("Matching with labels...")
         top_matches = await match_with_labels(features, request.artist_level)
+        logger.info(f"Found {len(top_matches)} label matches")
         
-        # 5. Generate A&R feedback via LLM
+        # 5. Generate A&R feedback
+        logger.info("Generating A&R feedback...")
         ar_feedback = await generate_ar_feedback(features, top_matches)
         
         # 6. Generate improvement suggestions
+        logger.info("Generating improvements...")
         improvements = await generate_improvements(features, top_matches)
         
         # 7. Demo strategy
+        logger.info("Generating demo strategy...")
         demo_strategy = await generate_demo_strategy(top_matches, request.artist_level)
         
         # Cleanup
-        os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+            logger.info("Cleanup completed")
+        
+        logger.info("Analysis completed successfully")
         
         return AnalysisResponse(
             track_id=request.track_id,
@@ -137,8 +162,19 @@ async def analyze_track(request: AnalysisRequest):
             demo_strategy=demo_strategy
         )
         
+    except HTTPException:
+        # Cleanup on error
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
     except Exception as e:
+        # Cleanup on error
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
         logger.error(f"Analysis failed: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
