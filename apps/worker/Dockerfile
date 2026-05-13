@@ -6,7 +6,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libsndfile1 \
     ffmpeg \
-    libfftw3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install requirements
@@ -16,8 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY main.py .
 
-# Railway assigns PORT dynamically
 ENV PORT=8080
+ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
-CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1
+# Use exec to handle signals properly
+CMD exec python -m uvicorn main:app --host 0.0.0.0 --port ${PORT} --log-level info
