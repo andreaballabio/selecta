@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     ]
     
     // Update track with analysis results
-    await (supabase as any)
+    const { error: updateError } = await (supabase as any)
       .from('user_tracks')
       .update({
         bpm: mockFeatures.bpm,
@@ -96,6 +96,11 @@ export async function POST(request: NextRequest) {
         analyzed_at: new Date().toISOString(),
       })
       .eq('id', trackId)
+    
+    if (updateError) {
+      console.error('Update track error:', updateError)
+      throw new Error(`Failed to update track: ${updateError.message}`)
+    }
     
     // Store analysis result
     await (supabase as any).from('analysis_results').upsert({
