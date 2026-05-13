@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         scale: mockFeatures.scale,
         lufs: mockFeatures.lufs,
         duration_seconds: mockFeatures.duration,
-        audio_embedding: mockFeatures.embedding, // vector type
+        // Skip audio_embedding - vector type causes issues
         energy_curve: mockFeatures.energy_curve, // jsonb type
         features: {
           spectral_centroid: mockFeatures.spectral_centroid_mean,
@@ -96,7 +96,6 @@ export async function POST(request: NextRequest) {
         },
         analysis_status: 'completed',
         analyzed_at: new Date().toISOString(),
-        // NO updated_at - this column doesn't exist!
       })
       .eq('id', trackId)
     
