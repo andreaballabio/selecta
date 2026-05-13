@@ -20,20 +20,8 @@ export default function DashboardPage() {
   }, [])
 
   const loadUserTracks = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const { data } = await supabase
-      .from('user_tracks')
-      .select(`
-        *,
-        analysis_results (*),
-        label_matches (*, labels (*))
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-
-    if (data) setTracks(data)
+    // TEMP: Bypass authentication for testing
+    setTracks([])
   }
 
   const handleUploadComplete = (path: string, name: string, size: number) => {
@@ -54,14 +42,14 @@ export default function DashboardPage() {
     setError(null)
 
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      // TEMP: Bypass authentication check
+      const userId = 'anonymous-user'
 
       // Create track record
       const { data: track, error: trackError } = await (supabase as any)
         .from('user_tracks')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           title: trackTitle,
           storage_path: uploadedFile.path,
           file_name: uploadedFile.name,
