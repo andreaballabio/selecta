@@ -15,9 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application
 COPY main.py .
 
-ENV PORT=8080
-ENV PYTHONUNBUFFERED=1
-EXPOSE 8080
+# Hugging Face Spaces uses port 7860
+ENV PORT=7860
+EXPOSE 7860
 
-# Use exec to handle signals properly
-CMD exec python -m uvicorn main:app --host 0.0.0.0 --port ${PORT} --log-level info
+CMD exec python main.py
