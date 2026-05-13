@@ -16,12 +16,11 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download librosa models
-RUN python -c "import librosa; librosa.load(librosa.ex('trumpet'))"
-
 # Copy application
 COPY main.py .
 
+# Railway assigns PORT dynamically
+ENV PORT=8000
 EXPOSE 8000
 
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 2
+CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers 1
