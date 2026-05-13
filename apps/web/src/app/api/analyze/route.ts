@@ -48,6 +48,9 @@ export async function POST(request: NextRequest) {
       .eq('id', trackId)
     
     // Call Python worker for analysis
+    console.log('Calling worker at:', `${WORKER_URL}/analyze`)
+    console.log('Track URL:', publicUrlData.publicUrl)
+    
     const workerResponse = await fetch(`${WORKER_URL}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -78,6 +81,7 @@ export async function POST(request: NextRequest) {
     }
     
     const analysisResult = await workerResponse.json()
+    console.log('Worker response:', JSON.stringify(analysisResult, null, 2))
     
     // Store analysis results in database
     const { error: updateError } = await (supabase as any)
@@ -102,6 +106,7 @@ export async function POST(request: NextRequest) {
     
     if (updateError) {
       console.error('Update track error:', updateError)
+      throw new Error(`Failed to update track: ${updateError.message}`)
     }
     
     // Store analysis result
@@ -139,10 +144,12 @@ export async function POST(request: NextRequest) {
       status: 'completed',
     })
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Analysis endpoint error:', error)
+    console.error('Error message:', error.message)
+    console.error('Error stack:', error.stack)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error.message },
       { status: 500 }
     )
   }
