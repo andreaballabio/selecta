@@ -139,10 +139,13 @@ export default function TrackAnalysisPage() {
 
   const analysisResult = track.analysis_results?.[0]
   const matches = track.label_matches || []
-  const energyData = track.energy_curve?.map((value, index) => ({
-    time: `${(index * (track.duration_seconds || 0) / (track.energy_curve?.length || 1) / 60).toFixed(1)}m`,
-    energy: Math.round(value * 100),
-  })) || []
+  
+  // Fix: ensure energy_curve is always an array
+  const energyCurve = Array.isArray(track.energy_curve) ? track.energy_curve : []
+  const energyData = energyCurve.map((value, index) => ({
+    time: `${(index * (track.duration_seconds || 0) / (energyCurve.length || 1) / 60).toFixed(1)}m`,
+    energy: Math.round((value || 0) * 100),
+  }))
 
   return (
     <div className="min-h-screen bg-black pb-12">
