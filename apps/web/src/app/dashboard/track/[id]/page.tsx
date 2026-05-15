@@ -319,70 +319,74 @@ export default function TrackAnalysisPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {matches
-                  .sort((a, b) => a.rank - b.rank)
-                  .map((match) => (
-                    <div
-                      key={match.labels.slug}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 transition-colors hover:border-zinc-700"
-                    >
-                      <div className="mb-4 flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-sm font-bold text-white">
-                              #{match.rank}
-                            </span>
-                            <h3 className="text-lg font-semibold text-white">{match.labels.name}</h3>
+                {matches.length === 0 ? (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-8 text-center">
+                    <p className="text-zinc-400">Nessun label match trovato. L&apos;analisi è in corso o non ci sono abbastanza dati.</p>
+                  </div>
+                ) : (
+                  matches
+                    .sort((a, b) => a.rank - b.rank)
+                    .map((match) => (
+                      <div
+                        key={match.labels?.slug || match.label_id}
+                        className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 transition-colors hover:border-zinc-700"
+                      >
+                        <div className="mb-4 flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-sm font-bold text-white">
+                                #{match.rank}
+                              </span>
+                              <h3 className="text-lg font-semibold text-white">{match.labels?.name || 'Unknown Label'}</h3>
+                            </div>
+                            <p className="mt-2 text-sm text-zinc-400">{match.match_reasoning || 'No reasoning available'}</p>
                           </div>
-                          <p className="mt-2 text-sm text-zinc-400">{match.match_reasoning}</p>
+                          
+                          <div className="text-right">
+                            <p className={`text-3xl font-bold ${getScoreColor(match.final_probability || 0)}`}>
+                              {Math.round(match.final_probability || 0)}%
+                            </p>
+                            <p className="text-xs text-zinc-500">Probabilità</p>
+                          </div>
                         </div>
-                        
-                        <div className="text-right">
-                          <p className={`text-3xl font-bold ${getScoreColor(match.final_probability)}`}>
-                            {Math.round(match.final_probability)}%
-                          </p>
-                          <p className="text-xs text-zinc-500">Probabilità</p>
-                        </div>
-                      </div>
 
-                      <div className="mb-4 grid grid-cols-3 gap-4">
-                        <div className="rounded-lg bg-zinc-950 p-3">
-                          <p className="text-xs text-zinc-500">Sound Match</p>
-                          <p className={`text-lg font-bold ${getScoreColor(match.sound_match_score)}`}>
-                            {Math.round(match.sound_match_score)}
-                          </p>
+                        <div className="mb-4 grid grid-cols-3 gap-4">
+                          <div className="rounded-lg bg-zinc-950 p-3">
+                            <p className="text-xs text-zinc-500">Sound Match</p>
+                            <p className={`text-lg font-bold ${getScoreColor(match.sound_match_score || 0)}`}>
+                              {Math.round(match.sound_match_score || 0)}
+                            </p>
+                          </div>
+                          
+                          <div className="rounded-lg bg-zinc-950 p-3">
+                            <p className="text-xs text-zinc-500">Accessibilità</p>
+                            <p className={`text-lg font-bold ${getScoreColor(match.accessibility_score || 0)}`}>
+                              {Math.round(match.accessibility_score || 0)}
+                            </p>
+                          </div>
+                          
+                          <div className="rounded-lg bg-zinc-950 p-3">
+                            <p className="text-xs text-zinc-500">Trend</p>
+                            <p className={`text-lg font-bold ${getScoreColor(match.trend_alignment_score || 0)}`}>
+                              {Math.round(match.trend_alignment_score || 0)}
+                            </p>
+                          </div>
                         </div>
-                        
-                        <div className="rounded-lg bg-zinc-950 p-3">
-                          <p className="text-xs text-zinc-500">Accessibilità</p>
-                          <p className={`text-lg font-bold ${getScoreColor(match.accessibility_score)}`}>
-                            {Math.round(match.accessibility_score)}
-                          </p>
-                        </div>
-                        
-                        <div className="rounded-lg bg-zinc-950 p-3">
-                          <p className="text-xs text-zinc-500">Trend</p>
-                          <p className={`text-lg font-bold ${getScoreColor(match.trend_alignment_score)}`}>
-                            {Math.round(match.trend_alignment_score)}
-                          </p>
-                        </div>
-                      </div>
 
-                      {match.labels.demo_submission_url && (
-                        <a
-                          href={match.labels.demo_submission_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 text-sm text-emerald-500 hover:underline"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                          Sito demo submission
-                        </a>
-                      )}
-                    </div>
-                  ))}
-              </div>
+                        {match.labels?.demo_submission_url && (
+                          <a
+                            href={match.labels.demo_submission_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 text-sm text-emerald-500 hover:underline"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Sito demo submission
+                          </a>
+                        )}
+                      </div>
+                    ))
+                )}
             </div>
           </div>
         </div>
