@@ -84,7 +84,7 @@ BEGIN
             artist text NOT NULL,
             album text,
             release_date date NOT NULL,
-            release_year int GENERATED ALWAYS AS (EXTRACT(YEAR FROM release_date)) STORED,
+            release_year int,  -- Will be computed by trigger
             bpm float,
             key text,
             scale text,
@@ -102,6 +102,91 @@ BEGIN
             created_at timestamptz NOT NULL DEFAULT now(),
             updated_at timestamptz NOT NULL DEFAULT now()
         );
+        
+        -- Create trigger to compute release_year
+        CREATE OR REPLACE FUNCTION compute_release_year()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.release_year = EXTRACT(YEAR FROM NEW.release_date);
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+        
+        CREATE TRIGGER tr_compute_release_year
+        BEFORE INSERT OR UPDATE ON reference_tracks
+        FOR EACH ROW EXECUTE FUNCTION compute_release_year();
+    ELSE
+        -- Add missing columns (without generated column)
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'spotify_id') THEN
+            ALTER TABLE reference_tracks ADD COLUMN spotify_id text UNIQUE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'youtube_id') THEN
+            ALTER TABLE reference_tracks ADD COLUMN youtube_id text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'discogs_id') THEN
+            ALTER TABLE reference_tracks ADD COLUMN discogs_id text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'album') THEN
+            ALTER TABLE reference_tracks ADD COLUMN album text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'release_year') THEN
+            ALTER TABLE reference_tracks ADD COLUMN release_year int;
+            -- Create trigger for existing table
+            CREATE OR REPLACE FUNCTION compute_release_year()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.release_year = EXTRACT(YEAR FROM NEW.release_date);
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            
+            DROP TRIGGER IF EXISTS tr_compute_release_year ON reference_tracks;
+            CREATE TRIGGER tr_compute_release_year
+            BEFORE INSERT OR UPDATE ON reference_tracks
+            FOR EACH ROW EXECUTE FUNCTION compute_release_year();
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'bpm') THEN
+            ALTER TABLE reference_tracks ADD COLUMN bpm float;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'key') THEN
+            ALTER TABLE reference_tracks ADD COLUMN key text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'scale') THEN
+            ALTER TABLE reference_tracks ADD COLUMN scale text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'energy') THEN
+            ALTER TABLE reference_tracks ADD COLUMN energy float;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'embedding') THEN
+            ALTER TABLE reference_tracks ADD COLUMN embedding vector(64);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'features') THEN
+            ALTER TABLE reference_tracks ADD COLUMN features jsonb DEFAULT '{}';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'time_weight') THEN
+            ALTER TABLE reference_tracks ADD COLUMN time_weight float DEFAULT 1.0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'cluster_id') THEN
+            ALTER TABLE reference_tracks ADD COLUMN cluster_id text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'source') THEN
+            ALTER TABLE reference_tracks ADD COLUMN source text DEFAULT 'spotify';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'preview_url') THEN
+            ALTER TABLE reference_tracks ADD COLUMN preview_url text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'preview_available') THEN
+            ALTER TABLE reference_tracks ADD COLUMN preview_available boolean DEFAULT true;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'analysis_status') THEN
+            ALTER TABLE reference_tracks ADD COLUMN analysis_status text DEFAULT 'pending';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'analysis_error') THEN
+            ALTER TABLE reference_tracks ADD COLUMN analysis_error text;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'analyzed_at') THEN
+            ALTER TABLE reference_tracks ADD COLUMN analyzed_at timestamptz;
+        END IF;
     END IF;
 END $$;
 
