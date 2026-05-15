@@ -1,17 +1,22 @@
+import sys
+import os
+
+# Add src to path for imports
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-import os
 
-from src.models.schemas import (
+from models.schemas import (
     AnalysisRequest, AnalysisResponse, 
     MatchingRequest, MatchingResponse, LabelMatch
 )
-from src.analysis.audio_analyzer import AudioAnalyzer
-from src.matching.matching_engine import MatchingEngine, MatchingWeights
-from src.matching.label_dna import LabelDNAEngine
-from src.utils.config import Config
-from src.utils.logging import logger
+from analysis.audio_analyzer import AudioAnalyzer
+from matching.matching_engine import MatchingEngine, MatchingWeights
+from matching.label_dna import LabelDNAEngine
+from utils.config import Config
+from utils.logging import logger
 
 # Global instances
 analyzer: AudioAnalyzer = None
