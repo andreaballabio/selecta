@@ -68,6 +68,15 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_labels_slug ON labels(slug);
 CREATE INDEX IF NOT EXISTS idx_labels_updated ON labels(updated_at);
 
+-- Create function for release_year computation (outside DO block)
+CREATE OR REPLACE FUNCTION compute_release_year()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.release_year = EXTRACT(YEAR FROM NEW.release_date);
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 -- ============================================================
 -- 2. REFERENCE TRACKS
 -- ============================================================
@@ -84,7 +93,7 @@ BEGIN
             artist text NOT NULL,
             album text,
             release_date date NOT NULL,
-            release_year int,  -- Will be computed by trigger
+            release_year int,
             bpm float,
             key text,
             scale text,
@@ -102,21 +111,7 @@ BEGIN
             created_at timestamptz NOT NULL DEFAULT now(),
             updated_at timestamptz NOT NULL DEFAULT now()
         );
-        
-        -- Create trigger to compute release_year
-        CREATE OR REPLACE FUNCTION compute_release_year()
-        RETURNS TRIGGER AS $$
-        BEGIN
-            NEW.release_year = EXTRACT(YEAR FROM NEW.release_date);
-            RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-        
-        CREATE TRIGGER tr_compute_release_year
-        BEFORE INSERT OR UPDATE ON reference_tracks
-        FOR EACH ROW EXECUTE FUNCTION compute_release_year();
     ELSE
-        -- Add missing columns (without generated column)
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'spotify_id') THEN
             ALTER TABLE reference_tracks ADD COLUMN spotify_id text UNIQUE;
         END IF;
@@ -131,19 +126,6 @@ BEGIN
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'release_year') THEN
             ALTER TABLE reference_tracks ADD COLUMN release_year int;
-            -- Create trigger for existing table
-            CREATE OR REPLACE FUNCTION compute_release_year()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                NEW.release_year = EXTRACT(YEAR FROM NEW.release_date);
-                RETURN NEW;
-            END;
-            $$ LANGUAGE plpgsql;
-            
-            DROP TRIGGER IF EXISTS tr_compute_release_year ON reference_tracks;
-            CREATE TRIGGER tr_compute_release_year
-            BEFORE INSERT OR UPDATE ON reference_tracks
-            FOR EACH ROW EXECUTE FUNCTION compute_release_year();
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'reference_tracks' AND column_name = 'bpm') THEN
             ALTER TABLE reference_tracks ADD COLUMN bpm float;
@@ -189,6 +171,12 @@ BEGIN
         END IF;
     END IF;
 END $$;
+
+-- Create trigger (outside DO block)
+DROP TRIGGER IF EXISTS tr_compute_release_year ON reference_tracks;
+CREATE TRIGGER tr_compute_release_year
+BEFORE INSERT OR UPDATE ON reference_tracks
+FOR EACH ROW EXECUTE FUNCTION compute_release_year();
 
 CREATE INDEX IF NOT EXISTS idx_ref_tracks_label ON reference_tracks(label_id);
 CREATE INDEX IF NOT EXISTS idx_ref_tracks_release ON reference_tracks(release_date);
