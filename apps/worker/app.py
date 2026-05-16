@@ -51,7 +51,7 @@ class AnalysisResponse(BaseModel):
 # Lazy load essentia only when needed
 _essentia_loaded = False
 
- def load_essentia():
+def load_essentia():
     global _essentia_loaded
     if not _essentia_loaded:
         try:
