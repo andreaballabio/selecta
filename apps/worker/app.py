@@ -91,49 +91,52 @@ async def analyze_track(request: AnalysisRequest):
             # Use Essentia for professional analysis
             logger.info("Using Essentia for analysis")
             
-            # Load audio
-            loader = es.MonoLoader(filename=tmp_path)
-            audio = loader()
+            # Load audio stereo
+            loader = es.AudioLoader(filename=tmp_path)
+            audio_stereo, sample_rate, num_channels, _, _, _ = loader()
             
-            # BPM - RhythmExtractor2013 returns (bpm, ticks, confidence, estimates, bpmIntervals)
+            # Convert to mono for algorithms that need mono
+            audio_mono = np.mean(audio_stereo, axis=1)
+            
+            logger.info(f"Audio loaded: stereo {audio_stereo.shape}, mono {audio_mono.shape}, {sample_rate}Hz")
+            
+            # BPM - use mono
             rhythm_extractor = es.RhythmExtractor2013()
-            rhythm_result = rhythm_extractor(audio)
-            bpm = float(rhythm_result[0])  # First value is BPM
+            rhythm_result = rhythm_extractor(audio_mono)
+            bpm = float(rhythm_result[0])
             
-            # Key detection with Essentia (more accurate)
+            # Key detection - use mono
             key_extractor = es.KeyExtractor()
-            key, scale, _ = key_extractor(audio)
+            key, scale, _ = key_extractor(audio_mono)
             
-            # Loudness (LUFS) - requires stereo input
-            # Convert mono to stereo for EBU R128
-            stereo_audio = np.array([audio, audio]).T  # shape: (samples, 2)
+            # Loudness (LUFS) - use stereo
             loudness = es.LoudnessEBUR128()
-            _, _, integrated_loudness, _ = loudness(stereo_audio)
+            _, _, integrated_loudness, _ = loudness(audio_stereo)
             lufs = float(integrated_loudness)
             
-            # Energy
+            # Energy - use mono
             energy_algo = es.Energy()
-            energy = energy_algo(audio)
+            energy = energy_algo(audio_mono)
             
-            # Spectral features
+            # Spectral features - use mono
             spectrum = es.Spectrum()
             spectral_centroid_algo = es.Centroid()
             spectral_rolloff_algo = es.RollOff()
             
-            spec = spectrum(audio)
+            spec = spectrum(audio_mono)
             spectral_centroid = spectral_centroid_algo(spec)
             spectral_rolloff = spectral_rolloff_algo(spec)
             
             # Duration
-            duration = len(audio) / 44100.0  # Essentia uses 44100 by default
+            duration = len(audio_mono) / sample_rate
             
-            # Zero crossing rate
+            # Zero crossing rate - use mono
             zcr_algo = es.ZeroCrossingRate()
-            zero_crossing_rate = zcr_algo(audio)
+            zero_crossing_rate = zcr_algo(audio_mono)
             
-            # MFCC
+            # MFCC - use mono
             mfcc_algo = es.MFCC()
-            _, mfcc_coeffs = mfcc_algo(spectrum(audio))
+            _, mfcc_coeffs = mfcc_algo(spectrum(audio_mono))
             mfcc_mean = [float(np.mean(mfcc_coeffs[i])) for i in range(13)]
             
         else:
