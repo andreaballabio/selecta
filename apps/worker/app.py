@@ -104,9 +104,11 @@ async def analyze_track(request: AnalysisRequest):
             key_extractor = es.KeyExtractor()
             key, scale, _ = key_extractor(audio)
             
-            # Loudness (LUFS)
+            # Loudness (LUFS) - requires stereo input
+            # Convert mono to stereo for EBU R128
+            stereo_audio = np.array([audio, audio]).T  # shape: (samples, 2)
             loudness = es.LoudnessEBUR128()
-            _, _, integrated_loudness, _ = loudness(audio)
+            _, _, integrated_loudness, _ = loudness(stereo_audio)
             lufs = float(integrated_loudness)
             
             # Energy
