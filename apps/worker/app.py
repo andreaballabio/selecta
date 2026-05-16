@@ -95,9 +95,10 @@ async def analyze_track(request: AnalysisRequest):
             loader = es.MonoLoader(filename=tmp_path)
             audio = loader()
             
-            # BPM
+            # BPM - RhythmExtractor2013 returns (bpm, ticks, confidence, estimates, bpmIntervals)
             rhythm_extractor = es.RhythmExtractor2013()
-            bpm, _, _, _ = rhythm_extractor(audio)
+            rhythm_result = rhythm_extractor(audio)
+            bpm = float(rhythm_result[0])  # First value is BPM
             
             # Key detection with Essentia (more accurate)
             key_extractor = es.KeyExtractor()
