@@ -54,6 +54,7 @@ export default function AddLabelPage() {
         setLabels(data.labels || [])
       } else {
         setSearchError(data.error || 'Errore nella ricerca')
+        setLabels([])
       }
     } catch (error) {
       setSearchError('Errore di connessione')
