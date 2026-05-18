@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const token = tokenData.access_token
     
-    // Search TRACKS with label filter
-    const url = `https://api.spotify.com/v1/search?q=label:"${encodeURIComponent(query)}"&type=track&market=US&limit=20`
+    // Search ALBUMS and check their labels
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&market=US`
     
     const response = await fetch(url, {
       headers: { 
@@ -48,16 +48,30 @@ export async function GET(request: NextRequest) {
     }
     
     const data = await response.json()
-    const tracks = data.tracks?.items || []
+    const albums = data.albums?.items || []
+    
+    // Find albums that match the label name (case insensitive)
+    const queryLower = query.toLowerCase()
+    const matchingAlbums = albums.filter((album: any) => {
+      const labelName = album.label?.toLowerCase() || ''
+      return labelName.includes(queryLower)
+    })
+    
+    // Get unique labels
+    const labelNames = new Set<string>()
+    matchingAlbums.forEach((album: any) => {
+      if (album.label) labelNames.add(album.label)
+    })
     
     // Return verification result
     return NextResponse.json({
-      found: tracks.length > 0,
-      track_count: tracks.length,
-      sample_tracks: tracks.slice(0, 5).map((track: any) => ({
-        name: track.name,
-        artist: track.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
-        album: track.album?.name || 'Unknown'
+      found: matchingAlbums.length > 0,
+      track_count: matchingAlbums.length,
+      labels_found: Array.from(labelNames).slice(0, 5),
+      sample_tracks: matchingAlbums.slice(0, 5).map((album: any) => ({
+        name: album.name,
+        artist: album.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
+        album: album.name
       }))
     })
     
