@@ -58,19 +58,37 @@ async function searchDiscogsLabel(query: string) {
           
           // Ottieni alcune releases come esempio
           const releasesRes = await fetch(
-            `${DISCOGS_API_URL}/labels/${result.id}/releases?per_page=3&sort=year&sort_order=desc`,
+            `${DISCOGS_API_URL}/labels/${result.id}/releases?per_page=3`,
             {
               headers: { 'User-Agent': 'SelectaApp/1.0' }
             }
           )
           
-          let sampleReleases: string[] = []
+          let sampleReleases: Array<{title: string, artist: string}> = []
           if (releasesRes.ok) {
             const releasesData = await releasesRes.json()
             sampleReleases = (releasesData.releases || [])
               .slice(0, 3)
-              .map((r: any) => r.title)
-              .filter(Boolean)
+              .map((r: any) => {
+                // Estrai artista e titolo
+                const fullTitle = r.title || ''
+                let artist = 'Various Artists'
+                let title = fullTitle
+                
+                // Formato comune: "Artista - Titolo"
+                const dashMatch = fullTitle.match(/^(.+?)\s+-\s+(.+)$/)
+                if (dashMatch) {
+                  artist = dashMatch[1].trim()
+                  title = dashMatch[2].trim()
+                } else if (r.artist) {
+                  artist = r.artist
+                }
+                
+                return {
+                  artist,
+                  title: title.length > 40 ? title.substring(0, 40) + '...' : title
+                }
+              })
           }
           
           return {
@@ -78,7 +96,7 @@ async function searchDiscogsLabel(query: string) {
             name: detail.name || result.title,
             url: `https://www.discogs.com/label/${result.id}`,
             thumbnail: detail.images?.[0]?.uri || detail.images?.[0]?.resource_url || result.thumb || result.cover_image,
-            releases: detail.releases_count || detail.num_releases || result.releases_count || 0,
+            releases: detail.releases_count || detail.num_releases || detail.num_items || result.releases_count || result.release_count || 0,
             profile: detail.profile || '',
             sampleReleases
           }
@@ -341,15 +359,23 @@ export async function GET(request: NextRequest) {
     }
     
     return NextResponse.json({
-      results: results.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        url: r.url,
-        thumbnail: r.thumbnail,
-        releases: r.releases,
-        profile: r.profile,
-        sampleReleases: r.sampleReleases
-      }))
+      results: results
+        // Filtra duplicati simili (es. "Drumcode" e "Drumcode Records")
+        .filter((r: any, index: number, self: any[]) => {
+          const normalizedName = r.name.toLowerCase().replace(/\s+/g, '').replace(/records|recordings|music/g, '')
+          return index === self.findIndex((t: any) => 
+            t.name.toLowerCase().replace(/\s+/g, '').replace(/records|recordings|music/g, '') === normalizedName
+          )
+        })
+        .map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          url: r.url,
+          thumbnail: r.thumbnail,
+          releases: r.releases,
+          profile: r.profile,
+          sampleReleases: r.sampleReleases
+        }))
     })
     
   } catch (error: any) {

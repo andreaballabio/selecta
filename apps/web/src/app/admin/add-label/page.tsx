@@ -9,7 +9,10 @@ interface DiscogsResult {
   thumbnail: string
   releases: number
   profile: string
-  sampleReleases: string[]
+  sampleReleases: Array<{
+    artist: string
+    title: string
+  }>
 }
 
 export default function AddLabelPage() {
@@ -161,7 +164,7 @@ export default function AddLabelPage() {
                           <p className="text-xs text-zinc-600">Uscite recenti:</p>
                           {result.sampleReleases.slice(0, 3).map((release, i) => (
                             <p key={i} className="text-xs text-zinc-500 truncate">
-                              • {release}
+                              • <span className="text-zinc-400">{release.artist}</span> - {release.title}
                             </p>
                           ))}
                         </div>
