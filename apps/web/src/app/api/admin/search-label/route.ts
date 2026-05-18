@@ -31,8 +31,9 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const token = tokenData.access_token
     
-    // Build URL manually
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=US`
+    // Search for tracks with label filter using proper Spotify syntax
+    const searchQuery = `label:"${query}"`
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&market=US`
     
     console.log('Searching Spotify:', url)
     
