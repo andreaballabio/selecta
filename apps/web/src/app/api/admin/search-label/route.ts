@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const token = tokenData.access_token
     
     // Search ALBUMS (not tracks) to find labels
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&market=US&limit=50`
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&market=US`
     
     const response = await fetch(url, {
       headers: { 
