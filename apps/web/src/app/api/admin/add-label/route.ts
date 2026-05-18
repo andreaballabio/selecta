@@ -9,10 +9,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Cerca label su Discogs
+// Cerca label su Discogs con dettagli
 async function searchDiscogsLabel(query: string) {
   try {
-    const response = await fetch(
+    // Prima chiamata: ricerca base
+    const searchResponse = await fetch(
       `${DISCOGS_API_URL}/database/search?q=${encodeURIComponent(query)}&type=label&per_page=5`,
       {
         headers: {
@@ -21,13 +22,82 @@ async function searchDiscogsLabel(query: string) {
       }
     )
     
-    if (!response.ok) {
-      console.error('Discogs search error:', response.status)
+    if (!searchResponse.ok) {
+      console.error('Discogs search error:', searchResponse.status)
       return null
     }
     
-    const data = await response.json()
-    return data.results || []
+    const searchData = await searchResponse.json()
+    const results = searchData.results || []
+    
+    // Per ogni risultato, ottieni dettagli
+    const detailedResults = await Promise.all(
+      results.map(async (result: any) => {
+        try {
+          // Ottieni dettagli label
+          const detailRes = await fetch(
+            `${DISCOGS_API_URL}/labels/${result.id}?curr_abbr=USD`,
+            {
+              headers: { 'User-Agent': 'SelectaApp/1.0' }
+            }
+          )
+          
+          if (!detailRes.ok) {
+            return {
+              id: result.id,
+              name: result.title,
+              url: `https://www.discogs.com/label/${result.id}`,
+              thumbnail: result.thumb || result.cover_image,
+              releases: result.releases_count || result.release_count || 0,
+              profile: '',
+              sampleReleases: []
+            }
+          }
+          
+          const detail = await detailRes.json()
+          
+          // Ottieni alcune releases come esempio
+          const releasesRes = await fetch(
+            `${DISCOGS_API_URL}/labels/${result.id}/releases?per_page=3&sort=year&sort_order=desc`,
+            {
+              headers: { 'User-Agent': 'SelectaApp/1.0' }
+            }
+          )
+          
+          let sampleReleases: string[] = []
+          if (releasesRes.ok) {
+            const releasesData = await releasesRes.json()
+            sampleReleases = (releasesData.releases || [])
+              .slice(0, 3)
+              .map((r: any) => r.title)
+              .filter(Boolean)
+          }
+          
+          return {
+            id: result.id,
+            name: detail.name || result.title,
+            url: `https://www.discogs.com/label/${result.id}`,
+            thumbnail: detail.images?.[0]?.uri || detail.images?.[0]?.resource_url || result.thumb || result.cover_image,
+            releases: detail.releases_count || detail.num_releases || result.releases_count || 0,
+            profile: detail.profile || '',
+            sampleReleases
+          }
+        } catch (e) {
+          // Fallback su dati base
+          return {
+            id: result.id,
+            name: result.title,
+            url: `https://www.discogs.com/label/${result.id}`,
+            thumbnail: result.thumb || result.cover_image,
+            releases: result.releases_count || 0,
+            profile: '',
+            sampleReleases: []
+          }
+        }
+      })
+    )
+    
+    return detailedResults
   } catch (error) {
     console.error('Error searching Discogs:', error)
     return null
@@ -273,10 +343,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       results: results.map((r: any) => ({
         id: r.id,
-        name: r.title,
-        url: `https://www.discogs.com/label/${r.id}`,
-        thumbnail: r.thumb,
-        releases: r.releases_count || 0
+        name: r.name,
+        url: r.url,
+        thumbnail: r.thumbnail,
+        releases: r.releases,
+        profile: r.profile,
+        sampleReleases: r.sampleReleases
       }))
     })
     

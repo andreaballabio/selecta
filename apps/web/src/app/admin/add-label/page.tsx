@@ -8,6 +8,8 @@ interface DiscogsResult {
   url: string
   thumbnail: string
   releases: number
+  profile: string
+  sampleReleases: string[]
 }
 
 export default function AddLabelPage() {
@@ -152,6 +154,18 @@ export default function AddLabelPage() {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-white truncate">{result.name}</h4>
                       <p className="text-sm text-zinc-500">{result.releases} releases</p>
+                      
+                      {/* Sample releases */}
+                      {result.sampleReleases && result.sampleReleases.length > 0 && (
+                        <div className="mt-2 space-y-0.5">
+                          <p className="text-xs text-zinc-600">Uscite recenti:</p>
+                          {result.sampleReleases.slice(0, 3).map((release, i) => (
+                            <p key={i} className="text-xs text-zinc-500 truncate">
+                              • {release}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <span className="text-emerald-400 text-sm">Seleziona →</span>
                   </div>
