@@ -29,13 +29,15 @@ export async function GET(request: NextRequest) {
     const token = await getSpotifyToken()
     
     // Search tracks - proviamo senza filtro label che dà problemi
-    // Cerchiamo per artista che contiene il nome label
-    const response = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=20&market=US`,
-      {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }
-    )
+    const searchUrl = new URL('https://api.spotify.com/v1/search')
+    searchUrl.searchParams.append('q', query)
+    searchUrl.searchParams.append('type', 'track')
+    searchUrl.searchParams.append('limit', '20')
+    searchUrl.searchParams.append('market', 'US')
+    
+    const response = await fetch(searchUrl.toString(), {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
     
     if (!response.ok) {
       const errorText = await response.text()
