@@ -103,7 +103,7 @@ async function searchYouTubeChannels(query: string) {
 async function getChannelVideos(channelId: string, maxResults: number = 100) {
   const videos = []
   let pageToken = ''
-  const maxPages = 5 // Max 500 video
+  const maxPages = 5
   let pages = 0
   
   while (pages < maxPages) {
@@ -120,56 +120,56 @@ async function getChannelVideos(channelId: string, maxResults: number = 100) {
       const data = await response.json()
       const items = data.items || []
       
-      // Filtra solo video musicali (ultimi 3 anni)
-      const cutoffDate = new Date()
-      cutoffDate.setFullYear(cutoffDate.getFullYear() - 3)
+      // Ottieni ID video per controllare durata
+      const videoIds = items.map((item: any) => item.id?.videoId).filter(Boolean).join(',')
       
-      for (const item of items) {
-        const publishedAt = new Date(item.snippet?.publishedAt)
-        if (publishedAt < cutoffDate) {
-          // Se troviamo video troppo vecchi, fermiamoci
-          pages = maxPages
-          break
-        }
+      if (videoIds) {
+        const detailsUrl = `${YOUTUBE_API_URL}/videos?part=contentDetails,snippet&id=${videoIds}&key=${YOUTUBE_API_KEY}`
+        const detailsRes = await fetch(detailsUrl)
         
-        const title = item.snippet?.title || ''
-        
-        // Parsing titolo
-        let artist = ''
-        let trackTitle = title
-        
-        // Pattern: "Artista - Titolo" o "Artista – Titolo"
-        const match = title.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|Official|Video|Audio|$)/i)
-        if (match) {
-          artist = match[1].trim()
-          trackTitle = match[2].trim()
-        } else {
-          // Se non matcha, prova a usare il titolo completo
-          artist = item.snippet?.channelTitle?.replace(/\s*label\s*/i, '') || 'Unknown'
-          trackTitle = title
-        }
-        
-        // Pulisci titolo
-        trackTitle = trackTitle
-          .replace(/\s*\(.*?\)\s*/g, ' ')
-          .replace(/\s*\[.*?\]\s*/g, ' ')
-          .replace(/Official\s*(Video|Audio|Music\s*Video)/gi, '')
-          .replace(/\s+/g, ' ')
-          .trim()
-        
-        if (trackTitle.length > 3 && artist.length > 1) {
-          videos.push({
-            title: trackTitle.substring(0, 100),
-            artist: artist.substring(0, 100),
-            videoId: item.id?.videoId,
-            publishedAt: item.snippet?.publishedAt,
-            thumbnail: item.snippet?.thumbnails?.medium?.url
-          })
+        if (detailsRes.ok) {
+          const detailsData = await detailsRes.json()
+          const videoDetails = detailsData.items || []
+          
+          for (const video of videoDetails) {
+            // Parse durata ISO 8601 (PT4M12S)
+            const duration = video.contentDetails?.duration
+            if (!duration) continue
+            
+            const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/)
+            if (!match) continue
+            
+            const hours = parseInt(match[1] || '0')
+            const minutes = parseInt(match[2] || '0')
+            const seconds = parseInt(match[3] || '0')
+            const totalMinutes = hours * 60 + minutes + seconds / 60
+            
+            // FILTRO DURATA: solo tracce 1-7 minuti
+            if (totalMinutes < 1 || totalMinutes > 7) continue
+            
+            const title = video.snippet?.title || ''
+            const publishedAt = new Date(video.snippet?.publishedAt)
+            
+            // FILTRO DATA: ultimi 3 anni
+            const cutoffDate = new Date()
+            cutoffDate.setFullYear(cutoffDate.getFullYear() - 3)
+            if (publishedAt < cutoffDate) continue
+            
+            // Usa titolo completo, lascia che Spotify faccia il matching
+            videos.push({
+              title: title.substring(0, 150),
+              artist: '', // Sarà estratto da Spotify
+              videoId: video.id,
+              publishedAt: video.snippet?.publishedAt,
+              thumbnail: video.snippet?.thumbnails?.medium?.url,
+              duration: Math.round(totalMinutes * 60) // in secondi
+            })
+          }
         }
       }
       
       pageToken = data.nextPageToken
-      if (!pageToken) break
+      if (!pageToken || videos.length >= maxResults) break
       pages++
       
     } catch (error) {
@@ -178,7 +178,7 @@ async function getChannelVideos(channelId: string, maxResults: number = 100) {
     }
   }
   
-  return videos
+  return videos.slice(0, maxResults)
 }
 
 export async function POST(request: NextRequest) {
