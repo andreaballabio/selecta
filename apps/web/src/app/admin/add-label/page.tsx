@@ -143,7 +143,7 @@ export default function AddLabelPage() {
           </div>
 
           {/* Label Results */}
-          {labels.length > 0 && (
+          {labels && labels.length > 0 && (
             <div className="space-y-3">
               <p className="text-sm text-zinc-500">Seleziona la label corretta:</p>
               {labels.map((label) => (
@@ -193,7 +193,7 @@ export default function AddLabelPage() {
             </div>
           )}
 
-          {labels.length === 0 && !searching && formData.name.length >= 2 && (
+          {labels && labels.length === 0 && !searching && formData.name.length >= 2 && (
             <p className="text-sm text-zinc-500">Nessuna label trovata. Prova un altro termine.</p>
           )}
 
