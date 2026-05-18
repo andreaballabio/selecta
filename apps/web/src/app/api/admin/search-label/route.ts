@@ -122,7 +122,8 @@ export async function GET(request: NextRequest) {
         name: label.name,
         image: label.image,
         album_count: label.count,
-        sample_artists: Array.from(label.sampleArtists).slice(0, 5)
+        sample_artists: Array.from(label.sampleArtists).slice(0, 5),
+        sample_albums: [] // Aggiunto per compatibilità con frontend
       }))
     
     return NextResponse.json({ labels })
