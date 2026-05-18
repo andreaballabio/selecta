@@ -28,9 +28,10 @@ export async function GET(request: NextRequest) {
     
     const token = await getSpotifyToken()
     
-    // Search tracks with label filter
+    // Search tracks with label filter (senza virgolette problematiche)
+    const searchQuery = `label:${query}`;
     const response = await fetch(
-      `https://api.spotify.com/v1/search?q=${encodeURIComponent(`label:"${query}"`)}&type=track&limit=20&market=US`,
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&limit=20&market=US`,
       {
         headers: { 'Authorization': `Bearer ${token}` }
       }
