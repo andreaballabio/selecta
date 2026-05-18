@@ -3,20 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
 const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
 
-async function getSpotifyToken() {
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic ' + Buffer.from(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET).toString('base64')
-    },
-    body: 'grant_type=client_credentials'
-  })
-  
-  const data = await response.json()
-  return data.access_token
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -26,35 +12,62 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Query troppo corta' }, { status: 400 })
     }
     
-    const token = await getSpotifyToken()
+    // Get token
+    const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + Buffer.from(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET).toString('base64')
+      },
+      body: 'grant_type=client_credentials'
+    })
     
-    // Search tracks - proviamo senza filtro label che dà problemi
-    const searchUrl = new URL('https://api.spotify.com/v1/search')
-    searchUrl.searchParams.append('q', query)
-    searchUrl.searchParams.append('type', 'track')
-    searchUrl.searchParams.append('limit', '20')
-    searchUrl.searchParams.append('market', 'US')
+    if (!tokenResponse.ok) {
+      const tokenError = await tokenResponse.text()
+      console.error('Token error:', tokenResponse.status, tokenError)
+      return NextResponse.json({ error: 'Errore autenticazione Spotify' }, { status: 500 })
+    }
     
-    const response = await fetch(searchUrl.toString(), {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const tokenData = await tokenResponse.json()
+    const token = tokenData.access_token
+    
+    // Build URL manually
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=20&market=US`
+    
+    console.log('Searching Spotify:', url)
+    
+    const response = await fetch(url, {
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     })
     
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Spotify error:', response.status, errorText)
-      return NextResponse.json({ error: `Errore Spotify: ${response.status}` }, { status: 500 })
+      console.error('Spotify API error:', response.status, errorText)
+      return NextResponse.json({ 
+        error: `Spotify error: ${response.status}`,
+        details: errorText
+      }, { status: 500 })
     }
     
     const data = await response.json()
     const tracks = data.tracks?.items || []
+    
+    console.log(`Found ${tracks.length} tracks`)
     
     // Filter recent tracks (last 90 days)
     const cutoffDate = new Date()
     cutoffDate.setDate(cutoffDate.getDate() - 90)
     
     const recentTracks = tracks.filter((track: any) => {
-      const releaseDate = new Date(track.album.release_date)
-      return releaseDate >= cutoffDate
+      try {
+        const releaseDate = new Date(track.album?.release_date || '2020-01-01')
+        return releaseDate >= cutoffDate
+      } catch {
+        return false
+      }
     })
     
     // Prepare result
@@ -64,8 +77,8 @@ export async function GET(request: NextRequest) {
       tracks_with_preview: recentTracks.filter((t: any) => t.preview_url).length,
       sample_tracks: recentTracks.slice(0, 5).map((track: any) => ({
         name: track.name,
-        artist: track.artists.map((a: any) => a.name).join(', '),
-        album: track.album.name,
+        artist: track.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
+        album: track.album?.name || 'Unknown',
         has_preview: !!track.preview_url
       }))
     }
