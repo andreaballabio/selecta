@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 
-interface LabelResult {
-  name: string
-  image: string | null
-  album_count: number
-  sample_artists: string[]
-  sample_albums: string[]
+interface VerificationResult {
+  found: boolean
+  track_count: number
+  sample_tracks: Array<{
+    name: string
+    artist: string
+    album: string
+  }>
 }
 
 export default function AddLabelPage() {
@@ -17,64 +19,51 @@ export default function AddLabelPage() {
     genre: 'tech house'
   })
   const [loading, setLoading] = useState(false)
-  const [searching, setSearching] = useState(false)
+  const [verifying, setVerifying] = useState(false)
   const [message, setMessage] = useState('')
-  const [labels, setLabels] = useState<LabelResult[]>([])
-  const [searchError, setSearchError] = useState('')
-  const [selectedLabel, setSelectedLabel] = useState<string | null>(null)
+  const [verification, setVerification] = useState<VerificationResult | null>(null)
+  const [verifyError, setVerifyError] = useState('')
 
-  // Debounce search
+  // Debounce verification
   useEffect(() => {
-    if (!formData.name || formData.name.length < 2) {
-      setLabels([])
-      setSelectedLabel(null)
+    if (!formData.name || formData.name.length < 3) {
+      setVerification(null)
       return
     }
 
     const timer = setTimeout(() => {
-      searchLabels(formData.name)
-    }, 400)
+      verifyLabel(formData.name)
+    }, 600)
 
     return () => clearTimeout(timer)
   }, [formData.name])
 
-  const searchLabels = async (query: string) => {
-    if (query.length < 2) return
+  const verifyLabel = async (name: string) => {
+    if (name.length < 3) return
     
-    setSearching(true)
-    setSearchError('')
-    setLabels([])
-    setSelectedLabel(null)
+    setVerifying(true)
+    setVerifyError('')
+    setVerification(null)
     
     try {
-      const response = await fetch(`/api/admin/search-label?q=${encodeURIComponent(query)}`)
+      const response = await fetch(`/api/admin/verify-label?q=${encodeURIComponent(name)}`)
       const data = await response.json()
       
       if (response.ok) {
-        setLabels(data.labels || [])
+        setVerification(data)
       } else {
-        setSearchError(data.error || 'Errore nella ricerca')
-        setLabels([])
+        setVerifyError(data.error || 'Errore nella verifica')
       }
     } catch (error) {
-      setSearchError('Errore di connessione')
+      setVerifyError('Errore di connessione')
     } finally {
-      setSearching(false)
+      setVerifying(false)
     }
-  }
-
-  const selectLabel = (labelName: string) => {
-    setSelectedLabel(labelName)
-    setFormData(prev => ({
-      ...prev,
-      name: labelName,
-      slug: labelName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedLabel) return
+    if (!verification?.found) return
     
     setLoading(true)
     setMessage('')
@@ -91,8 +80,7 @@ export default function AddLabelPage() {
       if (response.ok) {
         setMessage(`✓ ${data.message}`)
         setFormData({ name: '', slug: '', genre: 'tech house' })
-        setLabels([])
-        setSelectedLabel(null)
+        setVerification(null)
       } else {
         setMessage(`✗ Errore: ${data.error}`)
       }
@@ -105,7 +93,7 @@ export default function AddLabelPage() {
 
   return (
     <div className="min-h-screen bg-black p-8">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-lg">
         <h1 className="mb-8 text-2xl font-bold text-white">Aggiungi Label</h1>
 
         {message && (
@@ -116,86 +104,68 @@ export default function AddLabelPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="mb-2 block text-sm text-zinc-400">Cerca Label</label>
+            <label className="mb-2 block text-sm text-zinc-400">Nome Label</label>
             <input
               type="text"
               value={formData.name}
               onChange={(e) => {
                 const name = e.target.value
-                setFormData({ ...formData, name })
-                if (!name) {
-                  setSelectedLabel(null)
-                  setLabels([])
-                }
+                setFormData({
+                  ...formData,
+                  name,
+                  slug: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+                })
               }}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
               placeholder="es. Drumcode, Solid Grooves, Defected..."
               required
             />
             
-            {searching && (
-              <p className="mt-2 text-sm text-zinc-500">Ricerca su Spotify...</p>
+            {verifying && (
+              <p className="mt-2 text-sm text-zinc-500">Verifica su Spotify...</p>
             )}
             
-            {searchError && (
-              <p className="mt-2 text-sm text-red-400">{searchError}</p>
+            {verifyError && (
+              <p className="mt-2 text-sm text-red-400">{verifyError}</p>
+            )}
+            
+            {/* Verification Result */}
+            {verification && (
+              <div className={`mt-3 rounded-lg border p-4 ${
+                verification.found 
+                  ? 'border-emerald-500/30 bg-emerald-900/20' 
+                  : 'border-red-500/30 bg-red-900/20'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <span className={verification.found ? 'text-emerald-400' : 'text-red-400'}>
+                    {verification.found ? '✓' : '✗'}
+                  </span>
+                  <span className="font-medium text-white">
+                    {verification.found 
+                      ? `Trovate ${verification.track_count} tracce` 
+                      : 'Nessuna traccia trovata'}
+                  </span>
+                </div>
+                
+                {verification.found && verification.sample_tracks.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs text-zinc-500">Tracce di esempio:</p>
+                    {verification.sample_tracks.slice(0, 3).map((track, i) => (
+                      <div key={i} className="text-sm text-zinc-400 truncate">
+                        • {track.artist} - {track.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {!verification.found && (
+                  <p className="mt-2 text-sm text-zinc-500">
+                    Prova con un altro nome o verifica l'ortografia.
+                  </p>
+                )}
+              </div>
             )}
           </div>
-
-          {/* Label Results */}
-          {labels && labels.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-sm text-zinc-500">Seleziona la label corretta:</p>
-              {labels.map((label) => (
-                <div
-                  key={label.name}
-                  onClick={() => selectLabel(label.name)}
-                  className={`cursor-pointer rounded-lg border p-4 transition-colors ${
-                    selectedLabel === label.name
-                      ? 'border-emerald-500 bg-emerald-900/20'
-                      : 'border-zinc-800 bg-zinc-900/50 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-800">
-                      {label.image ? (
-                        <img
-                          src={label.image}
-                          alt={label.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-2xl text-zinc-600">
-                          ♪
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-white truncate">{label.name}</h3>
-                      <p className="text-sm text-zinc-500">
-                        {label.album_count} album • {label.sample_artists.slice(0, 3).join(', ')}
-                      </p>
-                      
-                      {label.sample_albums.length > 0 && (
-                        <p className="mt-1 text-xs text-zinc-600 truncate">
-                          Es: {label.sample_albums.join(', ')}
-                        </p>
-                      )}
-                    </div>
-                    
-                    {selectedLabel === label.name && (
-                      <span className="text-emerald-400 text-xl">✓</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {labels && labels.length === 0 && !searching && formData.name.length >= 2 && (
-            <p className="text-sm text-zinc-500">Nessuna label trovata. Prova un altro termine.</p>
-          )}
 
           <div>
             <label className="mb-2 block text-sm text-zinc-400">Slug (auto-generato)</label>
@@ -227,7 +197,7 @@ export default function AddLabelPage() {
 
           <button
             type="submit"
-            disabled={loading || !selectedLabel}
+            disabled={loading || !verification?.found}
             className="w-full rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Aggiungendo...' : 'Aggiungi Label'}
@@ -235,11 +205,11 @@ export default function AddLabelPage() {
         </form>
 
         <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-950/50 p-4">
-          <h2 className="mb-2 text-sm font-semibold text-white">Cosa succede:</h2>
+          <h2 className="mb-2 text-sm font-semibold text-white">Come funziona:</h2>
           <ul className="space-y-1 text-sm text-zinc-400">
-            <li>1. Cerco le label su Spotify</li>
-            <li>2. Selezioni la label corretta</li>
-            <li>3. Aggiungo al database</li>
+            <li>1. Inserisci il nome della label</li>
+            <li>2. Verifico se esistono tracce su Spotify</li>
+            <li>3. Confermi e aggiungo al database</li>
             <li>4. Avvio recupero storico (5 anni)</li>
           </ul>
         </div>
