@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const token = tokenData.access_token
     
-    // Search ALBUMS (not tracks) to find labels - simplified URL
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album`
+    // Search ARTISTS
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist`
     
     const response = await fetch(url, {
       headers: { 
@@ -48,47 +48,81 @@ export async function GET(request: NextRequest) {
     }
     
     const data = await response.json()
-    const albums = data.albums?.items || []
+    const artists = data.artists?.items || []
     
-    // Group by label
+    // Get detailed artist info to extract label
+    const artistDetails = await Promise.all(
+      artists.slice(0, 5).map(async (artist: any) => {
+        const detailRes = await fetch(`https://api.spotify.com/v1/artists/${artist.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (!detailRes.ok) return null
+        return detailRes.json()
+      })
+    )
+    
+    // Also search for albums to get label info
+    const albumUrl = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album`
+    const albumRes = await fetch(albumUrl, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    })
+    const albumData = albumRes.ok ? await albumRes.json() : { albums: { items: [] } }
+    const albums = albumData.albums?.items || []
+    
+    // Extract unique labels from albums
     const labelMap = new Map<string, {
       name: string
       image: string | null
-      albums: any[]
-      artists: Set<string>
+      count: number
+      sampleArtists: Set<string>
     }>()
     
     for (const album of albums) {
       const labelName = album.label?.trim()
-      if (!labelName || labelName === 'Unknown Label') continue
+      if (!labelName || labelName === 'Unknown Label' || labelName === '') continue
       
       if (!labelMap.has(labelName)) {
         labelMap.set(labelName, {
           name: labelName,
           image: album.images?.[0]?.url || null,
-          albums: [],
-          artists: new Set()
+          count: 0,
+          sampleArtists: new Set()
         })
       }
       
       const label = labelMap.get(labelName)!
-      label.albums.push({
-        name: album.name,
-        release_date: album.release_date
-      })
-      album.artists?.forEach((a: any) => label.artists.add(a.name))
+      label.count++
+      album.artists?.forEach((a: any) => label.sampleArtists.add(a.name))
     }
     
-    // Convert to array and sort by relevance (more albums = higher relevance)
+    // If no labels found from albums, create synthetic results from search
+    if (labelMap.size === 0) {
+      // Check if any artist has this in their name
+      const matchingArtists = artists.filter((a: any) => 
+        a.name.toLowerCase().includes(query.toLowerCase())
+      )
+      
+      if (matchingArtists.length > 0) {
+        // Create a synthetic label result
+        const mainArtist = matchingArtists[0]
+        labelMap.set(query, {
+          name: query.charAt(0).toUpperCase() + query.slice(1),
+          image: mainArtist.images?.[0]?.url || null,
+          count: matchingArtists.length,
+          sampleArtists: new Set(matchingArtists.slice(0, 3).map((a: any) => a.name))
+        })
+      }
+    }
+    
+    // Convert to array and sort
     const labels = Array.from(labelMap.values())
-      .sort((a, b) => b.albums.length - a.albums.length)
+      .sort((a, b) => b.count - a.count)
       .slice(0, 10)
       .map(label => ({
         name: label.name,
         image: label.image,
-        album_count: label.albums.length,
-        sample_artists: Array.from(label.artists).slice(0, 5),
-        sample_albums: label.albums.slice(0, 3).map((a: any) => a.name)
+        album_count: label.count,
+        sample_artists: Array.from(label.sampleArtists).slice(0, 5)
       }))
     
     return NextResponse.json({ labels })
