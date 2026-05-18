@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react'
 interface SpotifySearchResult {
   name: string
   tracks_found: number
-  tracks_with_preview: number
   sample_tracks: Array<{
     name: string
     artist: string
@@ -135,23 +134,21 @@ export default function AddLabelPage() {
               <div className="mt-3 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="font-semibold text-white">Risultati Spotify</h3>
-                  <span className={`text-sm ${searchResult.tracks_with_preview > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {searchResult.tracks_with_preview} preview disponibili
+                  <span className="text-sm text-emerald-400">
+                    ✓ Label trovata
                   </span>
                 </div>
                 
                 <p className="mb-3 text-sm text-zinc-400">
-                  Trovate {searchResult.tracks_found} tracce recenti
+                  Trovate {searchResult.tracks_found} tracce recenti su Spotify
                 </p>
                 
                 {searchResult.sample_tracks.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs text-zinc-500">Esempi:</p>
+                    <p className="text-xs text-zinc-500">Tracce di esempio:</p>
                     {searchResult.sample_tracks.slice(0, 3).map((track, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
-                        <span className={track.has_preview ? 'text-green-400' : 'text-red-400'}>
-                          {track.has_preview ? '✓' : '✗'}
-                        </span>
+                        <span className="text-zinc-500">•</span>
                         <span className="truncate text-zinc-300">
                           {track.artist} - {track.name}
                         </span>
@@ -160,11 +157,9 @@ export default function AddLabelPage() {
                   </div>
                 )}
                 
-                {searchResult.tracks_with_preview === 0 && (
-                  <p className="mt-2 text-sm text-red-400">
-                    ⚠️ Nessuna preview disponibile. Prova un'altra label.
-                  </p>
-                )}
+                <p className="mt-3 text-xs text-zinc-500">
+                  Il sistema recupererà automaticamente le tracce e le preview disponibili.
+                </p>
               </div>
             )}
           </div>
@@ -199,7 +194,7 @@ export default function AddLabelPage() {
 
           <button
             type="submit"
-            disabled={loading || !searchResult || searchResult.tracks_with_preview === 0}
+            disabled={loading || !searchResult}
             className="w-full rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Aggiungendo...' : 'Aggiungi Label'}
@@ -209,10 +204,10 @@ export default function AddLabelPage() {
         <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-950/50 p-4">
           <h2 className="mb-2 text-sm font-semibold text-white">Cosa succede:</h2>
           <ul className="space-y-1 text-sm text-zinc-400">
-            <li>1. Cerco le ultime 50 tracce su Spotify</li>
-            <li>2. Mostro anteprima risultati</li>
-            <li>3. Confermi e aggiungo al database</li>
-            <li>4. Programmo recupero storico (5 anni)</li>
+            <li>1. Verifico l'esistenza della label su Spotify</li>
+            <li>2. Aggiungo al database</li>
+            <li>3. Avvio il recupero storico (5 anni, progressivo)</li>
+            <li>4. Analisi audio e costruzione DNA label</li>
           </ul>
         </div>
       </div>

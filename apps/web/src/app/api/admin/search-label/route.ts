@@ -71,11 +71,10 @@ export async function GET(request: NextRequest) {
       }
     })
     
-    // Prepare result
+    // Prepare result - show tracks found without requiring preview
     const result = {
       name: query,
       tracks_found: recentTracks.length,
-      tracks_with_preview: recentTracks.filter((t: any) => t.preview_url).length,
       sample_tracks: recentTracks.slice(0, 5).map((track: any) => ({
         name: track.name,
         artist: track.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
