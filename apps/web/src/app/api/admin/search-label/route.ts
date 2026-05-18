@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const token = tokenData.access_token
     
     // Build URL manually
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=US`
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=US&limit=50`
     
     console.log('Searching Spotify:', url)
     
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
     
     console.log(`Found ${tracks.length} tracks`)
     
-    // Filter recent tracks (last 90 days)
+    // Filter recent tracks (last 365 days for better results)
     const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 90)
+    cutoffDate.setDate(cutoffDate.getDate() - 365)
     
     const recentTracks = tracks.filter((track: any) => {
       try {
