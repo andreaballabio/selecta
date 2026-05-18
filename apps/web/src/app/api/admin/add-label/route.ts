@@ -250,18 +250,22 @@ export async function POST(request: NextRequest) {
     }
     
     // Crea label nel database
+    const labelData: any = {
+      name,
+      slug,
+      source: discogsId ? 'discogs' : 'manual',
+      external_id: discogsId?.toString(),
+      profile_url: discogsUrl,
+    }
+    
+    // Aggiungi genre_focus solo se specificato
+    if (genre) {
+      labelData.genre_focus = [genre]
+    }
+    
     const { data: label, error: insertError } = await supabase
       .from('labels')
-      .insert({
-        name,
-        slug,
-        genre_focus: genre ? [genre] : [],
-        source: discogsId ? 'discogs' : 'manual',
-        external_id: discogsId?.toString(),
-        profile_url: discogsUrl,
-        ingestion_status: discogsReleases.length > 0 ? 'processing' : 'pending',
-        cataloged_tracks: 0
-      })
+      .insert(labelData)
       .select()
       .single()
     
