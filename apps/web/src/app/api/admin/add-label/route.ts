@@ -271,8 +271,17 @@ export async function POST(request: NextRequest) {
     
     if (insertError) {
       console.error('Error creating label:', insertError)
+      
+      // Messaggio specifico per duplicati
+      if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
+        return NextResponse.json(
+          { error: 'Label già esistente. Prova con un altro nome o slug.' },
+          { status: 409 }
+        )
+      }
+      
       return NextResponse.json(
-        { error: 'Errore nel creare la label' },
+        { error: `Errore nel creare la label: ${insertError.message}` },
         { status: 500 }
       )
     }
