@@ -2,69 +2,73 @@
 
 import { useState, useEffect } from 'react'
 
-interface VerificationResult {
-  found: boolean
-  track_count: number
-  sample_tracks: Array<{
-    name: string
-    artist: string
-    album: string
-  }>
+interface DiscogsResult {
+  id: number
+  name: string
+  url: string
+  thumbnail: string
+  releases: number
 }
 
 export default function AddLabelPage() {
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
-    genre: 'tech house'
+    genre: 'tech house',
+    discogsUrl: ''
   })
   const [loading, setLoading] = useState(false)
-  const [verifying, setVerifying] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [message, setMessage] = useState('')
-  const [verification, setVerification] = useState<VerificationResult | null>(null)
-  const [verifyError, setVerifyError] = useState('')
+  const [discogsResults, setDiscogsResults] = useState<DiscogsResult[]>([])
+  const [selectedDiscogs, setSelectedDiscogs] = useState<DiscogsResult | null>(null)
 
-  // Debounce verification
+  // Debounce search su Discogs
   useEffect(() => {
     if (!formData.name || formData.name.length < 3) {
-      setVerification(null)
+      setDiscogsResults([])
       return
     }
 
     const timer = setTimeout(() => {
-      verifyLabel(formData.name)
+      searchDiscogs(formData.name)
     }, 600)
 
     return () => clearTimeout(timer)
   }, [formData.name])
 
-  const verifyLabel = async (name: string) => {
-    if (name.length < 3) return
+  const searchDiscogs = async (query: string) => {
+    if (query.length < 3) return
     
-    setVerifying(true)
-    setVerifyError('')
-    setVerification(null)
+    setSearching(true)
     
     try {
-      const response = await fetch(`/api/admin/verify-label?q=${encodeURIComponent(name)}`)
+      const response = await fetch(`/api/admin/add-label?q=${encodeURIComponent(query)}`)
       const data = await response.json()
       
       if (response.ok) {
-        setVerification(data)
-      } else {
-        setVerifyError(data.error || 'Errore nella verifica')
+        setDiscogsResults(data.results || [])
       }
     } catch (error) {
-      setVerifyError('Errore di connessione')
+      console.error('Error searching Discogs:', error)
     } finally {
-      setVerifying(false)
+      setSearching(false)
     }
+  }
+
+  const selectDiscogsLabel = (result: DiscogsResult) => {
+    setSelectedDiscogs(result)
+    setFormData(prev => ({
+      ...prev,
+      name: result.name,
+      slug: result.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      discogsUrl: result.url
+    }))
+    setDiscogsResults([])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!verification?.found) return
-    
     setLoading(true)
     setMessage('')
 
@@ -79,8 +83,8 @@ export default function AddLabelPage() {
 
       if (response.ok) {
         setMessage(`✓ ${data.message}`)
-        setFormData({ name: '', slug: '', genre: 'tech house' })
-        setVerification(null)
+        setFormData({ name: '', slug: '', genre: 'tech house', discogsUrl: '' })
+        setSelectedDiscogs(null)
       } else {
         setMessage(`✗ Errore: ${data.error}`)
       }
@@ -93,7 +97,7 @@ export default function AddLabelPage() {
 
   return (
     <div className="min-h-screen bg-black p-8">
-      <div className="mx-auto max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <h1 className="mb-8 text-2xl font-bold text-white">Aggiungi Label</h1>
 
         {message && (
@@ -115,54 +119,54 @@ export default function AddLabelPage() {
                   name,
                   slug: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                 })
+                if (!name) {
+                  setSelectedDiscogs(null)
+                }
               }}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
-              placeholder="es. Drumcode, Solid Grooves, Defected..."
+              placeholder="es. Drumcode"
               required
             />
             
-            {verifying && (
-              <p className="mt-2 text-sm text-zinc-500">Verifica su Spotify...</p>
+            {searching && (
+              <p className="mt-2 text-sm text-zinc-500">Ricerca su Discogs...</p>
             )}
             
-            {verifyError && (
-              <p className="mt-2 text-sm text-red-400">{verifyError}</p>
-            )}
-            
-            {/* Verification Result */}
-            {verification && (
-              <div className={`mt-3 rounded-lg border p-4 ${
-                verification.found 
-                  ? 'border-emerald-500/30 bg-emerald-900/20' 
-                  : 'border-red-500/30 bg-red-900/20'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <span className={verification.found ? 'text-emerald-400' : 'text-red-400'}>
-                    {verification.found ? '✓' : '✗'}
-                  </span>
-                  <span className="font-medium text-white">
-                    {verification.found 
-                      ? `Trovate ${verification.track_count} tracce` 
-                      : 'Nessuna traccia trovata'}
-                  </span>
-                </div>
-                
-                {verification.found && verification.sample_tracks.length > 0 && (
-                  <div className="mt-3 space-y-1">
-                    <p className="text-xs text-zinc-500">Tracce di esempio:</p>
-                    {verification.sample_tracks.slice(0, 3).map((track, i) => (
-                      <div key={i} className="text-sm text-zinc-400 truncate">
-                        • {track.artist} - {track.name}
-                      </div>
-                    ))}
+            {/* Risultati Discogs */}
+            {discogsResults.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-sm text-zinc-500">Seleziona da Discogs:</p>
+                {discogsResults.map((result) => (
+                  <div
+                    key={result.id}
+                    onClick={() => selectDiscogsLabel(result)}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 transition-colors hover:border-emerald-500/50"
+                  >
+                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-800">
+                      {result.thumbnail ? (
+                        <img src={result.thumbnail} alt={result.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-xl text-zinc-600">♪</div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-white truncate">{result.name}</h4>
+                      <p className="text-sm text-zinc-500">{result.releases} releases</p>
+                    </div>
+                    <span className="text-emerald-400 text-sm">Seleziona →</span>
                   </div>
-                )}
-                
-                {!verification.found && (
-                  <p className="mt-2 text-sm text-zinc-500">
-                    Prova con un altro nome o verifica l'ortografia.
-                  </p>
-                )}
+                ))}
+              </div>
+            )}
+            
+            {/* Label selezionata */}
+            {selectedDiscogs && (
+              <div className="mt-3 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-900/20 p-3">
+                <div className="text-emerald-400">✓</div>
+                <div>
+                  <p className="text-white font-medium">{selectedDiscogs.name}</p>
+                  <p className="text-sm text-zinc-400">Da Discogs • {selectedDiscogs.releases} releases</p>
+                </div>
               </div>
             )}
           </div>
@@ -177,7 +181,7 @@ export default function AddLabelPage() {
               placeholder="drumcode"
               required
             />
-            <p className="mt-1 text-xs text-zinc-600">Usato nell'URL, solo lettere minuscole e trattini</p>
+            <p className="mt-1 text-xs text-zinc-600">Usato nell&apos;URL, solo lettere minuscole e trattini</p>
           </div>
 
           <div>
@@ -195,23 +199,35 @@ export default function AddLabelPage() {
             </select>
           </div>
 
+          <div>
+            <label className="mb-2 block text-sm text-zinc-400">URL Discogs (opzionale)</label>
+            <input
+              type="url"
+              value={formData.discogsUrl}
+              onChange={(e) => setFormData({ ...formData, discogsUrl: e.target.value })}
+              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+              placeholder="https://www.discogs.com/label/12345"
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={loading || !verification?.found}
-            className="w-full rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={loading}
+            className="w-full rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50"
           >
-            {loading ? 'Aggiungendo...' : 'Aggiungi Label'}
+            {loading ? 'Aggiungendo...' : selectedDiscogs ? `Aggiungi con ${selectedDiscogs.releases} releases` : 'Aggiungi Label'}
           </button>
         </form>
 
         <div className="mt-8 rounded-lg border border-zinc-800 bg-zinc-950/50 p-4">
           <h2 className="mb-2 text-sm font-semibold text-white">Come funziona:</h2>
-          <ul className="space-y-1 text-sm text-zinc-400">
-            <li>1. Inserisci il nome della label</li>
-            <li>2. Verifico se esistono tracce su Spotify</li>
-            <li>3. Confermi e aggiungo al database</li>
-            <li>4. Avvio recupero storico (5 anni)</li>
-          </ul>
+          <ol className="space-y-1 text-sm text-zinc-400 list-decimal list-inside">
+            <li>Scrivi il nome della label</li>
+            <li>Seleziona da Discogs (se trovata)</li>
+            <li>Il sistema scarica automaticamente le releases</li>
+            <li>Cerca il match su Spotify per ogni traccia</li>
+            <li>Analizza l&apos;audio e costruisce il profilo label</li>
+          </ol>
         </div>
       </div>
     </div>

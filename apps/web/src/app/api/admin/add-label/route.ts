@@ -1,133 +1,290 @@
-import { createClient } from '@/lib/supabase/route-handler'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
-const SPOTIFY_CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET
+const DISCOGS_API_URL = 'https://api.discogs.com'
 
-async function getSpotifyToken() {
-  const response = await fetch('https://accounts.spotify.com/api/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'Authorization': 'Basic ' + Buffer.from(SPOTIFY_CLIENT_ID + ':' + SPOTIFY_CLIENT_SECRET).toString('base64')
-    },
-    body: 'grant_type=client_credentials'
-  })
-  
-  const data = await response.json()
-  return data.access_token
+// Inizializza Supabase Admin
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// Cerca label su Discogs
+async function searchDiscogsLabel(query: string) {
+  try {
+    const response = await fetch(
+      `${DISCOGS_API_URL}/database/search?q=${encodeURIComponent(query)}&type=label&per_page=5`,
+      {
+        headers: {
+          'User-Agent': 'SelectaApp/1.0'
+        }
+      }
+    )
+    
+    if (!response.ok) {
+      console.error('Discogs search error:', response.status)
+      return null
+    }
+    
+    const data = await response.json()
+    return data.results || []
+  } catch (error) {
+    console.error('Error searching Discogs:', error)
+    return null
+  }
 }
 
-async function searchSpotifyTracks(labelName: string, token: string) {
-  const response = await fetch(
-    `https://api.spotify.com/v1/search?q=${encodeURIComponent(`label:"${labelName}"`)}&type=track&limit=50&market=US`,
-    {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }
-  )
+// Ottieni releases di una label da Discogs
+async function getDiscogsReleases(labelId: number) {
+  const releases = []
+  let page = 1
+  const perPage = 100
+  const maxPages = 5 // Max 500 releases per label
   
-  const data = await response.json()
-  return data.tracks?.items || []
+  while (page <= maxPages) {
+    try {
+      const response = await fetch(
+        `${DISCOGS_API_URL}/labels/${labelId}/releases?page=${page}&per_page=${perPage}`,
+        {
+          headers: {
+            'User-Agent': 'SelectaApp/1.0'
+          }
+        }
+      )
+      
+      if (!response.ok) break
+      
+      const data = await response.json()
+      if (!data.releases || data.releases.length === 0) break
+      
+      releases.push(...data.releases)
+      
+      if (data.releases.length < perPage) break
+      page++
+    } catch (error) {
+      console.error('Error fetching releases:', error)
+      break
+    }
+  }
+  
+  return releases
+}
+
+// Parsa artista e titolo da release Discogs
+function parseReleaseInfo(release: any) {
+  const title = release.title || ''
+  
+  // Formati comuni:
+  // "Artista - Titolo"
+  // "Artista - Titolo (Remix)"
+  // "Various - Compilation Title"
+  
+  let artist = ''
+  let trackTitle = title
+  
+  // Cerca pattern "Artista - Titolo"
+  const dashMatch = title.match(/^(.+?)\s+-\s+(.+)$/)
+  if (dashMatch) {
+    artist = dashMatch[1].trim()
+    trackTitle = dashMatch[2].trim()
+  } else {
+    // Usa artist principale se disponibile
+    artist = release.artist || 'Unknown Artist'
+  }
+  
+  // Rimuovi versioni/edits dal titolo per matching migliore
+  const cleanTitle = trackTitle
+    .replace(/\s*[\(\[].*?(remix|edit|mix|version|original).*?[\)\]]/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  
+  return {
+    artist: artist.replace(/^Various$/i, 'VA'),
+    title: cleanTitle,
+    originalTitle: title,
+    year: release.year,
+    catalogNumber: release.catno
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, slug, genre } = await request.json()
+    const body = await request.json()
+    const { name, slug, genre, discogsUrl, startIngestion = true } = body
     
-    if (!name || !slug || !genre) {
-      return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
+    if (!name || !slug) {
+      return NextResponse.json(
+        { error: 'Nome e slug sono obbligatori' },
+        { status: 400 }
+      )
     }
     
-    const supabase = await createClient()
-    
-    // 1. Controlla se label esiste già
-    const existing = await supabase
+    // Verifica se label esiste già
+    const { data: existing } = await supabase
       .from('labels')
       .select('id')
       .eq('slug', slug)
       .single()
     
-    if (existing.data) {
-      return NextResponse.json({ error: 'Label già esistente' }, { status: 400 })
+    if (existing) {
+      return NextResponse.json(
+        { error: 'Label già esistente' },
+        { status: 409 }
+      )
     }
     
-    // 2. Crea label
-    const { data: label, error: labelError } = await supabase
+    let discogsId: number | null = null
+    let discogsReleases: any[] = []
+    let tracksAdded = 0
+    
+    // Se fornito URL Discogs, estrai ID
+    if (discogsUrl) {
+      const match = discogsUrl.match(/\/label\/(\d+)/)
+      if (match) {
+        discogsId = parseInt(match[1])
+      }
+    }
+    
+    // Se non c'è URL, cerca su Discogs
+    if (!discogsId) {
+      const searchResults = await searchDiscogsLabel(name)
+      if (searchResults && searchResults.length > 0) {
+        // Prendi il primo risultato più rilevante
+        discogsId = searchResults[0].id
+      }
+    }
+    
+    // Se trovata su Discogs, recupera releases
+    if (discogsId && startIngestion) {
+      console.log(`Fetching releases for label ${discogsId}`)
+      discogsReleases = await getDiscogsReleases(discogsId)
+      console.log(`Found ${discogsReleases.length} releases`)
+    }
+    
+    // Crea label nel database
+    const { data: label, error: insertError } = await supabase
       .from('labels')
       .insert({
         name,
         slug,
-        genre_focus: [genre],
-        temporal_weight: 0.85,
-        stylistic_variance: 0.3,
-        total_tracks: 0
+        genre_focus: genre ? [genre] : [],
+        source: discogsId ? 'discogs' : 'manual',
+        external_id: discogsId?.toString(),
+        profile_url: discogsUrl,
+        ingestion_status: discogsReleases.length > 0 ? 'processing' : 'pending',
+        cataloged_tracks: 0
       })
       .select()
       .single()
     
-    if (labelError || !label) {
-      return NextResponse.json({ error: 'Errore creazione label' }, { status: 500 })
+    if (insertError) {
+      console.error('Error creating label:', insertError)
+      return NextResponse.json(
+        { error: 'Errore nel creare la label' },
+        { status: 500 }
+      )
     }
     
-    // 3. Cerca tracce su Spotify
-    const token = await getSpotifyToken()
-    const tracks = await searchSpotifyTracks(name, token)
-    
-    // 4. Filtra tracce con preview e recenti (ultimi 90 giorni)
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 90)
-    
-    const recentTracks = tracks.filter((track: any) => {
-      if (!track.preview_url) return false
-      const releaseDate = new Date(track.album.release_date)
-      return releaseDate >= cutoffDate
-    })
-    
-    // 5. Aggiungi tracce al database
-    let addedCount = 0
-    for (const track of recentTracks.slice(0, 50)) {
-      // Controlla se esiste già
-      const existingTrack = await supabase
-        .from('reference_tracks')
-        .select('id')
-        .eq('spotify_id', track.id)
-        .single()
-      
-      if (existingTrack.data) continue
-      
-      // Inserisci
-      const { error: trackError } = await supabase
-        .from('reference_tracks')
-        .insert({
-          label_id: label.id,
-          spotify_id: track.id,
-          title: track.name,
-          artist: track.artists.map((a: any) => a.name).join(', '),
-          album: track.album.name,
-          release_date: track.album.release_date,
-          preview_url: track.preview_url,
-          source: 'spotify',
-          analysis_status: 'pending'
+    // Aggiungi releases alla coda di ingestion
+    if (discogsReleases.length > 0) {
+      const queueItems = discogsReleases
+        .filter(release => release.title) // Solo release con titolo
+        .map(release => {
+          const parsed = parseReleaseInfo(release)
+          return {
+            label_id: label.id,
+            track_title: parsed.title,
+            artist_name: parsed.artist,
+            release_year: parsed.year,
+            album_name: parsed.originalTitle,
+            catalog_number: parsed.catalogNumber,
+            source: 'discogs',
+            source_id: release.id?.toString(),
+            source_url: release.resource_url,
+            status: 'pending',
+            attempts: 0
+          }
         })
       
-      if (!trackError) addedCount++
+      if (queueItems.length > 0) {
+        const { error: queueError } = await supabase
+          .from('label_ingestion_queue')
+          .insert(queueItems)
+        
+        if (queueError) {
+          console.error('Error adding to queue:', queueError)
+        } else {
+          tracksAdded = queueItems.length
+          
+          // Aggiorna contatore tracce
+          await supabase
+            .from('labels')
+            .update({ cataloged_tracks: tracksAdded })
+            .eq('id', label.id)
+        }
+      }
     }
-    
-    // 6. Aggiorna contatore label
-    await supabase
-      .from('labels')
-      .update({ total_tracks: addedCount })
-      .eq('id', label.id)
     
     return NextResponse.json({
       success: true,
-      label_id: label.id,
-      tracks_added: addedCount,
-      message: `Label "${name}" creata con ${addedCount} tracce`
+      message: tracksAdded > 0 
+        ? `Label aggiunta con ${tracksAdded} tracce in coda per matching`
+        : 'Label aggiunta (nessuna traccia trovata su Discogs)',
+      label: {
+        id: label.id,
+        name: label.name,
+        slug: label.slug,
+        source: label.source,
+        tracksQueued: tracksAdded
+      }
     })
     
   } catch (error: any) {
-    console.error('Error adding label:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('Error in add-label:', error)
+    return NextResponse.json(
+      { error: error.message || 'Errore interno' },
+      { status: 500 }
+    )
+  }
+}
+
+// GET: Cerca label su Discogs per suggerimenti
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const query = searchParams.get('q')
+    
+    if (!query || query.length < 3) {
+      return NextResponse.json(
+        { error: 'Query troppo corta' },
+        { status: 400 }
+      )
+    }
+    
+    const results = await searchDiscogsLabel(query)
+    
+    if (!results) {
+      return NextResponse.json(
+        { error: 'Errore ricerca Discogs' },
+        { status: 500 }
+      )
+    }
+    
+    return NextResponse.json({
+      results: results.map((r: any) => ({
+        id: r.id,
+        name: r.title,
+        url: `https://www.discogs.com/label/${r.id}`,
+        thumbnail: r.thumb,
+        releases: r.releases_count || 0
+      }))
+    })
+    
+  } catch (error: any) {
+    console.error('Error searching Discogs:', error)
+    return NextResponse.json(
+      { error: error.message },
+      { status: 500 }
+    )
   }
 }
