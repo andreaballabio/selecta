@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const token = tokenData.access_token
     
-    // Search ALBUMS and check their labels
+    // Search ALBUMS
     const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&market=US`
     
     const response = await fetch(url, {
@@ -50,14 +50,39 @@ export async function GET(request: NextRequest) {
     const data = await response.json()
     const albums = data.albums?.items || []
     
-    // Find albums that match the label name (case insensitive)
+    // Find albums that match the label name
     const queryLower = query.toLowerCase()
     const matchingAlbums = albums.filter((album: any) => {
       const labelName = album.label?.toLowerCase() || ''
       return labelName.includes(queryLower)
     })
     
-    // Get unique labels
+    // Get tracks from first few albums to show as examples
+    let sampleTracks: any[] = []
+    let totalTracks = 0
+    
+    for (const album of matchingAlbums.slice(0, 3)) {
+      // Get album tracks
+      const tracksRes = await fetch(`https://api.spotify.com/v1/albums/${album.id}/tracks?limit=5`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      
+      if (tracksRes.ok) {
+        const tracksData = await tracksRes.json()
+        const tracks = tracksData.items || []
+        totalTracks += tracksData.total || 0
+        
+        sampleTracks = sampleTracks.concat(
+          tracks.slice(0, 3).map((track: any) => ({
+            name: track.name,
+            artist: track.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
+            album: album.name
+          }))
+        )
+      }
+    }
+    
+    // Get unique label names
     const labelNames = new Set<string>()
     matchingAlbums.forEach((album: any) => {
       if (album.label) labelNames.add(album.label)
@@ -66,13 +91,10 @@ export async function GET(request: NextRequest) {
     // Return verification result
     return NextResponse.json({
       found: matchingAlbums.length > 0,
-      track_count: matchingAlbums.length,
+      album_count: matchingAlbums.length,
+      track_count: totalTracks > 0 ? totalTracks : sampleTracks.length,
       labels_found: Array.from(labelNames).slice(0, 5),
-      sample_tracks: matchingAlbums.slice(0, 5).map((album: any) => ({
-        name: album.name,
-        artist: album.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
-        album: album.name
-      }))
+      sample_tracks: sampleTracks.slice(0, 5)
     })
     
   } catch (error: any) {
