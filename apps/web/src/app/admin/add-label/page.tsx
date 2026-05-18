@@ -156,7 +156,6 @@ export default function AddLabelPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-white truncate">{result.name}</h4>
-                      <p className="text-sm text-zinc-500">{result.releases} releases</p>
                       
                       {/* Sample releases */}
                       {result.sampleReleases && result.sampleReleases.length > 0 && (
