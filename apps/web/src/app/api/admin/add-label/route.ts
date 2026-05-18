@@ -258,9 +258,9 @@ export async function POST(request: NextRequest) {
       profile_url: discogsUrl,
     }
     
-    // Aggiungi genre_focus solo se specificato
+    // Aggiungi genre solo se specificato
     if (genre) {
-      labelData.genre_focus = [genre]
+      labelData.primary_genre = genre
     }
     
     const { data: label, error: insertError } = await supabase
