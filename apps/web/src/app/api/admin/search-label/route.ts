@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')
     
-    if (!query || query.length < 3) {
+    if (!query || query.length < 2) {
       return NextResponse.json({ error: 'Query troppo corta' }, { status: 400 })
     }
     
@@ -23,19 +23,14 @@ export async function GET(request: NextRequest) {
     })
     
     if (!tokenResponse.ok) {
-      const tokenError = await tokenResponse.text()
-      console.error('Token error:', tokenResponse.status, tokenError)
-      return NextResponse.json({ error: 'Errore autenticazione Spotify' }, { status: 500 })
+      return NextResponse.json({ error: 'Errore autenticazione' }, { status: 500 })
     }
     
     const tokenData = await tokenResponse.json()
     const token = tokenData.access_token
     
-    // Search for tracks with label filter using proper Spotify syntax
-    const searchQuery = `label:"${query}"`
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(searchQuery)}&type=track&market=US`
-    
-    console.log('Searching Spotify:', url)
+    // Search ALBUMS (not tracks) to find labels
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&market=US&limit=50`
     
     const response = await fetch(url, {
       headers: { 
@@ -46,7 +41,6 @@ export async function GET(request: NextRequest) {
     
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('Spotify API error:', response.status, errorText)
       return NextResponse.json({ 
         error: `Spotify error: ${response.status}`,
         details: errorText
@@ -54,39 +48,53 @@ export async function GET(request: NextRequest) {
     }
     
     const data = await response.json()
-    const tracks = data.tracks?.items || []
+    const albums = data.albums?.items || []
     
-    console.log(`Found ${tracks.length} tracks`)
+    // Group by label
+    const labelMap = new Map<string, {
+      name: string
+      image: string | null
+      albums: any[]
+      artists: Set<string>
+    }>()
     
-    // Filter recent tracks (last 365 days for better results)
-    const cutoffDate = new Date()
-    cutoffDate.setDate(cutoffDate.getDate() - 365)
-    
-    const recentTracks = tracks.filter((track: any) => {
-      try {
-        const releaseDate = new Date(track.album?.release_date || '2020-01-01')
-        return releaseDate >= cutoffDate
-      } catch {
-        return false
+    for (const album of albums) {
+      const labelName = album.label?.trim()
+      if (!labelName || labelName === 'Unknown Label') continue
+      
+      if (!labelMap.has(labelName)) {
+        labelMap.set(labelName, {
+          name: labelName,
+          image: album.images?.[0]?.url || null,
+          albums: [],
+          artists: new Set()
+        })
       }
-    })
-    
-    // Prepare result - show tracks found without requiring preview
-    const result = {
-      name: query,
-      tracks_found: recentTracks.length,
-      sample_tracks: recentTracks.slice(0, 5).map((track: any) => ({
-        name: track.name,
-        artist: track.artists?.map((a: any) => a.name).join(', ') || 'Unknown',
-        album: track.album?.name || 'Unknown',
-        has_preview: !!track.preview_url
-      }))
+      
+      const label = labelMap.get(labelName)!
+      label.albums.push({
+        name: album.name,
+        release_date: album.release_date
+      })
+      album.artists?.forEach((a: any) => label.artists.add(a.name))
     }
     
-    return NextResponse.json(result)
+    // Convert to array and sort by relevance (more albums = higher relevance)
+    const labels = Array.from(labelMap.values())
+      .sort((a, b) => b.albums.length - a.albums.length)
+      .slice(0, 10)
+      .map(label => ({
+        name: label.name,
+        image: label.image,
+        album_count: label.albums.length,
+        sample_artists: Array.from(label.artists).slice(0, 5),
+        sample_albums: label.albums.slice(0, 3).map((a: any) => a.name)
+      }))
+    
+    return NextResponse.json({ labels })
     
   } catch (error: any) {
-    console.error('Error searching label:', error)
+    console.error('Error searching labels:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
