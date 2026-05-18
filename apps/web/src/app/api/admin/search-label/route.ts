@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
     const tokenData = await tokenResponse.json()
     const token = tokenData.access_token
     
-    // Search ALBUMS (not tracks) to find labels
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album&market=US`
+    // Search ALBUMS (not tracks) to find labels - simplified URL
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=album`
     
     const response = await fetch(url, {
       headers: { 
