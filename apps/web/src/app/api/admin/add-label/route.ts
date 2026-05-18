@@ -1,204 +1,190 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const DISCOGS_API_URL = 'https://api.discogs.com'
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
+const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3'
 
-// Inizializza Supabase Admin
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_KEY! || process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// Cerca label su Discogs con dettagli
-async function searchDiscogsLabel(query: string) {
+// Cerca canali YouTube per label
+async function searchYouTubeChannels(query: string) {
   try {
-    // Prima chiamata: ricerca base
-    const searchResponse = await fetch(
-      `${DISCOGS_API_URL}/database/search?q=${encodeURIComponent(query)}&type=label&per_page=5`,
-      {
-        headers: {
-          'User-Agent': 'SelectaApp/1.0'
-        }
-      }
+    const response = await fetch(
+      `${YOUTUBE_API_URL}/search?part=snippet&q=${encodeURIComponent(query + ' label')}&type=channel&maxResults=5&key=${YOUTUBE_API_KEY}`
     )
     
-    if (!searchResponse.ok) {
-      console.error('Discogs search error:', searchResponse.status)
+    if (!response.ok) {
+      console.error('YouTube search error:', response.status)
       return null
     }
     
-    const searchData = await searchResponse.json()
-    const results = searchData.results || []
+    const data = await response.json()
+    const items = data.items || []
     
-    // Per ogni risultato, ottieni dettagli
-    const detailedResults = await Promise.all(
-      results.map(async (result: any) => {
+    // Ottieni dettagli per ogni canale
+    const channelIds = items.map((item: any) => item.id.channelId).join(',')
+    
+    if (!channelIds) return []
+    
+    const detailsResponse = await fetch(
+      `${YOUTUBE_API_URL}/channels?part=snippet,statistics&id=${channelIds}&key=${YOUTUBE_API_KEY}`
+    )
+    
+    if (!detailsResponse.ok) return []
+    
+    const detailsData = await detailsResponse.json()
+    const channels = detailsData.items || []
+    
+    // Ottieni video recenti per ogni canale (come esempio)
+    const channelsWithVideos = await Promise.all(
+      channels.map(async (channel: any) => {
         try {
-          // Ottieni dettagli label
-          const detailRes = await fetch(
-            `${DISCOGS_API_URL}/labels/${result.id}?curr_abbr=USD`,
-            {
-              headers: { 'User-Agent': 'SelectaApp/1.0' }
-            }
+          const videosResponse = await fetch(
+            `${YOUTUBE_API_URL}/search?part=snippet&channelId=${channel.id}&order=date&maxResults=3&type=video&key=${YOUTUBE_API_KEY}`
           )
           
-          if (!detailRes.ok) {
-            return {
-              id: result.id,
-              name: result.title,
-              url: `https://www.discogs.com/label/${result.id}`,
-              thumbnail: result.thumb || result.cover_image,
-              releases: result.releases_count || result.release_count || 0,
-              profile: '',
-              sampleReleases: []
-            }
-          }
+          let sampleVideos: Array<{title: string, artist: string}> = []
           
-          const detail = await detailRes.json()
-          
-          // Ottieni alcune releases come esempio
-          const releasesRes = await fetch(
-            `${DISCOGS_API_URL}/labels/${result.id}/releases?per_page=3`,
-            {
-              headers: { 'User-Agent': 'SelectaApp/1.0' }
-            }
-          )
-          
-          let sampleReleases: Array<{title: string, artist: string}> = []
-          if (releasesRes.ok) {
-            const releasesData = await releasesRes.json()
-            sampleReleases = (releasesData.releases || [])
-              .slice(0, 3)
-              .map((r: any) => {
-                // Estrai artista e titolo
-                const fullTitle = r.title || ''
-                let artist = 'Various Artists'
-                let title = fullTitle
+          if (videosResponse.ok) {
+            const videosData = await videosResponse.json()
+            sampleVideos = (videosData.items || [])
+              .map((video: any) => {
+                const title = video.snippet?.title || ''
+                // Parsing: estrai artista e titolo
+                let artist = 'Unknown'
+                let trackTitle = title
                 
-                // Formato comune: "Artista - Titolo"
-                const dashMatch = fullTitle.match(/^(.+?)\s+-\s+(.+)$/)
-                if (dashMatch) {
-                  artist = dashMatch[1].trim()
-                  title = dashMatch[2].trim()
-                } else if (r.artist) {
-                  artist = r.artist
+                // Pattern comune: "Artista - Titolo"
+                const match = title.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|$)/)
+                if (match) {
+                  artist = match[1].trim()
+                  trackTitle = match[2].trim()
                 }
                 
-                return {
-                  artist,
-                  title: title.length > 40 ? title.substring(0, 40) + '...' : title
-                }
+                return { title: trackTitle.substring(0, 50), artist: artist.substring(0, 40) }
               })
+              .filter((v: any) => v.title.length > 3)
           }
           
           return {
-            id: result.id,
-            name: detail.name || result.title,
-            url: `https://www.discogs.com/label/${result.id}`,
-            thumbnail: detail.images?.[0]?.uri || detail.images?.[0]?.resource_url || result.thumb || result.cover_image,
-            releases: detail.releases_count || detail.num_releases || detail.num_items || result.releases_count || result.release_count || 0,
-            profile: detail.profile || '',
-            sampleReleases
+            id: channel.id,
+            name: channel.snippet?.title,
+            description: channel.snippet?.description?.substring(0, 100),
+            thumbnail: channel.snippet?.thumbnails?.medium?.url || channel.snippet?.thumbnails?.default?.url,
+            videoCount: parseInt(channel.statistics?.videoCount) || 0,
+            subscriberCount: parseInt(channel.statistics?.subscriberCount) || 0,
+            sampleVideos
           }
         } catch (e) {
-          // Fallback su dati base
           return {
-            id: result.id,
-            name: result.title,
-            url: `https://www.discogs.com/label/${result.id}`,
-            thumbnail: result.thumb || result.cover_image,
-            releases: result.releases_count || 0,
-            profile: '',
-            sampleReleases: []
+            id: channel.id,
+            name: channel.snippet?.title,
+            description: channel.snippet?.description?.substring(0, 100),
+            thumbnail: channel.snippet?.thumbnails?.medium?.url,
+            videoCount: parseInt(channel.statistics?.videoCount) || 0,
+            subscriberCount: parseInt(channel.statistics?.subscriberCount) || 0,
+            sampleVideos: []
           }
         }
       })
     )
     
-    return detailedResults
+    return channelsWithVideos.filter((c: any) => c.videoCount > 5) // Solo canali con contenuti
   } catch (error) {
-    console.error('Error searching Discogs:', error)
+    console.error('Error searching YouTube:', error)
     return null
   }
 }
 
-// Ottieni releases di una label da Discogs
-async function getDiscogsReleases(labelId: number) {
-  const releases = []
-  let page = 1
-  const perPage = 100
-  const maxPages = 5 // Max 500 releases per label
+// Ottieni video da un canale
+async function getChannelVideos(channelId: string, maxResults: number = 100) {
+  const videos = []
+  let pageToken = ''
+  const maxPages = 5 // Max 500 video
+  let pages = 0
   
-  while (page <= maxPages) {
+  while (pages < maxPages) {
     try {
-      const response = await fetch(
-        `${DISCOGS_API_URL}/labels/${labelId}/releases?page=${page}&per_page=${perPage}`,
-        {
-          headers: {
-            'User-Agent': 'SelectaApp/1.0'
-          }
-        }
-      )
+      const url = `${YOUTUBE_API_URL}/search?part=snippet&channelId=${channelId}&order=date&maxResults=50&type=video&key=${YOUTUBE_API_KEY}${pageToken ? `&pageToken=${pageToken}` : ''}`
       
-      if (!response.ok) break
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        console.error('YouTube videos error:', response.status)
+        break
+      }
       
       const data = await response.json()
-      if (!data.releases || data.releases.length === 0) break
+      const items = data.items || []
       
-      releases.push(...data.releases)
+      // Filtra solo video musicali (ultimi 3 anni)
+      const cutoffDate = new Date()
+      cutoffDate.setFullYear(cutoffDate.getFullYear() - 3)
       
-      if (data.releases.length < perPage) break
-      page++
+      for (const item of items) {
+        const publishedAt = new Date(item.snippet?.publishedAt)
+        if (publishedAt < cutoffDate) {
+          // Se troviamo video troppo vecchi, fermiamoci
+          pages = maxPages
+          break
+        }
+        
+        const title = item.snippet?.title || ''
+        
+        // Parsing titolo
+        let artist = ''
+        let trackTitle = title
+        
+        // Pattern: "Artista - Titolo" o "Artista – Titolo"
+        const match = title.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|Official|Video|Audio|$)/i)
+        if (match) {
+          artist = match[1].trim()
+          trackTitle = match[2].trim()
+        } else {
+          // Se non matcha, prova a usare il titolo completo
+          artist = item.snippet?.channelTitle?.replace(/\s*label\s*/i, '') || 'Unknown'
+          trackTitle = title
+        }
+        
+        // Pulisci titolo
+        trackTitle = trackTitle
+          .replace(/\s*\(.*?\)\s*/g, ' ')
+          .replace(/\s*\[.*?\]\s*/g, ' ')
+          .replace(/Official\s*(Video|Audio|Music\s*Video)/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim()
+        
+        if (trackTitle.length > 3 && artist.length > 1) {
+          videos.push({
+            title: trackTitle.substring(0, 100),
+            artist: artist.substring(0, 100),
+            videoId: item.id?.videoId,
+            publishedAt: item.snippet?.publishedAt,
+            thumbnail: item.snippet?.thumbnails?.medium?.url
+          })
+        }
+      }
+      
+      pageToken = data.nextPageToken
+      if (!pageToken) break
+      pages++
+      
     } catch (error) {
-      console.error('Error fetching releases:', error)
+      console.error('Error fetching videos:', error)
       break
     }
   }
   
-  return releases
-}
-
-// Parsa artista e titolo da release Discogs
-function parseReleaseInfo(release: any) {
-  const title = release.title || ''
-  
-  // Formati comuni:
-  // "Artista - Titolo"
-  // "Artista - Titolo (Remix)"
-  // "Various - Compilation Title"
-  
-  let artist = ''
-  let trackTitle = title
-  
-  // Cerca pattern "Artista - Titolo"
-  const dashMatch = title.match(/^(.+?)\s+-\s+(.+)$/)
-  if (dashMatch) {
-    artist = dashMatch[1].trim()
-    trackTitle = dashMatch[2].trim()
-  } else {
-    // Usa artist principale se disponibile
-    artist = release.artist || 'Unknown Artist'
-  }
-  
-  // Rimuovi versioni/edits dal titolo per matching migliore
-  const cleanTitle = trackTitle
-    .replace(/\s*[\(\[].*?(remix|edit|mix|version|original).*?[\)\]]/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-  
-  return {
-    artist: artist.replace(/^Various$/i, 'VA'),
-    title: cleanTitle,
-    originalTitle: title,
-    year: release.year,
-    catalogNumber: release.catno
-  }
+  return videos
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, slug, genre, discogsUrl, startIngestion = true } = body
+    const { name, slug, genre, youtubeChannelId, youtubeUrl } = body
     
     if (!name || !slug) {
       return NextResponse.json(
@@ -221,44 +207,31 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    let discogsId: number | null = null
-    let discogsReleases: any[] = []
-    let tracksAdded = 0
+    let channelId = youtubeChannelId
+    let videos: any[] = []
     
-    // Se fornito URL Discogs, estrai ID
-    if (discogsUrl) {
-      const match = discogsUrl.match(/\/label\/(\d+)/)
-      if (match) {
-        discogsId = parseInt(match[1])
-      }
+    // Se fornito URL YouTube, estrai ID
+    if (youtubeUrl && !channelId) {
+      const match = youtubeUrl.match(/\/channel\/([a-zA-Z0-9_-]+)/)
+      if (match) channelId = match[1]
     }
     
-    // Se non c'è URL, cerca su Discogs
-    if (!discogsId) {
-      const searchResults = await searchDiscogsLabel(name)
-      if (searchResults && searchResults.length > 0) {
-        // Prendi il primo risultato più rilevante
-        discogsId = searchResults[0].id
-      }
-    }
-    
-    // Se trovata su Discogs, recupera releases
-    if (discogsId && startIngestion) {
-      console.log(`Fetching releases for label ${discogsId}`)
-      discogsReleases = await getDiscogsReleases(discogsId)
-      console.log(`Found ${discogsReleases.length} releases`)
+    // Se c'è un channel ID, recupera video
+    if (channelId) {
+      console.log(`Fetching videos for channel ${channelId}`)
+      videos = await getChannelVideos(channelId, 200)
+      console.log(`Found ${videos.length} videos`)
     }
     
     // Crea label nel database
     const labelData: any = {
       name,
       slug,
-      source: discogsId ? 'discogs' : 'manual',
-      external_id: discogsId?.toString(),
-      profile_url: discogsUrl,
+      source: channelId ? 'youtube' : 'manual',
+      external_id: channelId,
+      profile_url: youtubeUrl || `https://www.youtube.com/channel/${channelId}`,
     }
     
-    // Aggiungi genre solo se specificato
     if (genre) {
       labelData.primary_genre = genre
     }
@@ -272,7 +245,6 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       console.error('Error creating label:', insertError)
       
-      // Messaggio specifico per duplicati
       if (insertError.code === '23505' || insertError.message?.includes('duplicate')) {
         return NextResponse.json(
           { error: 'Label già esistente. Prova con un altro nome o slug.' },
@@ -286,51 +258,48 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Aggiungi releases alla coda di ingestion
-    if (discogsReleases.length > 0) {
-      const queueItems = discogsReleases
-        .filter(release => release.title) // Solo release con titolo
-        .map(release => {
-          const parsed = parseReleaseInfo(release)
-          return {
-            label_id: label.id,
-            track_title: parsed.title,
-            artist_name: parsed.artist,
-            release_year: parsed.year,
-            album_name: parsed.originalTitle,
-            catalog_number: parsed.catalogNumber,
-            source: 'discogs',
-            source_id: release.id?.toString(),
-            source_url: release.resource_url,
-            status: 'pending',
-            attempts: 0
-          }
-        })
+    // Aggiungi video alla coda di ingestion
+    let tracksAdded = 0
+    
+    if (videos.length > 0) {
+      const queueItems = videos.map(video => ({
+        label_id: label.id,
+        track_title: video.title,
+        artist_name: video.artist,
+        source: 'youtube',
+        source_id: video.videoId,
+        source_url: `https://www.youtube.com/watch?v=${video.videoId}`,
+        status: 'pending',
+        attempts: 0
+      }))
       
-      if (queueItems.length > 0) {
+      // Inserisci in batch
+      const batchSize = 100
+      for (let i = 0; i < queueItems.length; i += batchSize) {
+        const batch = queueItems.slice(i, i + batchSize)
         const { error: queueError } = await supabase
           .from('label_ingestion_queue')
-          .insert(queueItems)
+          .insert(batch)
         
         if (queueError) {
           console.error('Error adding to queue:', queueError)
         } else {
-          tracksAdded = queueItems.length
-          
-          // Aggiorna contatore tracce
-          await supabase
-            .from('labels')
-            .update({ cataloged_tracks: tracksAdded })
-            .eq('id', label.id)
+          tracksAdded += batch.length
         }
       }
+      
+      // Aggiorna contatore
+      await supabase
+        .from('labels')
+        .update({ cataloged_tracks: tracksAdded })
+        .eq('id', label.id)
     }
     
     return NextResponse.json({
       success: true,
       message: tracksAdded > 0 
         ? `Label aggiunta con ${tracksAdded} tracce in coda per matching`
-        : 'Label aggiunta (nessuna traccia trovata su Discogs)',
+        : 'Label aggiunta (nessuna traccia trovata su YouTube)',
       label: {
         id: label.id,
         name: label.name,
@@ -349,7 +318,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET: Cerca label su Discogs per suggerimenti
+// GET: Cerca canali YouTube
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -362,37 +331,36 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    const results = await searchDiscogsLabel(query)
+    if (!YOUTUBE_API_KEY) {
+      return NextResponse.json(
+        { error: 'YouTube API key non configurata' },
+        { status: 500 }
+      )
+    }
+    
+    const results = await searchYouTubeChannels(query)
     
     if (!results) {
       return NextResponse.json(
-        { error: 'Errore ricerca Discogs' },
+        { error: 'Errore ricerca YouTube' },
         { status: 500 }
       )
     }
     
     return NextResponse.json({
-      results: results
-        // Filtra duplicati simili (es. "Drumcode" e "Drumcode Records")
-        .filter((r: any, index: number, self: any[]) => {
-          const normalizedName = r.name.toLowerCase().replace(/\s+/g, '').replace(/records|recordings|music/g, '')
-          return index === self.findIndex((t: any) => 
-            t.name.toLowerCase().replace(/\s+/g, '').replace(/records|recordings|music/g, '') === normalizedName
-          )
-        })
-        .map((r: any) => ({
-          id: r.id,
-          name: r.name,
-          url: r.url,
-          thumbnail: r.thumbnail,
-          releases: r.releases,
-          profile: r.profile,
-          sampleReleases: r.sampleReleases
-        }))
+      results: results.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        thumbnail: c.thumbnail,
+        videoCount: c.videoCount,
+        subscriberCount: c.subscriberCount,
+        sampleVideos: c.sampleVideos
+      }))
     })
     
   } catch (error: any) {
-    console.error('Error searching Discogs:', error)
+    console.error('Error searching YouTube:', error)
     return NextResponse.json(
       { error: error.message },
       { status: 500 }

@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 
-interface DiscogsResult {
-  id: number
+interface YouTubeChannel {
+  id: string
   name: string
-  url: string
+  description: string
   thumbnail: string
-  releases: number
-  profile: string
-  sampleReleases: Array<{
+  videoCount: number
+  subscriberCount: number
+  sampleVideos: Array<{
     artist: string
     title: string
   }>
@@ -30,28 +30,29 @@ export default function AddLabelPage() {
     name: '',
     slug: '',
     genre: 'tech house',
-    discogsUrl: ''
+    youtubeChannelId: '',
+    youtubeUrl: ''
   })
   const [loading, setLoading] = useState(false)
   const [searching, setSearching] = useState(false)
   const [message, setMessage] = useState('')
-  const [discogsResults, setDiscogsResults] = useState<DiscogsResult[]>([])
-  const [selectedDiscogs, setSelectedDiscogs] = useState<DiscogsResult | null>(null)
+  const [channels, setChannels] = useState<YouTubeChannel[]>([])
+  const [selectedChannel, setSelectedChannel] = useState<YouTubeChannel | null>(null)
   
   // Stato per il processing
   const [lastAddedLabel, setLastAddedLabel] = useState<{id: string, name: string, tracks: number} | null>(null)
   const [processing, setProcessing] = useState<ProcessingStatus | null>(null)
   const [processingInterval, setProcessingInterval] = useState<NodeJS.Timeout | null>(null)
 
-  // Debounce search su Discogs
+  // Debounce search su YouTube
   useEffect(() => {
     if (!formData.name || formData.name.length < 3) {
-      setDiscogsResults([])
+      setChannels([])
       return
     }
 
     const timer = setTimeout(() => {
-      searchDiscogs(formData.name)
+      searchYouTube(formData.name)
     }, 600)
 
     return () => clearTimeout(timer)
@@ -66,7 +67,7 @@ export default function AddLabelPage() {
     }
   }, [processingInterval])
 
-  const searchDiscogs = async (query: string) => {
+  const searchYouTube = async (query: string) => {
     if (query.length < 3) return
     
     setSearching(true)
@@ -76,24 +77,25 @@ export default function AddLabelPage() {
       const data = await response.json()
       
       if (response.ok) {
-        setDiscogsResults(data.results || [])
+        setChannels(data.results || [])
       }
     } catch (error) {
-      console.error('Error searching Discogs:', error)
+      console.error('Error searching YouTube:', error)
     } finally {
       setSearching(false)
     }
   }
 
-  const selectDiscogsLabel = (result: DiscogsResult) => {
-    setSelectedDiscogs(result)
+  const selectChannel = (channel: YouTubeChannel) => {
+    setSelectedChannel(channel)
     setFormData(prev => ({
       ...prev,
-      name: result.name,
-      slug: result.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
-      discogsUrl: result.url
+      name: channel.name,
+      slug: channel.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      youtubeChannelId: channel.id,
+      youtubeUrl: `https://www.youtube.com/channel/${channel.id}`
     }))
-    setDiscogsResults([])
+    setChannels([])
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -112,7 +114,6 @@ export default function AddLabelPage() {
 
       if (response.ok) {
         setMessage(`✓ ${data.message}`)
-        // Salva info label appena aggiunta
         if (data.label) {
           setLastAddedLabel({
             id: data.label.id,
@@ -120,8 +121,8 @@ export default function AddLabelPage() {
             tracks: data.label.tracksQueued || 0
           })
         }
-        setFormData({ name: '', slug: '', genre: 'tech house', discogsUrl: '' })
-        setSelectedDiscogs(null)
+        setFormData({ name: '', slug: '', genre: 'tech house', youtubeChannelId: '', youtubeUrl: '' })
+        setSelectedChannel(null)
       } else {
         setMessage(`✗ Errore: ${data.error}`)
       }
@@ -143,14 +144,11 @@ export default function AddLabelPage() {
       labelName
     })
 
-    // Avvia polling automatico
     const interval = setInterval(async () => {
       await processBatch(labelId)
-    }, 3000) // Ogni 3 secondi
+    }, 3000)
 
     setProcessingInterval(interval)
-    
-    // Processa subito il primo batch
     await processBatch(labelId)
   }
 
@@ -180,7 +178,6 @@ export default function AddLabelPage() {
           }
         })
 
-        // Se finito, ferma il polling
         if (data.remaining === 0 || data.processed === 0) {
           if (processingInterval) {
             clearInterval(processingInterval)
@@ -188,7 +185,6 @@ export default function AddLabelPage() {
           }
         }
       } else if (data.processed === 0) {
-        // Nessuna traccia da processare
         if (processingInterval) {
           clearInterval(processingInterval)
           setProcessingInterval(null)
@@ -240,7 +236,6 @@ export default function AddLabelPage() {
               {processing.labelName}: {processing.processed} / {processing.total} tracce
             </p>
             
-            {/* Progress bar */}
             <div className="w-full bg-zinc-800 rounded-full h-2 mb-4">
               <div 
                 className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
@@ -248,7 +243,6 @@ export default function AddLabelPage() {
               />
             </div>
             
-            {/* Stats */}
             <div className="grid grid-cols-3 gap-4 text-center">
               <div className="bg-zinc-900/50 rounded-lg p-2">
                 <p className="text-lg font-bold text-emerald-400">{processing.matched}</p>
@@ -266,19 +260,23 @@ export default function AddLabelPage() {
           </div>
         )}
 
-        {/* Label appena aggiunta - pulsante matching */}
+        {/* Label appena aggiunta */}
         {lastAddedLabel && !processing && (
           <div className="mb-6 rounded-lg border border-emerald-500/30 bg-emerald-900/20 p-4">
             <h3 className="font-semibold text-white mb-2">✓ Label aggiunta!</h3>
             <p className="text-sm text-zinc-400 mb-4">
               {lastAddedLabel.name} - {lastAddedLabel.tracks} tracce in coda
             </p>
-            <button
-              onClick={() => startProcessing(lastAddedLabel.id, lastAddedLabel.name, lastAddedLabel.tracks)}
-              className="w-full rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-black hover:bg-emerald-400 transition-colors"
-            >
-              🚀 Avvia Matching con Spotify
-            </button>
+            {lastAddedLabel.tracks > 0 ? (
+              <button
+                onClick={() => startProcessing(lastAddedLabel.id, lastAddedLabel.name, lastAddedLabel.tracks)}
+                className="w-full rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-black hover:bg-emerald-400 transition-colors"
+              >
+                🚀 Avvia Matching con Spotify
+              </button>
+            ) : (
+              <p className="text-sm text-zinc-500">Nessuna traccia trovata su YouTube per questa label.</p>
+            )}
           </div>
         )}
 
@@ -296,7 +294,7 @@ export default function AddLabelPage() {
                   slug: name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
                 })
                 if (!name) {
-                  setSelectedDiscogs(null)
+                  setSelectedChannel(null)
                 }
               }}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
@@ -305,54 +303,62 @@ export default function AddLabelPage() {
             />
             
             {searching && (
-              <p className="mt-2 text-sm text-zinc-500">Ricerca su Discogs...</p>
+              <p className="mt-2 text-sm text-zinc-500">Ricerca su YouTube...</p>
             )}
             
-            {/* Risultati Discogs */}
-            {discogsResults.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-sm text-zinc-500">Seleziona da Discogs:</p>
-                {discogsResults.map((result) => (
+            {/* Risultati YouTube */}
+            {channels.length > 0 && (
+              <div className="mt-3 space-y-3">
+                <p className="text-sm text-zinc-500">Seleziona canale YouTube:</p>
+                {channels.map((channel) => (
                   <div
-                    key={result.id}
-                    onClick={() => selectDiscogsLabel(result)}
-                    className="flex cursor-pointer items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3 transition-colors hover:border-emerald-500/50"
+                    key={channel.id}
+                    onClick={() => selectChannel(channel)}
+                    className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-emerald-500/50"
                   >
-                    <div className="h-12 w-12 flex-shrink-0 overflow-hidden rounded bg-zinc-800">
-                      {result.thumbnail ? (
-                        <img src={result.thumbnail} alt={result.name} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xl text-zinc-600">♪</div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-white truncate">{result.name}</h4>
+                    <div className="flex items-start gap-4">
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded bg-zinc-800">
+                        {channel.thumbnail ? (
+                          <img src={channel.thumbnail} alt={channel.name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xl text-zinc-600">📺</div>
+                        )}
+                      </div>
                       
-                      {/* Sample releases */}
-                      {result.sampleReleases && result.sampleReleases.length > 0 && (
-                        <div className="mt-2 space-y-0.5">
-                          <p className="text-xs text-zinc-600">Uscite recenti:</p>
-                          {result.sampleReleases.slice(0, 3).map((release, i) => (
-                            <p key={i} className="text-xs text-zinc-500 truncate">
-                              • <span className="text-zinc-400">{release.artist}</span> - {release.title}
-                            </p>
-                          ))}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium text-white truncate">{channel.name}</h4>
+                          <span className="text-emerald-400 text-sm">Seleziona →</span>
                         </div>
-                      )}
+                        
+                        <p className="text-sm text-zinc-500">
+                          {channel.videoCount.toLocaleString()} video • {channel.subscriberCount.toLocaleString()} iscritti
+                        </p>
+                        
+                        {channel.sampleVideos.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            <p className="text-xs text-zinc-600">Video recenti:</p>
+                            {channel.sampleVideos.slice(0, 3).map((video, i) => (
+                              <p key={i} className="text-xs text-zinc-500 truncate">
+                                • <span className="text-zinc-400">{video.artist}</span> - {video.title}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-emerald-400 text-sm">Seleziona →</span>
                   </div>
                 ))}
               </div>
             )}
             
-            {/* Label selezionata */}
-            {selectedDiscogs && (
+            {/* Canale selezionato */}
+            {selectedChannel && (
               <div className="mt-3 flex items-center gap-3 rounded-lg border border-emerald-500/30 bg-emerald-900/20 p-3">
                 <div className="text-emerald-400">✓</div>
                 <div>
-                  <p className="text-white font-medium">{selectedDiscogs.name}</p>
-                  <p className="text-sm text-zinc-400">Da Discogs</p>
+                  <p className="text-white font-medium">{selectedChannel.name}</p>
+                  <p className="text-sm text-zinc-400">Canale YouTube • {selectedChannel.videoCount.toLocaleString()} video</p>
                 </div>
               </div>
             )}
@@ -387,13 +393,13 @@ export default function AddLabelPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm text-zinc-400">URL Discogs (opzionale)</label>
+            <label className="mb-2 block text-sm text-zinc-400">URL YouTube (opzionale)</label>
             <input
               type="url"
-              value={formData.discogsUrl}
-              onChange={(e) => setFormData({ ...formData, discogsUrl: e.target.value })}
+              value={formData.youtubeUrl}
+              onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
               className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
-              placeholder="https://www.discogs.com/label/12345"
+              placeholder="https://www.youtube.com/channel/..."
             />
           </div>
 
@@ -402,7 +408,7 @@ export default function AddLabelPage() {
             disabled={loading}
             className="w-full rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50"
           >
-            {loading ? 'Aggiungendo...' : 'Aggiungi Label'}
+            {loading ? 'Aggiungendo...' : selectedChannel ? `Aggiungi con ${selectedChannel.videoCount.toLocaleString()} video` : 'Aggiungi Label'}
           </button>
         </form>
 
@@ -410,10 +416,10 @@ export default function AddLabelPage() {
           <h2 className="mb-2 text-sm font-semibold text-white">Come funziona:</h2>
           <ol className="space-y-1 text-sm text-zinc-400 list-decimal list-inside">
             <li>Scrivi il nome della label</li>
-            <li>Seleziona da Discogs (se trovata)</li>
-            <li>Aggiungi al database</li>
-            <li>Clicca &quot;Avvia Matching&quot; per cercare su Spotify</li>
-            <li>Il sistema analizza automaticamente le tracce trovate</li>
+            <li>Seleziona il canale YouTube ufficiale</li>
+            <li>Il sistema scarica i video recenti</li>
+            <li>Cerca il match su Spotify per ogni traccia</li>
+            <li>Analizza l&apos;audio e costruisce il profilo label</li>
           </ol>
         </div>
       </div>
