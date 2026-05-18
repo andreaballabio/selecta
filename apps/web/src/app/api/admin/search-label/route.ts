@@ -38,7 +38,9 @@ export async function GET(request: NextRequest) {
     )
     
     if (!response.ok) {
-      return NextResponse.json({ error: 'Errore Spotify' }, { status: 500 })
+      const errorText = await response.text()
+      console.error('Spotify error:', response.status, errorText)
+      return NextResponse.json({ error: `Errore Spotify: ${response.status}` }, { status: 500 })
     }
     
     const data = await response.json()
