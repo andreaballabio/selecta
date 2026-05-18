@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const token = tokenData.access_token
     
     // Build URL manually
-    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=20&market=US`
+    const url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&market=US`
     
     console.log('Searching Spotify:', url)
     
