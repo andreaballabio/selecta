@@ -27,16 +27,24 @@ async function getSpotifyToken() {
 // Cerca traccia su Deezer (primario)
 async function searchDeezerTrack(query: string) {
   try {
+    console.log('Searching Deezer for:', query)
     const response = await fetch(
       `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=5`,
       { headers: { 'Accept': 'application/json' } }
     )
     
-    if (!response.ok) return []
+    if (!response.ok) {
+      console.log('Deezer search error:', response.status)
+      return []
+    }
     
     const data = await response.json()
+    console.log('Deezer response:', { total: data.total, results: data.data?.length })
     
-    if (!data.data || !Array.isArray(data.data)) return []
+    if (!data.data || !Array.isArray(data.data)) {
+      console.log('Deezer no data found')
+      return []
+    }
     
     return data.data.map((track: any) => ({
       id: `deezer_${track.id}`,
