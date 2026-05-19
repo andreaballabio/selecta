@@ -335,7 +335,7 @@ export default function LabelDetailPage() {
   const startAudioAnalysis = async () => {
     if (!dna) return
     
-    const pendingAnalysis = tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length
+    const pendingAnalysis = tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length
     if (pendingAnalysis === 0) return
     
     setProcessing(true)
@@ -1022,13 +1022,13 @@ export default function LabelDetailPage() {
                     <span className="text-emerald-400">✓ {dna.hasAudioAnalysis} analizzate</span>
                     <span>|</span>
                     <span className="text-yellow-400">
-                      ⏳ {tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length} da analizzare
+                      ⏳ {tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length} da analizzare
                     </span>
                   </div>
                   
                   <button
                     onClick={startAudioAnalysis}
-                    disabled={tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length === 0}
+                    disabled={tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length === 0}
                     className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:opacity-50"
                   >
                     🔬 Avvia Analisi Audio
@@ -1077,7 +1077,7 @@ export default function LabelDetailPage() {
                     <>
                       ⏱️ Analisi audio in corso: 1 traccia ogni 30 secondi per rispettare i limiti del worker.
                       <span className="ml-2 text-purple-400">
-                        ({tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length} tracce rimanenti)
+                        ({tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length} tracce rimanenti)
                       </span>
                     </>
                   )}
@@ -1119,7 +1119,7 @@ export default function LabelDetailPage() {
                             </div>
                           )}
                           {track.analysis_status === 'analyzing' && <span className="text-xs text-yellow-400">🔬 Analizzando...</span>}
-                          {track.analysis_status === 'pending' && track.status === 'matched' && <span className="text-xs text-zinc-500">⏳ In attesa</span>}
+                          {(track.analysis_status === 'pending' || !track.analysis_status) && track.status === 'matched' && <span className="text-xs text-zinc-500">⏳ In attesa</span>}
                           {track.analysis_status === 'failed' && <span className="text-xs text-red-400">✗ Errore</span>}
                           {(track.status !== 'matched' || !track.spotify_preview_url) && <span className="text-xs text-zinc-600">-</span>}
                         </td>

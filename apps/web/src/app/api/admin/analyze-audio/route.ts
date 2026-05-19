@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       matched: tracks?.filter(t => t.status === 'matched').length || 0,
       analyzed: tracks?.filter(t => t.analysis_status === 'analyzed').length || 0,
       analyzing: tracks?.filter(t => t.analysis_status === 'analyzing').length || 0,
-      pending: tracks?.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length || 0,
+      pending: tracks?.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || t.analysis_status === null)).length || 0,
       failed: tracks?.filter(t => t.analysis_status === 'failed').length || 0
     }
     
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
         .select('id, track_title, artist_name, spotify_preview_url')
         .eq('label_id', label_id)
         .eq('status', 'matched')
-        .eq('analysis_status', 'pending')
+        .or('analysis_status.eq.pending,analysis_status.is.null') // Gestisce tracce vecchie (NULL) e nuove (pending)
         .not('spotify_preview_url', 'is', null)
         .order('created_at', { ascending: true })
         .limit(1)
