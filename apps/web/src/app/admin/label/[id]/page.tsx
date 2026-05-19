@@ -332,30 +332,41 @@ export default function LabelDetailPage() {
             <h2 className="mb-4 font-semibold text-white">Aggiungi Tracce</h2>
             
             <p className="mb-4 text-sm text-zinc-400">
-              Incolla la lista tracce da Beatport/Traxsource (formato: Artista - Titolo)
+              Incolla la lista tracce da Beatport/Traxsource (formato: Artista - Titolo, oppure Titolo Mix Artista)
             </p>
             
             <textarea
               value={rawText}
-              onChange={(e) => {
-                setRawText(e.target.value)
-                parseText()
-              }}
+              onChange={(e) => setRawText(e.target.value)}
               className="mb-4 h-48 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white font-mono text-sm"
-              placeholder="Adam Beyer - Your Mind&#10;Charlotte de Witte - Selected&#10;..."
+              placeholder="Adam Beyer - Your Mind&#10;Cut The Noise Original Mix Fer BR&#10;..."
             />
             
-            {parsedCount > 0 && (
-              <p className="mb-4 text-sm text-emerald-400">{parsedCount} tracce riconosciute</p>
-            )}
+            <div className="flex items-center gap-4">
+              <button
+                onClick={parseText}
+                disabled={!rawText.trim()}
+                className="rounded-lg bg-zinc-700 px-4 py-2 text-white hover:bg-zinc-600 disabled:opacity-50"
+              >
+                🔍 Analizza Testo
+              </button>
+              
+              {parsedCount > 0 && (
+                <p className="text-sm text-emerald-400">
+                  {parsedCount} tracce riconosciute
+                </p>
+              )}
+            </div>
             
-            <button
-              onClick={addTracks}
-              disabled={!rawText.trim() || parsedCount === 0 || processing}
-              className="rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
-            >
-              {processing ? 'Aggiungendo...' : `Aggiungi ${parsedCount} Tracce`}
-            </button>
+            {parsedCount > 0 && (
+              <button
+                onClick={addTracks}
+                disabled={processing}
+                className="mt-4 rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {processing ? 'Aggiungendo...' : `Aggiungi ${parsedCount} Tracce`}
+              </button>
+            )}
           </div>
         )}
       </div>
