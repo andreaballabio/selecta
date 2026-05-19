@@ -65,8 +65,18 @@ export async function POST(request: NextRequest) {
     
     // Altrimenti, trova la prossima traccia da analizzare per la label
     if (label_id) {
-      // Query semplificata: cerca solo per status matched e preview presente
-      // Ignora completamente analysis_status per ora
+      // DEBUG: Prima vediamo TUTTE le tracce della label, senza filtri
+      const { data: allTracks, error: allError } = await supabase
+        .from('label_ingestion_queue')
+        .select('id, track_title, status, spotify_preview_url, analysis_status')
+        .eq('label_id', label_id)
+        .limit(20)
+      
+      if (allError) {
+        console.log('Supabase error:', allError)
+      }
+      
+      // Ora la query normale
       const { data: tracks, error } = await supabase
         .from('label_ingestion_queue')
         .select('id, track_title, artist_name, spotify_preview_url, analysis_status')
@@ -81,7 +91,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: false,
           error: error.message,
-          debug: { label_id }
+          debug: { label_id, all_error: allError?.message }
         })
       }
       
@@ -100,7 +110,13 @@ export async function POST(request: NextRequest) {
           debug: { 
             label_id, 
             total_tracks: tracks?.length || 0,
-            tracks_found: tracks?.map(t => ({ id: t.id, status: t.analysis_status }))
+            all_tracks_count: allTracks?.length || 0,
+            all_tracks: allTracks?.map(t => ({ 
+              id: t.id.slice(0,8), 
+              status: t.status, 
+              has_preview: !!t.spotify_preview_url,
+              analysis: t.analysis_status 
+            }))
           }
         })
       }
