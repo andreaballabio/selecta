@@ -79,10 +79,18 @@ export default function LabelDetailPage() {
     
     for (const line of lines) {
       const trimmed = line.trim()
-      // Pattern: "Artista - Titolo"
+      if (!trimmed || trimmed.length < 3) continue
+      
+      // Pattern 1: "Artista - Titolo" (standard)
       if (trimmed.match(/^(.+?)\s*[-–—]\s*(.+)/)) {
         count++
-      } else if (trimmed.includes(' - ')) {
+      }
+      // Pattern 2: "Titolo Mix Artista" (come nel tuo esempio)
+      else if (trimmed.match(/(.+?)\s+(Original Mix|Extended Mix|Remix|Edit)\s+(.+)/i)) {
+        count++
+      }
+      // Pattern 3: Parole multiple (probabilmente una traccia)
+      else if (trimmed.split(/\s+/).length >= 3) {
         count++
       }
     }
@@ -90,31 +98,70 @@ export default function LabelDetailPage() {
     setParsedCount(count)
   }
 
+  const extractTracks = (text: string) => {
+    const lines = text.split('\n')
+    const tracks: { artist: string; title: string }[] = []
+    
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.length < 3) continue
+      
+      // Pattern 1: "Artista - Titolo"
+      const dashMatch = trimmed.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|$)/)
+      if (dashMatch) {
+        tracks.push({
+          artist: dashMatch[1].trim(),
+          title: dashMatch[2].trim()
+        })
+        continue
+      }
+      
+      // Pattern 2: "Titolo Mix Artista" (es: "Cut The Noise Original Mix Fer BR")
+      const mixMatch = trimmed.match(/^(.+?)\s+(Original Mix|Extended Mix|Club Mix|Radio Edit|Remix|Edit)\s+(.+)$/i)
+      if (mixMatch) {
+        tracks.push({
+          artist: mixMatch[3].trim(),
+          title: `${mixMatch[1].trim()} ${mixMatch[2].trim()}`
+        })
+        continue
+      }
+      
+      // Pattern 3: "Titolo (Mix) Artista"
+      const parenMatch = trimmed.match(/^(.+?)\s*[\(\[](.+?)[\)\]]\s*(.+)$/)
+      if (parenMatch) {
+        tracks.push({
+          artist: parenMatch[3].trim(),
+          title: `${parenMatch[1].trim()} (${parenMatch[2].trim()})`
+        })
+        continue
+      }
+      
+      // Pattern 4: Fallback - ultima parola come artista, resto come titolo
+      const words = trimmed.split(/\s+/)
+      if (words.length >= 2) {
+        // Prova: ultime 1-2 parole come artista
+        const artist = words.slice(-2).join(' ')
+        const title = words.slice(0, -2).join(' ')
+        if (title && artist) {
+          tracks.push({ artist, title })
+        }
+      }
+    }
+    
+    return tracks
+  }
+
   const addTracks = async () => {
     if (!rawText.trim() || parsedCount === 0) return
     
     setProcessing(true)
     
-    const lines = rawText.split('\n')
-    const tracksToAdd = []
+    // Usa la nuova funzione extractTracks
+    const tracksToAdd = extractTracks(rawText)
     
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed) continue
-      
-      const match = trimmed.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|$)/)
-      if (match) {
-        tracksToAdd.push({
-          artist: match[1].trim(),
-          title: match[2].trim()
-        })
-      } else if (trimmed.includes(' - ')) {
-        const parts = trimmed.split(' - ')
-        tracksToAdd.push({
-          artist: parts[0].trim(),
-          title: parts.slice(1).join(' - ').trim()
-        })
-      }
+    if (tracksToAdd.length === 0) {
+      setProcessing(false)
+      return
     }
     
     try {
