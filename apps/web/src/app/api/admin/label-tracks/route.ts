@@ -41,6 +41,14 @@ export async function GET(request: NextRequest) {
         spotify_duration_ms,
         spotify_match_confidence,
         suggested_matches,
+        analysis_status,
+        bpm,
+        key,
+        scale,
+        energy,
+        lufs,
+        duration,
+        audio_embedding,
         created_at
       `)
       .eq('label_id', labelId)

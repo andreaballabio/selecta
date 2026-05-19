@@ -19,6 +19,15 @@ interface Track {
   spotify_match_confidence: number
   suggested_matches: any[] | null
   created_at: string
+  // Analisi audio
+  analysis_status: string
+  bpm: number | null
+  key: string | null
+  scale: string | null
+  energy: number | null
+  lufs: number | null
+  duration: number | null
+  audio_embedding: number[] | null
 }
 
 interface SpotifyTrack {
@@ -145,6 +154,7 @@ export default function LabelDetailPage() {
     const analyzed = matched + needsReview + failed
     
     const withPreview = trackList.filter(t => t.spotify_preview_url).length
+    const withAudioAnalysis = trackList.filter(t => t.analysis_status === 'analyzed').length
     
     // Calcola confidence media
     const confidences = trackList
@@ -167,10 +177,10 @@ export default function LabelDetailPage() {
     let dnaStatus: LabelDNA['dnaStatus'] = 'incomplete'
     let dnaProgress = 0
     
-    if (total >= 50 && coverageScore >= 80 && qualityScore >= 80) {
+    if (total >= 50 && coverageScore >= 80 && qualityScore >= 80 && withAudioAnalysis >= matched * 0.8) {
       dnaStatus = 'excellent'
       dnaProgress = 100
-    } else if (total >= 20 && coverageScore >= 60 && qualityScore >= 60) {
+    } else if (total >= 20 && coverageScore >= 60 && qualityScore >= 60 && withAudioAnalysis >= matched * 0.5) {
       dnaStatus = 'ready'
       dnaProgress = 75
     } else if (total >= 10 && coverageScore >= 40) {
@@ -187,7 +197,7 @@ export default function LabelDetailPage() {
       matchedTracks: matched,
       needsReviewTracks: needsReview,
       failedTracks: failed,
-      hasAudioAnalysis: matched,
+      hasAudioAnalysis: withAudioAnalysis,
       hasPreview: withPreview,
       averageConfidence: avgConfidence,
       coverageScore,
@@ -322,32 +332,35 @@ export default function LabelDetailPage() {
     }
   }
 
-  const startMatching = async () => {
-    if (!dna || dna.totalTracks === 0) return
+  const startAudioAnalysis = async () => {
+    if (!dna) return
+    
+    const pendingAnalysis = tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length
+    if (pendingAnalysis === 0) return
     
     setProcessing(true)
     setIsPaused(false)
     
     try {
-      // Processa il primo batch immediatamente
-      await processBatch()
+      // Processa la prima traccia immediatamente
+      await analyzeNextTrack()
       
-      // Avvia il timer per i batch successivi
-      startBatchTimer()
+      // Avvia il timer per le tracce successive (30 secondi di intervallo)
+      startAnalysisTimer()
       
     } catch (error) {
-      console.error('Error starting matching:', error)
+      console.error('Error starting audio analysis:', error)
       setProcessing(false)
     }
   }
 
-  // Processa un singolo batch di 5 tracce
-  const processBatch = async () => {
+  // Analizza la prossima traccia
+  const analyzeNextTrack = async () => {
     try {
-      const response = await fetch('/api/admin/process-ingestion', {
+      const response = await fetch('/api/admin/analyze-audio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label_id: labelId, batch_size: 5 })
+        body: JSON.stringify({ label_id: labelId })
       })
       
       const data = await response.json()
@@ -355,10 +368,10 @@ export default function LabelDetailPage() {
       // Aggiorna i dati
       await fetchLabelData()
       
-      // Controlla se ci sono ancora tracce pending
-      const pendingCount = tracks.filter(t => t.status === 'pending').length
+      // Controlla se ci sono ancora tracce da analizzare
+      const pendingAnalysis = tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length
       
-      if (pendingCount === 0 || data.remaining === 0) {
+      if (pendingAnalysis === 0 || data.done) {
         // Fine analisi
         setProcessing(false)
         setCountdown(0)
@@ -366,24 +379,28 @@ export default function LabelDetailPage() {
           clearInterval(batchTimerRef.current)
           batchTimerRef.current = null
         }
+        if (countdownRef.current) {
+          clearInterval(countdownRef.current)
+          countdownRef.current = null
+        }
       }
       
       return data
     } catch (error) {
-      console.error('Error processing batch:', error)
+      console.error('Error analyzing track:', error)
       throw error
     }
   }
 
-  // Timer per il prossimo batch (12 secondi = 5 richieste al minuto)
-  const BATCH_INTERVAL = 12
+  // Timer per l'analisi (30 secondi tra una traccia e l'altra)
+  const ANALYSIS_INTERVAL = 30
 
-  const startBatchTimer = () => {
+  const startAnalysisTimer = () => {
     // Pulisci timer precedenti
     if (batchTimerRef.current) clearInterval(batchTimerRef.current)
     if (countdownRef.current) clearInterval(countdownRef.current)
     
-    setCountdown(BATCH_INTERVAL)
+    setCountdown(ANALYSIS_INTERVAL)
     
     // Timer per il countdown visivo
     countdownRef.current = setInterval(() => {
@@ -395,12 +412,12 @@ export default function LabelDetailPage() {
       })
     }, 1000)
     
-    // Timer per processare il prossimo batch
+    // Timer per analizzare la prossima traccia
     batchTimerRef.current = setInterval(async () => {
       if (isPaused) return
       
-      const pendingCount = tracks.filter(t => t.status === 'pending').length
-      if (pendingCount === 0) {
+      const pendingAnalysis = tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length
+      if (pendingAnalysis === 0) {
         // Fine
         setProcessing(false)
         setCountdown(0)
@@ -409,11 +426,18 @@ export default function LabelDetailPage() {
         return
       }
       
-      // Processa prossimo batch
-      await processBatch()
+      // Analizza prossima traccia
+      await analyzeNextTrack()
       // Reset countdown
-      setCountdown(BATCH_INTERVAL)
-    }, BATCH_INTERVAL * 1000)
+      setCountdown(ANALYSIS_INTERVAL)
+    }, ANALYSIS_INTERVAL * 1000)
+  }
+
+  // Mantieni startMatching per compatibilità (ora reindirizza a startAudioAnalysis)
+  const startMatching = async () => {
+    // Questa funzione esiste per non rompere eventuali riferimenti
+    // ma l'utente dovrebbe usare la verifica Tinder-style per i match
+    console.log('Usa la tab "Verifica Match" per i nuovi match')
   }
 
   // Pausa/Riprendi
@@ -991,19 +1015,30 @@ export default function LabelDetailPage() {
               <h2 className="font-semibold text-white">Lista Tracce</h2>
               
               {!processing ? (
-                <button
-                  onClick={startMatching}
-                  disabled={dna.totalTracks === 0}
-                  className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
-                >
-                  🔍 Avvia Matching Spotify
-                </button>
+                <div className="flex items-center gap-3">
+                  {/* Contatori */}
+                  <div className="flex items-center gap-2 text-sm text-zinc-400">
+                    <span className="text-emerald-400">✓ {dna.hasAudioAnalysis} analizzate</span>
+                    <span>|</span>
+                    <span className="text-yellow-400">
+                      ⏳ {tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length} da analizzare
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={startAudioAnalysis}
+                    disabled={tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length === 0}
+                    className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:opacity-50"
+                  >
+                    🔬 Avvia Analisi Audio
+                  </button>
+                </div>
               ) : (
                 <div className="flex items-center gap-3">
                   {/* Countdown */}
                   <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-                    <span className="text-sm text-zinc-400">Prossima analisi:</span>
-                    <span className="text-lg font-bold text-emerald-400">
+                    <span className="text-sm text-zinc-400">Prossima traccia:</span>
+                    <span className="text-lg font-bold text-purple-400">
                       {isPaused ? '⏸️ PAUSA' : `${countdown}s`}
                     </span>
                   </div>
@@ -1036,12 +1071,12 @@ export default function LabelDetailPage() {
               <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
                 <p className="text-sm text-zinc-400">
                   {isPaused ? (
-                    '⏸️ Analisi in pausa. Clicca "Riprendi" per continuare.'
+                    '⏸️ Analisi audio in pausa. Clicca "Riprendi" per continuare.'
                   ) : (
                     <>
-                      ⏱️ Analisi in corso: 5 tracce ogni 12 secondi per rispettare i rate limit di Spotify.
-                      <span className="ml-2 text-emerald-400">
-                        ({tracks.filter(t => t.status === 'pending').length} tracce rimanenti)
+                      ⏱️ Analisi audio in corso: 1 traccia ogni 30 secondi per rispettare i limiti del worker.
+                      <span className="ml-2 text-purple-400">
+                        ({tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length} tracce rimanenti)
                       </span>
                     </>
                   )}
@@ -1057,7 +1092,7 @@ export default function LabelDetailPage() {
                       <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Artista</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Titolo</th>
                       <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Stato</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Confidence</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Analisi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
@@ -1075,10 +1110,17 @@ export default function LabelDetailPage() {
                           {track.status === 'failed' && <span className="rounded bg-red-900/50 px-2 py-1 text-xs text-red-400">✗ Non trovato</span>}
                           {track.status === 'pending' && <span className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-400">⏳ In attesa</span>}
                         </td>
-                        <td className="px-4 py-3 text-sm text-zinc-400">
-                          {track.spotify_match_confidence 
-                            ? `${(track.spotify_match_confidence * 100).toFixed(0)}%` 
-                            : '-'}
+                        <td className="px-4 py-3">
+                          {track.analysis_status === 'analyzed' && (
+                            <div className="text-xs text-purple-400">
+                              <span>✓ {track.bpm?.toFixed(0)} BPM</span>
+                              <span className="ml-2">{track.key} {track.scale}</span>
+                            </div>
+                          )}
+                          {track.analysis_status === 'analyzing' && <span className="text-xs text-yellow-400">🔬 Analizzando...</span>}
+                          {track.analysis_status === 'pending' && track.status === 'matched' && <span className="text-xs text-zinc-500">⏳ In attesa</span>}
+                          {track.analysis_status === 'failed' && <span className="text-xs text-red-400">✗ Errore</span>}
+                          {(track.status !== 'matched' || !track.spotify_preview_url) && <span className="text-xs text-zinc-600">-</span>}
                         </td>
                       </tr>
                     ))}
