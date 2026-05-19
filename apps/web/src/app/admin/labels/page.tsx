@@ -117,10 +117,10 @@ export default function AdminLabelsPage() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-white">Gestione Label</h1>
           <a
-            href="/admin/bulk-add"
+            href="/admin/create-label"
             className="rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-black hover:bg-emerald-400"
           >
-            + Aggiungi Label
+            + Crea Label
           </a>
         </div>
 
