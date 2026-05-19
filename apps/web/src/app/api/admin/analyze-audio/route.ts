@@ -76,11 +76,16 @@ export async function POST(request: NextRequest) {
         .limit(1)
         .single()
       
+      if (error) {
+        console.log('Supabase error:', error)
+      }
+      
       if (error || !track) {
         return NextResponse.json({
           success: true,
           message: 'Nessuna traccia da analizzare',
-          done: true
+          done: true,
+          debug: { error: error?.message, label_id }
         })
       }
       
