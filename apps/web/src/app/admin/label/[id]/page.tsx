@@ -404,7 +404,7 @@ export default function LabelDetailPage() {
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
             <p className="text-sm text-zinc-500">Qualità Matching</p>
             <div className="mt-2 flex items-end justify-between">
-              <p className="text-3xl font-bold text-white">{dna.qualityScore}%>
+              <p className="text-3xl font-bold text-white">{dna.qualityScore}%</p>
               <p className="text-xs text-zinc-500">Confidence media</p>
             </div>
             <div className="mt-2 h-2 rounded-full bg-zinc-800">
