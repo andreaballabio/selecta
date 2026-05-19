@@ -140,16 +140,20 @@ export async function POST(request: NextRequest) {
       if (!spotify_track.preview_url) {
         try {
           const token = await getSpotifyToken()
+          console.log('Fetching track details for:', spotify_track.id)
           const detailResponse = await fetch(
             `https://api.spotify.com/v1/tracks/${spotify_track.id}`,
             { headers: { 'Authorization': `Bearer ${token}` } }
           )
           if (detailResponse.ok) {
             const fullTrack = await detailResponse.json()
+            console.log('Track details preview_url:', fullTrack.preview_url)
             trackDetails = {
               ...spotify_track,
               preview_url: fullTrack.preview_url
             }
+          } else {
+            console.log('Track details error:', detailResponse.status)
           }
         } catch (e) {
           console.log('Could not fetch track details:', e)
