@@ -6,19 +6,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY! || process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// GET: Lista tutte le label
+// GET: Lista tutte le label o singola label
 export async function GET(request: NextRequest) {
   try {
-    const { data: labels, error } = await supabase
-      .from('labels')
-      .select('id, name, slug, source, primary_genre, cataloged_tracks, created_at')
-      .order('created_at', { ascending: false })
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
     
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (id) {
+      // Singola label
+      const { data: label, error } = await supabase
+        .from('labels')
+        .select('id, name, slug, source, primary_genre, cataloged_tracks, created_at')
+        .eq('id', id)
+        .single()
+      
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      
+      if (!label) {
+        return NextResponse.json({ error: 'Label non trovata' }, { status: 404 })
+      }
+      
+      return NextResponse.json({ label })
+    } else {
+      // Lista tutte le label
+      const { data: labels, error } = await supabase
+        .from('labels')
+        .select('id, name, slug, source, primary_genre, cataloged_tracks, created_at')
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      
+      return NextResponse.json({ labels: labels || [] })
     }
-    
-    return NextResponse.json({ labels: labels || [] })
     
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
