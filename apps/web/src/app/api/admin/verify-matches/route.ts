@@ -135,20 +135,41 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'confirm' && spotify_track) {
+      // Se non c'è preview_url, recupera i dettagli completi della traccia
+      let trackDetails = spotify_track
+      if (!spotify_track.preview_url) {
+        try {
+          const token = await getSpotifyToken()
+          const detailResponse = await fetch(
+            `https://api.spotify.com/v1/tracks/${spotify_track.id}`,
+            { headers: { 'Authorization': `Bearer ${token}` } }
+          )
+          if (detailResponse.ok) {
+            const fullTrack = await detailResponse.json()
+            trackDetails = {
+              ...spotify_track,
+              preview_url: fullTrack.preview_url
+            }
+          }
+        } catch (e) {
+          console.log('Could not fetch track details:', e)
+        }
+      }
+      
       // Conferma il match
       const { error } = await supabase
         .from('label_ingestion_queue')
         .update({
           status: 'matched',
-          spotify_track_id: spotify_track.id,
-          spotify_track_name: spotify_track.name,
-          spotify_artist_name: spotify_track.artist,
-          spotify_url: spotify_track.url,
-          spotify_album_name: spotify_track.album,
-          spotify_album_image: spotify_track.image,
-          spotify_preview_url: spotify_track.preview_url,
-          spotify_duration_ms: spotify_track.duration_ms,
-          spotify_popularity: spotify_track.popularity,
+          spotify_track_id: trackDetails.id,
+          spotify_track_name: trackDetails.name,
+          spotify_artist_name: trackDetails.artist,
+          spotify_url: trackDetails.url,
+          spotify_album_name: trackDetails.album,
+          spotify_album_image: trackDetails.image,
+          spotify_preview_url: trackDetails.preview_url,
+          spotify_duration_ms: trackDetails.duration_ms,
+          spotify_popularity: trackDetails.popularity,
           spotify_match_confidence: 0.95, // Confermato manualmente = alta confidence
           reviewed_at: new Date().toISOString()
         })
