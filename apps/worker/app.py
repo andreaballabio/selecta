@@ -29,9 +29,9 @@ app.add_middleware(
 )
 
 class TrackFeatures(BaseModel):
-    bpm: float
-    key: str
-    scale: str
+    bpm: Optional[float] = None  # None per preview
+    key: Optional[str] = None    # None per preview  
+    scale: Optional[str] = None  # None per preview
     energy: float
     lufs: float
     duration: float
@@ -40,11 +40,13 @@ class TrackFeatures(BaseModel):
     zero_crossing_rate: float
     mfcc_mean: List[float]
     embedding: List[float]
+    analysis_type: str = "full"  # "preview" o "full"
 
 class AnalysisRequest(BaseModel):
     track_id: str
     file_url: str
     artist_level: str = "emerging"
+    is_preview: bool = False  # True = preview 30s (no BPM/Key), False = full track (completa)
 
 class AnalysisResponse(BaseModel):
     track_id: str
@@ -103,17 +105,25 @@ async def analyze_track(request: AnalysisRequest):
             audio_mono = np.mean(audio_stereo, axis=1)
             
             logger.info(f"Audio loaded: stereo {audio_stereo.shape}, mono {audio_mono.shape}, {sample_rate}Hz")
+            logger.info(f"Analysis type: {'preview (no BPM/Key)' if request.is_preview else 'full track'}")
             
-            # BPM - use mono
-            rhythm_extractor = es.RhythmExtractor2013()
-            rhythm_result = rhythm_extractor(audio_mono)
-            bpm = float(rhythm_result[0])
+            # BPM e Key solo per full track, non per preview
+            if not request.is_preview:
+                # BPM - use mono
+                rhythm_extractor = es.RhythmExtractor2013()
+                rhythm_result = rhythm_extractor(audio_mono)
+                bpm = float(rhythm_result[0])
+                
+                # Key detection - use mono
+                key_extractor = es.KeyExtractor()
+                key, scale, _ = key_extractor(audio_mono)
+            else:
+                # Per preview, non calcoliamo BPM/Key (troppo imprecisi)
+                bpm = None
+                key = None
+                scale = None
             
-            # Key detection - use mono
-            key_extractor = es.KeyExtractor()
-            key, scale, _ = key_extractor(audio_mono)
-            
-            # Loudness (LUFS) - use stereo
+            # Loudness (LUFFS) - use stereo
             loudness = es.LoudnessEBUR128()
             _, _, integrated_loudness, _ = loudness(audio_stereo)
             lufs = float(integrated_loudness)
@@ -151,18 +161,24 @@ async def analyze_track(request: AnalysisRequest):
             y, sr = librosa.load(tmp_path, sr=None, mono=True)
             duration = librosa.get_duration(y=y, sr=sr)
             
-            # BPM
-            tempo_result = librosa.beat.beat_track(y=y, sr=sr)
-            bpm = float(tempo_result[0]) if isinstance(tempo_result, tuple) else float(tempo_result)
-            
-            # Key
-            chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
-            chroma_mean = np.mean(chroma, axis=1)
-            key_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
-            key_idx = int(np.argmax(chroma_mean))
-            key = key_names[key_idx]
-            minor_third = (key_idx + 3) % 12
-            scale = 'minor' if chroma_mean[minor_third] > chroma_mean[key_idx] * 0.7 else 'major'
+            # BPM e Key solo per full track
+            if not request.is_preview:
+                # BPM
+                tempo_result = librosa.beat.beat_track(y=y, sr=sr)
+                bpm = float(tempo_result[0]) if isinstance(tempo_result, tuple) else float(tempo_result)
+                
+                # Key
+                chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
+                chroma_mean = np.mean(chroma, axis=1)
+                key_names = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+                key_idx = int(np.argmax(chroma_mean))
+                key = key_names[key_idx]
+                minor_third = (key_idx + 3) % 12
+                scale = 'minor' if chroma_mean[minor_third] > chroma_mean[key_idx] * 0.7 else 'major'
+            else:
+                bpm = None
+                key = None
+                scale = None
             
             # Energy
             rms = librosa.feature.rms(y=y)[0]
@@ -189,8 +205,11 @@ async def analyze_track(request: AnalysisRequest):
         for i in range(min(13, len(mfcc_mean))):
             embedding.append(mfcc_mean[i])
             embedding.append(mfcc_mean[i] * 0.5)  # Pseudo-std
-        # Add other features
-        embedding.append(float(bpm) / 200.0)
+        # Add other features (BPM solo se disponibile)
+        if bpm is not None:
+            embedding.append(float(bpm) / 200.0)
+        else:
+            embedding.append(0.0)  # Placeholder per preview
         embedding.append(float(energy))
         embedding.append(float(spectral_centroid) / 8000.0)
         embedding.append(float(spectral_rolloff) / 16000.0)
@@ -209,14 +228,15 @@ async def analyze_track(request: AnalysisRequest):
             emb_array = emb_array / norm
         embedding = emb_array.tolist()
         
-        logger.info(f"Analysis complete: BPM={float(bpm):.1f}, Key={key} {scale}")
+        analysis_type = "preview" if request.is_preview else "full"
+        logger.info(f"Analysis complete: type={analysis_type}, BPM={bpm if bpm else 'N/A'}, Key={key if key else 'N/A'}")
         
         return AnalysisResponse(
             track_id=request.track_id,
             features=TrackFeatures(
-                bpm=float(bpm),
-                key=str(key),
-                scale=str(scale).lower(),
+                bpm=bpm,  # Può essere None per preview
+                key=key,  # Può essere None per preview
+                scale=scale,  # Può essere None per preview
                 energy=float(energy),
                 lufs=float(lufs),
                 duration=float(duration),
@@ -224,7 +244,8 @@ async def analyze_track(request: AnalysisRequest):
                 spectral_rolloff=float(spectral_rolloff),
                 zero_crossing_rate=float(zero_crossing_rate),
                 mfcc_mean=mfcc_mean,
-                embedding=embedding
+                embedding=embedding,
+                analysis_type=analysis_type
             ),
             success=True
         )

@@ -186,7 +186,8 @@ async function analyzeSingleTrack(trackId: string) {
         file_url: track.spotify_preview_url,
         artist_level: 'established',
         title: track.track_title,
-        artist: track.artist_name
+        artist: track.artist_name,
+        is_preview: true  // Sempre preview per tracce label (30s)
       }),
       timeout: 120000 // 2 minuti timeout
     } as any)
