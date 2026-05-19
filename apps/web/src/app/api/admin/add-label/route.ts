@@ -103,7 +103,7 @@ async function searchYouTubeChannels(query: string) {
 async function getChannelVideos(channelId: string, maxResults: number = 100) {
   const videos = []
   let pageToken = ''
-  const maxPages = 5
+  const maxPages = 3 // Ridotto da 5 a 3 per risparmiare quota
   let pages = 0
   
   while (pages < maxPages) {
@@ -155,12 +155,12 @@ async function getChannelVideos(channelId: string, maxResults: number = 100) {
               console.log(`Video: ${title}, Duration: ${totalMinutes.toFixed(2)}min, Date: ${publishedAt.toISOString()}`)
             }
             
-            // FILTRO DATA: ultimi 3 anni
+            // FILTRO DATA: ultimi 5 anni (aumentato da 3)
             const cutoffDate = new Date()
-            cutoffDate.setFullYear(cutoffDate.getFullYear() - 3)
+            cutoffDate.setFullYear(cutoffDate.getFullYear() - 5)
             if (publishedAt < cutoffDate) {
               if (title.toLowerCase().includes('solid') || title.toLowerCase().includes('groove')) {
-                console.log(`  -> SKIPPED: too old`)
+                console.log(`  -> SKIPPED: too old (${publishedAt.toISOString()})`)
               }
               continue
             }
