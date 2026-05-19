@@ -65,47 +65,43 @@ export async function POST(request: NextRequest) {
     
     // Altrimenti, trova la prossima traccia da analizzare per la label
     if (label_id) {
-      // Prima prova con analysis_status = 'pending' o NULL
-      let { data: track, error } = await supabase
+      // Query semplificata: cerca solo per status matched e preview presente
+      // Ignora completamente analysis_status per ora
+      const { data: tracks, error } = await supabase
         .from('label_ingestion_queue')
-        .select('id, track_title, artist_name, spotify_preview_url')
+        .select('id, track_title, artist_name, spotify_preview_url, analysis_status')
         .eq('label_id', label_id)
         .eq('status', 'matched')
-        .or('analysis_status.eq.pending,analysis_status.is.null')
         .not('spotify_preview_url', 'is', null)
         .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle() // Usa maybeSingle invece di single per non fare errore se vuoto
-      
-      // Se non trova nulla, prova anche con analysis_status vuoto
-      if (!track && !error) {
-        const { data: track2, error: error2 } = await supabase
-          .from('label_ingestion_queue')
-          .select('id, track_title, artist_name, spotify_preview_url')
-          .eq('label_id', label_id)
-          .eq('status', 'matched')
-          .eq('analysis_status', '')
-          .not('spotify_preview_url', 'is', null)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle()
-        
-        if (track2) {
-          track = track2
-          error = error2
-        }
-      }
+        .limit(10)
       
       if (error) {
         console.log('Supabase error:', error)
+        return NextResponse.json({
+          success: false,
+          error: error.message,
+          debug: { label_id }
+        })
       }
       
-      if (error || !track) {
+      // Filtra manualmente quelle già analizzate
+      const track = tracks?.find(t => 
+        t.analysis_status === null || 
+        t.analysis_status === '' || 
+        t.analysis_status === 'pending'
+      )
+      
+      if (!track) {
         return NextResponse.json({
           success: true,
           message: 'Nessuna traccia da analizzare',
           done: true,
-          debug: { error: error?.message, label_id }
+          debug: { 
+            label_id, 
+            total_tracks: tracks?.length || 0,
+            tracks_found: tracks?.map(t => ({ id: t.id, status: t.analysis_status }))
+          }
         })
       }
       
