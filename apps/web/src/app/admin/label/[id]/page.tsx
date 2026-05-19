@@ -369,12 +369,12 @@ export default function LabelDetailPage() {
       await fetchLabelData()
       
       // Controlla se ci sono ancora tracce da analizzare
-      const pendingAnalysis = tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length
-      
-      if (pendingAnalysis === 0 || data.done) {
+      // Usa i dati aggiornati dalla fetch, non lo stato stale
+      if (data.done || data.message === 'Nessuna traccia da analizzare') {
         // Fine analisi
         setProcessing(false)
         setCountdown(0)
+        setIsPaused(false)
         if (batchTimerRef.current) {
           clearInterval(batchTimerRef.current)
           batchTimerRef.current = null
@@ -383,9 +383,14 @@ export default function LabelDetailPage() {
           clearInterval(countdownRef.current)
           countdownRef.current = null
         }
+        return false // Non ci sono più tracce
       }
       
-      return data
+      if (!data.success) {
+        console.error('Analysis failed:', data.error)
+      }
+      
+      return true // C'è stata una traccia processata
     } catch (error) {
       console.error('Error analyzing track:', error)
       throw error
@@ -416,19 +421,15 @@ export default function LabelDetailPage() {
     batchTimerRef.current = setInterval(async () => {
       if (isPaused) return
       
-      const pendingAnalysis = tracks.filter(t => t.status === 'matched' && t.analysis_status === 'pending').length
-      if (pendingAnalysis === 0) {
-        // Fine
-        setProcessing(false)
-        setCountdown(0)
-        if (batchTimerRef.current) clearInterval(batchTimerRef.current)
-        if (countdownRef.current) clearInterval(countdownRef.current)
+      // Analizza prossima traccia e controlla se è finita
+      const hasMore = await analyzeNextTrack()
+      
+      if (!hasMore) {
+        // Fine, non ci sono più tracce
         return
       }
       
-      // Analizza prossima traccia
-      await analyzeNextTrack()
-      // Reset countdown
+      // Reset countdown per la prossima
       setCountdown(ANALYSIS_INTERVAL)
     }, ANALYSIS_INTERVAL * 1000)
   }
