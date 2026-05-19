@@ -9,9 +9,6 @@ import tempfile
 import logging
 import asyncio
 
-# Import ingestion modules
-from src.ingestion.pipeline import process_ingestion_queue
-
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
@@ -261,63 +258,6 @@ async def analyze_track(request: AnalysisRequest):
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
             logger.info("Cleaned up temp file")
-
-
-# Ingestion Pipeline Endpoints
-class IngestionRequest(BaseModel):
-    label_id: Optional[str] = None
-    batch_size: int = 10
-
-@app.post("/ingestion/process")
-async def process_ingestion(request: IngestionRequest):
-    """Processa la coda di ingestion per trovare match su Spotify"""
-    try:
-        logger.info(f"Processing ingestion queue for label: {request.label_id or 'all'}")
-        stats = await process_ingestion_queue(
-            label_id=request.label_id,
-            batch_size=request.batch_size
-        )
-        return {
-            "success": True,
-            "stats": stats
-        }
-    except Exception as e:
-        logger.error(f"Ingestion error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/ingestion/stats")
-async def get_ingestion_stats(label_id: Optional[str] = None):
-    """Ottiene statistiche sulla coda di ingestion"""
-    try:
-        from supabase import create_client
-        
-        supabase = create_client(
-            os.getenv("SUPABASE_URL"),
-            os.getenv("SUPABASE_SERVICE_KEY")
-        )
-        
-        query = supabase.table("label_ingestion_queue").select("status", count="exact")
-        
-        if label_id:
-            query = query.eq("label_id", label_id)
-        
-        response = query.execute()
-        
-        # Conta per status
-        status_counts = {}
-        for item in response.data:
-            status = item.get("status", "unknown")
-            status_counts[status] = status_counts.get(status, 0) + 1
-        
-        return {
-            "success": True,
-            "counts": status_counts,
-            "total": len(response.data)
-        }
-    except Exception as e:
-        logger.error(f"Stats error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
