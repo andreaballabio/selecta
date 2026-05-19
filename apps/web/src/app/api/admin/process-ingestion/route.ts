@@ -201,10 +201,25 @@ export async function POST(request: NextRequest) {
           .update({
             status,
             spotify_track_id: bestMatch?.id,
+            spotify_track_name: bestMatch?.name,
+            spotify_artist_name: spotifyArtist,
+            spotify_url: bestMatch?.external_urls?.spotify,
+            spotify_album_name: bestMatch?.album?.name,
+            spotify_album_image: bestMatch?.album?.images?.[0]?.url,
+            spotify_duration_ms: bestMatch?.duration_ms,
+            spotify_popularity: bestMatch?.popularity,
             spotify_preview_url: bestMatch?.preview_url,
             spotify_match_confidence: confidence,
-            artist_name: spotifyArtist,
-            track_title: spotifyTitle,
+            suggested_matches: confidence < 0.75 ? searchResults.slice(0, 3).map((t: any) => ({
+              id: t.id,
+              name: t.name,
+              artist: t.artists?.map((a: any) => a.name).join(', '),
+              album: t.album?.name,
+              image: t.album?.images?.[0]?.url,
+              preview_url: t.preview_url,
+              url: t.external_urls?.spotify,
+              duration_ms: t.duration_ms
+            })) : null,
             attempts: track.attempts + 1
           })
           .eq('id', track.id)

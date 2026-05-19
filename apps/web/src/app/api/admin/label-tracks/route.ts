@@ -26,7 +26,23 @@ export async function GET(request: NextRequest) {
     // Query tracce
     let query = supabase
       .from('label_ingestion_queue')
-      .select('id, track_title, artist_name, status, spotify_match_confidence, spotify_preview_url, created_at')
+      .select(`
+        id, 
+        track_title, 
+        artist_name, 
+        status, 
+        spotify_track_id,
+        spotify_track_name,
+        spotify_artist_name,
+        spotify_url,
+        spotify_album_name,
+        spotify_album_image,
+        spotify_preview_url,
+        spotify_duration_ms,
+        spotify_match_confidence,
+        suggested_matches,
+        created_at
+      `)
       .eq('label_id', labelId)
       .order('created_at', { ascending: false })
     

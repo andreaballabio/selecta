@@ -8,9 +8,31 @@ interface Track {
   track_title: string
   artist_name: string
   status: string
-  spotify_match_confidence: number
+  spotify_track_id: string | null
+  spotify_track_name: string | null
+  spotify_artist_name: string | null
+  spotify_url: string | null
+  spotify_album_name: string | null
+  spotify_album_image: string | null
   spotify_preview_url: string | null
+  spotify_duration_ms: number | null
+  spotify_match_confidence: number
+  suggested_matches: any[] | null
   created_at: string
+}
+
+interface SpotifyTrack {
+  id: string
+  name: string
+  artist: string
+  album: string
+  image: string
+  preview_url: string | null
+  url: string
+  duration_ms: number
+  duration_formatted: string
+  popularity: number
+  explicit: boolean
 }
 
 interface Label {
@@ -61,6 +83,16 @@ export default function LabelDetailPage() {
   const [activeTab, setActiveTab] = useState<'dna' | 'tracks' | 'add' | 'verify'>('dna')
   const [processing, setProcessing] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
+  
+  // Modal dettagli traccia
+  const [showTrackModal, setShowTrackModal] = useState(false)
+  const [modalTrack, setModalTrack] = useState<Track | null>(null)
+  
+  // Ricerca manuale Spotify
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([])
+  const [searching, setSearching] = useState(false)
+  const [showSearchPanel, setShowSearchPanel] = useState(false)
 
   useEffect(() => {
     if (labelId) {
@@ -322,6 +354,81 @@ export default function LabelDetailPage() {
     }
   }
 
+  // Apri modal con dettagli traccia
+  const openTrackModal = (track: Track) => {
+    setModalTrack(track)
+    setShowTrackModal(true)
+    setShowSearchPanel(false)
+    setSearchResults([])
+    setSearchQuery(`${track.artist_name} ${track.track_title}`)
+  }
+
+  // Chiudi modal
+  const closeTrackModal = () => {
+    setShowTrackModal(false)
+    setModalTrack(null)
+    setShowSearchPanel(false)
+    setSearchResults([])
+  }
+
+  // Cerca tracce su Spotify
+  const searchSpotify = async () => {
+    if (!searchQuery.trim() || searchQuery.length < 3) return
+    
+    setSearching(true)
+    try {
+      const response = await fetch(`/api/admin/search-spotify?q=${encodeURIComponent(searchQuery)}`)
+      const data = await response.json()
+      if (response.ok) {
+        setSearchResults(data.tracks || [])
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  // Aggiorna match manuale
+  const updateManualMatch = async (spotifyTrack: SpotifyTrack) => {
+    if (!modalTrack) return
+    
+    try {
+      const response = await fetch('/api/admin/update-track-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track_id: modalTrack.id,
+          spotify_track_id: spotifyTrack.id,
+          spotify_track_name: spotifyTrack.name,
+          spotify_artist_name: spotifyTrack.artist,
+          spotify_url: spotifyTrack.url,
+          spotify_album_name: spotifyTrack.album,
+          spotify_album_image: spotifyTrack.image,
+          spotify_preview_url: spotifyTrack.preview_url,
+          spotify_duration_ms: spotifyTrack.duration_ms,
+          spotify_popularity: spotifyTrack.popularity,
+          notes: 'Correzione manuale'
+        })
+      })
+      
+      if (response.ok) {
+        fetchLabelData()
+        closeTrackModal()
+      }
+    } catch (error) {
+      console.error('Error updating match:', error)
+    }
+  }
+
+  // Formatta durata
+  const formatDuration = (ms: number | null) => {
+    if (!ms) return '--:--'
+    const minutes = Math.floor(ms / 60000)
+    const seconds = Math.floor((ms % 60000) / 1000)
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-black p-8 text-white">Caricamento...</div>
   }
@@ -548,7 +655,11 @@ export default function LabelDetailPage() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800">
                     {tracks.map((track) => (
-                      <tr key={track.id} className="hover:bg-zinc-800/50">
+                      <tr 
+                        key={track.id} 
+                        className="cursor-pointer hover:bg-zinc-800/50"
+                        onClick={() => openTrackModal(track)}
+                      >
                         <td className="px-4 py-3 text-sm text-white">{track.artist_name || '-'}</td>
                         <td className="px-4 py-3 text-sm text-white">{track.track_title}</td>
                         <td className="px-4 py-3">
@@ -584,14 +695,18 @@ export default function LabelDetailPage() {
                 {tracks
                   .filter(t => t.status === 'needs_review')
                   .map((track) => (
-                    <div key={track.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                    <div 
+                      key={track.id} 
+                      className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-700"
+                      onClick={() => openTrackModal(track)}
+                    >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-white">{track.artist_name} - {track.track_title}</p>
                           <p className="text-sm text-zinc-500">Confidence: {(track.spotify_match_confidence || 0) * 100}%</p>
                         </div>
                         
-                        <div className="flex gap-2">
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => verifyTrack(track.id, true)}
                             className="rounded bg-emerald-900/50 px-3 py-1 text-sm text-emerald-400 hover:bg-emerald-900"
@@ -653,6 +768,216 @@ export default function LabelDetailPage() {
                 {processing ? 'Aggiungendo...' : `Aggiungi ${parsedCount} Tracce`}
               </button>
             )}
+          </div>
+        )}
+
+        {/* Modal Dettagli Traccia */}
+        {showTrackModal && modalTrack && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+            <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg border border-zinc-700 bg-zinc-900">
+              {/* Header */}
+              <div className="sticky top-0 flex items-center justify-between border-b border-zinc-800 bg-zinc-900 p-4">
+                <h3 className="text-lg font-bold text-white">Dettagli Traccia</h3>
+                <button
+                  onClick={closeTrackModal}
+                  className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="p-6">
+                {/* Confronto titoli */}
+                <div className="mb-6 grid grid-cols-2 gap-4">
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                    <p className="mb-2 text-xs uppercase text-zinc-500">Originale (inserito)</p>
+                    <p className="font-medium text-white">{modalTrack.artist_name}</p>
+                    <p className="text-zinc-400">{modalTrack.track_title}</p>
+                  </div>
+                  
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                    <p className="mb-2 text-xs uppercase text-zinc-500">Spotify Match</p>
+                    {modalTrack.spotify_track_id ? (
+                      <>
+                        <p className="font-medium text-white">{modalTrack.spotify_artist_name}</p>
+                        <p className="text-zinc-400">{modalTrack.spotify_track_name}</p>
+                      </>
+                    ) : (
+                      <p className="text-zinc-500">Nessun match trovato</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Dettagli Spotify */}
+                {modalTrack.spotify_track_id && (
+                  <div className="mb-6 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                    <div className="flex gap-4">
+                      {modalTrack.spotify_album_image && (
+                        <img
+                          src={modalTrack.spotify_album_image}
+                          alt="Album"
+                          className="h-24 w-24 rounded object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <p className="text-sm text-zinc-500">Album</p>
+                        <p className="text-white">{modalTrack.spotify_album_name}</p>
+                        
+                        <div className="mt-2 flex gap-4 text-sm">
+                          <span className="text-zinc-400">
+                            Durata: {formatDuration(modalTrack.spotify_duration_ms)}
+                          </span>
+                          <span className="text-zinc-400">
+                            Confidence: {Math.round((modalTrack.spotify_match_confidence || 0) * 100)}%
+                          </span>
+                        </div>
+
+                        {modalTrack.spotify_url && (
+                          <a
+                            href={modalTrack.spotify_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-2 rounded bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400"
+                          >
+                            🎵 Apri su Spotify
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Pulsanti azione */}
+                <div className="mb-6 flex gap-3">
+                  <button
+                    onClick={() => setShowSearchPanel(!showSearchPanel)}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-500"
+                  >
+                    🔍 Cerca Alternativa
+                  </button>
+                  
+                  {modalTrack.status === 'needs_review' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          verifyTrack(modalTrack.id, true)
+                          closeTrackModal()
+                        }}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500"
+                      >
+                        ✓ Conferma Match
+                      </button>
+                      <button
+                        onClick={() => {
+                          verifyTrack(modalTrack.id, false)
+                          closeTrackModal()
+                        }}
+                        className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500"
+                      >
+                        ✗ Rifiuta
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Pannello ricerca */}
+                {showSearchPanel && (
+                  <div className="rounded-lg border border-zinc-700 bg-zinc-950 p-4">
+                    <h4 className="mb-3 font-medium text-white">Cerca su Spotify</h4>
+                    
+                    <div className="mb-4 flex gap-2">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && searchSpotify()}
+                        className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                        placeholder="Artista - Titolo"
+                      />
+                      <button
+                        onClick={searchSpotify}
+                        disabled={searching || searchQuery.length < 3}
+                        className="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-50"
+                      >
+                        {searching ? '...' : 'Cerca'}
+                      </button>
+                    </div>
+
+                    {/* Risultati ricerca */}
+                    {searchResults.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-sm text-zinc-500">{searchResults.length} risultati:</p>
+                        {searchResults.map((track) => (
+                          <div
+                            key={track.id}
+                            className="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900 p-3 hover:border-zinc-600"
+                          >
+                            {track.image ? (
+                              <img src={track.image} alt="" className="h-12 w-12 rounded object-cover" />
+                            ) : (
+                              <div className="flex h-12 w-12 items-center justify-center rounded bg-zinc-800 text-zinc-600">
+                                🎵
+                              </div>
+                            )}
+                            
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate font-medium text-white">{track.name}</p>
+                              <p className="truncate text-sm text-zinc-400">{track.artist}</p>
+                              <p className="truncate text-xs text-zinc-500">{track.album}</p>
+                            </div>
+                            
+                            <div className="text-right text-sm text-zinc-500">
+                              <p>{track.duration_formatted}</p>
+                              <p>♥ {track.popularity}</p>
+                            </div>
+                            
+                            <button
+                              onClick={() => updateManualMatch(track)}
+                              className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
+                            >
+                              Usa questo
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Match suggeriti (se presenti) */}
+                    {modalTrack.suggested_matches && modalTrack.suggested_matches.length > 0 && !searchResults.length && (
+                      <div className="mt-4 space-y-2">
+                        <p className="text-sm text-zinc-500">Match suggeriti dal sistema:</p>
+                        {modalTrack.suggested_matches.map((track: any, idx: number) => (
+                          <div
+                            key={track.id || idx}
+                            className="flex items-center gap-3 rounded border border-yellow-900/50 bg-yellow-950/20 p-3"
+                          >
+                            {track.image ? (
+                              <img src={track.image} alt="" className="h-12 w-12 rounded object-cover" />
+                            ) : (
+                              <div className="flex h-12 w-12 items-center justify-center rounded bg-zinc-800 text-zinc-600">
+                                🎵
+                              </div>
+                            )}
+                            
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate font-medium text-white">{track.name}</p>
+                              <p className="truncate text-sm text-zinc-400">{track.artist}</p>
+                            </div>
+                            
+                            <button
+                              onClick={() => updateManualMatch(track as SpotifyTrack)}
+                              className="rounded bg-yellow-600 px-3 py-1.5 text-sm text-white hover:bg-yellow-500"
+                            >
+                              Usa questo
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
