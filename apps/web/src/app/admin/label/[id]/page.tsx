@@ -80,7 +80,7 @@ export default function LabelDetailPage() {
   const [rawText, setRawText] = useState('')
   const [parsedCount, setParsedCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'dna' | 'tracks' | 'add' | 'verify'>('dna')
+  const [activeTab, setActiveTab] = useState<'dna' | 'tracks' | 'add' | 'verify' | 'tinder'>('dna')
   const [processing, setProcessing] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
   
@@ -99,6 +99,13 @@ export default function LabelDetailPage() {
   const [isPaused, setIsPaused] = useState(false)
   const batchTimerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Stati per verifica Tinder-style
+  const [pendingTracks, setPendingTracks] = useState<any[]>([])
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [verifying, setVerifying] = useState(false)
+  const [verifiedCount, setVerifiedCount] = useState(0)
+  const [rejectedCount, setRejectedCount] = useState(0)
 
   useEffect(() => {
     if (labelId) {
@@ -437,6 +444,141 @@ export default function LabelDetailPage() {
     }
   }, [])
 
+  // ==================== VERIFICA TINDER-STYLE ====================
+  
+  // Carica tracce pending per verifica
+  const loadPendingTracks = async () => {
+    setVerifying(true)
+    setCurrentTrackIndex(0)
+    setVerifiedCount(0)
+    setRejectedCount(0)
+    
+    try {
+      const response = await fetch(`/api/admin/verify-matches?label_id=${labelId}`)
+      const data = await response.json()
+      
+      if (response.ok) {
+        setPendingTracks(data.tracks || [])
+        if (data.tracks?.length === 0) {
+          alert('Nessuna traccia da verificare!')
+          setActiveTab('tracks')
+        }
+      } else {
+        alert('Errore caricamento tracce: ' + data.error)
+      }
+    } catch (error) {
+      console.error('Error loading pending tracks:', error)
+      alert('Errore caricamento tracce')
+    } finally {
+      setVerifying(false)
+    }
+  }
+  
+  // Conferma match corrente
+  const confirmCurrentMatch = async (spotifyTrack: any) => {
+    const currentTrack = pendingTracks[currentTrackIndex]
+    if (!currentTrack) return
+    
+    try {
+      const response = await fetch('/api/admin/verify-matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track_id: currentTrack.id,
+          action: 'confirm',
+          spotify_track: spotifyTrack
+        })
+      })
+      
+      if (response.ok) {
+        setVerifiedCount(prev => prev + 1)
+        nextTrack()
+      } else {
+        const error = await response.json()
+        alert('Errore: ' + error.error)
+      }
+    } catch (error) {
+      console.error('Error confirming match:', error)
+    }
+  }
+  
+  // Rifiuta match corrente
+  const rejectCurrentMatch = async () => {
+    const currentTrack = pendingTracks[currentTrackIndex]
+    if (!currentTrack) return
+    
+    try {
+      const response = await fetch('/api/admin/verify-matches', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track_id: currentTrack.id,
+          action: 'reject'
+        })
+      })
+      
+      if (response.ok) {
+        setRejectedCount(prev => prev + 1)
+        nextTrack()
+      } else {
+        const error = await response.json()
+        alert('Errore: ' + error.error)
+      }
+    } catch (error) {
+      console.error('Error rejecting match:', error)
+    }
+  }
+  
+  // Salta traccia corrente
+  const skipCurrentTrack = () => {
+    nextTrack()
+  }
+  
+  // Passa alla traccia successiva
+  const nextTrack = () => {
+    if (currentTrackIndex < pendingTracks.length - 1) {
+      setCurrentTrackIndex(prev => prev + 1)
+    } else {
+      // Fine verifica
+      alert(`Verifica completata!\n✓ Confermate: ${verifiedCount + 1}\n✗ Rifiutate: ${rejectedCount}`)
+      setActiveTab('tracks')
+      fetchLabelData()
+    }
+  }
+  
+  // Torna alla traccia precedente
+  const prevTrack = () => {
+    if (currentTrackIndex > 0) {
+      setCurrentTrackIndex(prev => prev - 1)
+    }
+  }
+  
+  // Cerca alternativa per la traccia corrente
+  const searchAlternative = async (query: string) => {
+    if (!query.trim() || query.length < 3) return
+    
+    setSearching(true)
+    try {
+      const response = await fetch(`/api/admin/search-spotify?q=${encodeURIComponent(query)}`)
+      const data = await response.json()
+      if (response.ok) {
+        // Aggiorna i proposed_matches della traccia corrente
+        setPendingTracks(prev => {
+          const updated = [...prev]
+          updated[currentTrackIndex] = {
+            ...updated[currentTrackIndex],
+            proposed_matches: data.tracks || []
+          }
+          return updated
+        })
+      }
+    } catch (error) {
+      console.error('Search error:', error)
+    } finally {
+      setSearching(false)
+    }
+  }
+
   const verifyTrack = async (trackId: string, isCorrect: boolean) => {
     try {
       await fetch('/api/admin/verify-track', {
@@ -712,6 +854,19 @@ export default function LabelDetailPage() {
             }`}
           >
             ⚠️ Da Verificare ({dna.needsReviewTracks})
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('tinder')
+              loadPendingTracks()
+            }}
+            className={`pb-3 text-sm font-medium ${
+              activeTab === 'tinder' 
+                ? 'border-b-2 border-emerald-500 text-emerald-400' 
+                : 'text-zinc-500 hover:text-white'
+            }`}
+          >
+            🎯 Verifica Match
           </button>
           <button
             onClick={() => setActiveTab('add')}
@@ -1019,6 +1174,176 @@ export default function LabelDetailPage() {
               >
                 {processing ? 'Aggiungendo...' : `Aggiungi ${parsedCount} Tracce`}
               </button>
+            )}
+          </div>
+        )}
+
+        {/* Tab Verifica Match Tinder-Style */}
+        {activeTab === 'tinder' && (
+          <div>
+            {verifying ? (
+              <div className="flex h-64 items-center justify-center">
+                <p className="text-zinc-400">Caricamento tracce...</p>
+              </div>
+            ) : pendingTracks.length === 0 ? (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+                <p className="text-zinc-400">Nessuna traccia da verificare!</p>
+                <button
+                  onClick={() => setActiveTab('tracks')}
+                  className="mt-4 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
+                >
+                  Torna alle tracce
+                </button>
+              </div>
+            ) : (
+              <div>
+                {/* Progresso */}
+                <div className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-zinc-400">Traccia {currentTrackIndex + 1} di {pendingTracks.length}</p>
+                      <div className="mt-2 h-2 w-48 rounded-full bg-zinc-800">
+                        <div 
+                          className="h-2 rounded-full bg-emerald-500 transition-all" 
+                          style={{ width: `${((currentTrackIndex + 1) / pendingTracks.length) * 100}%` }} 
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-emerald-400">✓ {verifiedCount} confermate</p>
+                      <p className="text-sm text-red-400">✗ {rejectedCount} rifiutate</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Traccia Corrente */}
+                {(() => {
+                  const currentTrack = pendingTracks[currentTrackIndex]
+                  if (!currentTrack) return null
+                  
+                  return (
+                    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-6">
+                      {/* Titolo Originale */}
+                      <div className="mb-6 text-center">
+                        <p className="text-sm text-zinc-500">Traccia da verificare:</p>
+                        <h3 className="mt-2 text-2xl font-bold text-white">{currentTrack.artist_name}</h3>
+                        <p className="text-xl text-zinc-300">{currentTrack.track_title}</p>
+                      </div>
+
+                      {/* Match Proposti */}
+                      <div className="mb-6">
+                        <p className="mb-3 text-center text-sm text-zinc-400">
+                          {currentTrack.proposed_matches?.length > 0 
+                            ? 'Scegli il match corretto da Spotify:' 
+                            : 'Nessun match trovato automaticamente'}
+                        </p>
+                        
+                        <div className="space-y-3">
+                          {currentTrack.proposed_matches?.map((match: any, idx: number) => (
+                            <div 
+                              key={match.id}
+                              className={`flex items-center gap-4 rounded-lg border p-4 ${
+                                idx === 0 
+                                  ? 'border-emerald-500/50 bg-emerald-950/20' 
+                                  : 'border-zinc-700 bg-zinc-800/50'
+                              }`}
+                            >
+                              {match.image ? (
+                                <img src={match.image} alt="" className="h-16 w-16 rounded object-cover" />
+                              ) : (
+                                <div className="flex h-16 w-16 items-center justify-center rounded bg-zinc-700 text-2xl">
+                                  🎵
+                                </div>
+                              )}
+                              
+                              <div className="flex-1 min-w-0">
+                                <p className="truncate font-bold text-white">{match.name}</p>
+                                <p className="truncate text-zinc-400">{match.artist}</p>
+                                <p className="truncate text-sm text-zinc-500">{match.album}</p>
+                                <div className="mt-1 flex gap-3 text-xs text-zinc-500">
+                                  <span>⏱ {match.duration_formatted}</span>
+                                  <span>♥ {match.popularity}/100</span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  onClick={() => confirmCurrentMatch(match)}
+                                  className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                                >
+                                  ✓ Questo!
+                                </button>
+                                <a
+                                  href={match.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="rounded bg-zinc-700 px-4 py-1 text-center text-xs text-zinc-300 hover:bg-zinc-600"
+                                >
+                                  Apri Spotify
+                                </a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Azioni */}
+                      <div className="flex flex-wrap items-center justify-center gap-3">
+                        <button
+                          onClick={rejectCurrentMatch}
+                          className="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-500"
+                        >
+                          ✗ Nessuno è corretto
+                        </button>
+                        
+                        <button
+                          onClick={skipCurrentTrack}
+                          className="rounded-lg bg-zinc-700 px-6 py-3 font-semibold text-white hover:bg-zinc-600"
+                        >
+                          Salta per ora
+                        </button>
+                        
+                        {currentTrackIndex > 0 && (
+                          <button
+                            onClick={prevTrack}
+                            className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500"
+                          >
+                            ← Precedente
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Cerca Alternativa */}
+                      <div className="mt-6 border-t border-zinc-800 pt-4">
+                        <p className="mb-2 text-sm text-zinc-500">Cerca un altro match:</p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            defaultValue={`${currentTrack.artist_name} ${currentTrack.track_title}`}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                searchAlternative((e.target as HTMLInputElement).value)
+                              }
+                            }}
+                            className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-white"
+                            placeholder="Artista - Titolo"
+                          />
+                          <button
+                            onClick={() => {
+                              const input = document.querySelector('input[placeholder="Artista - Titolo"]') as HTMLInputElement
+                              searchAlternative(input?.value || '')
+                            }}
+                            disabled={searching}
+                            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                          >
+                            {searching ? '...' : 'Cerca'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
             )}
           </div>
         )}
