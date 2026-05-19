@@ -38,7 +38,9 @@ export default function BulkAddPage() {
   }, [labelName])
 
   // Parsing testo
-  const parseText = () => {
+  const parseText = useCallback(() => {
+    if (!rawText.trim()) return
+    
     setIsParsing(true)
     
     const lines = rawText.split('\n')
@@ -72,7 +74,7 @@ export default function BulkAddPage() {
     
     setParsedTracks(tracks)
     setIsParsing(false)
-  }
+  }, [rawText])
 
   const toggleTrack = (index: number) => {
     setParsedTracks(prev => prev.map((t, i) => 
