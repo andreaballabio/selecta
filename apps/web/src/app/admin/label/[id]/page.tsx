@@ -28,6 +28,31 @@ interface Track {
   lufs: number | null
   duration: number | null
   audio_embedding: number[] | null
+  // Nuovi campi multi-source
+  audio_source: 'deezer' | 'spotify' | null
+  audio_preview_url: string | null
+  track_rank: number | null
+  track_explicit: boolean | null
+  track_genre: string | null
+  release_date: string | null
+}
+
+interface UnifiedTrack {
+  id: string
+  name: string
+  artist: string
+  album: string
+  image: string | null
+  preview_url: string | null
+  url: string
+  duration_ms: number
+  duration_formatted: string
+  rank: number
+  explicit: boolean
+  source: 'deezer' | 'spotify'
+  release_date?: string
+  genre?: string
+  contributors?: string[]
 }
 
 interface SpotifyTrack {
@@ -578,21 +603,37 @@ export default function LabelDetailPage() {
     }
   }
   
-  // Cerca alternativa per la traccia corrente
+  // Cerca alternativa per la traccia corrente (usa nuova API multi-source)
   const searchAlternative = async (query: string) => {
     if (!query.trim() || query.length < 3) return
     
     setSearching(true)
     try {
-      const response = await fetch(`/api/admin/search-spotify?q=${encodeURIComponent(query)}`)
+      // Usa la nuova API che cerca su Deezer (primario) e Spotify (fallback)
+      const response = await fetch(`/api/admin/search-tracks?q=${encodeURIComponent(query)}`)
       const data = await response.json()
-      if (response.ok) {
+      if (response.ok && data.tracks) {
         // Aggiorna i proposed_matches della traccia corrente
         setPendingTracks(prev => {
           const updated = [...prev]
           updated[currentTrackIndex] = {
             ...updated[currentTrackIndex],
-            proposed_matches: data.tracks || []
+            proposed_matches: data.tracks.map((t: UnifiedTrack) => ({
+              id: t.id,
+              name: t.name,
+              artist: t.artist,
+              album: t.album,
+              image: t.image,
+              preview_url: t.preview_url,
+              url: t.url,
+              duration_ms: t.duration_ms,
+              duration_formatted: t.duration_formatted,
+              rank: t.rank,
+              explicit: t.explicit,
+              source: t.source,
+              release_date: t.release_date,
+              genre: t.genre
+            }))
           }
           return updated
         })
