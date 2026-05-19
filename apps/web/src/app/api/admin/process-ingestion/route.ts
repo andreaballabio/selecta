@@ -131,10 +131,17 @@ export async function POST(request: NextRequest) {
     // Processa ogni traccia
     for (const track of tracks) {
       try {
-        // Usa titolo completo dalla coda (da YouTube)
+        // Usa titolo completo dalla coda (da YouTube o manuale)
         const fullTitle = track.track_title
+        const artist = track.artist_name
         
-        const searchResults = await searchSpotifyTrack(token, fullTitle)
+        // Se abbiamo artista separato, usa query combinata
+        let query = fullTitle
+        if (artist && artist !== 'Unknown') {
+          query = `${artist} ${fullTitle}`
+        }
+        
+        const searchResults = await searchSpotifyTrack(token, query)
         
         if (searchResults.length === 0) {
           await supabase
@@ -153,13 +160,30 @@ export async function POST(request: NextRequest) {
         const spotifyArtist = bestMatch.artists?.map((a: any) => a.name).join(', ')
         const spotifyTitle = bestMatch.name
         
-        // Confidence basata sulla posizione nei risultati
-        let confidence = 0.8 // Default alto perché Spotify è bravo
-        if (searchResults[0].popularity > 50) confidence += 0.1
+        // Confidence basata sulla posizione e similarità
+        let confidence = 0.85 // Default alto perché Spotify è bravo
         
-        // Se il titolo è molto diverso, riduci confidence
-        const titleSimilarity = calculateSimilarity(fullTitle.toLowerCase(), `${spotifyArtist} ${spotifyTitle}`.toLowerCase())
-        if (titleSimilarity < 0.3) confidence = 0.5
+        // Calcola similarità tra query e risultato
+        const queryLower = query.toLowerCase()
+        const resultLower = `${spotifyArtist} ${spotifyTitle}`.toLowerCase()
+        
+        // Se artista fornito corrisponde, aumenta confidence
+        if (artist && artist !== 'Unknown') {
+          const artistMatch = spotifyArtist.toLowerCase().includes(artist.toLowerCase()) ||
+                             artist.toLowerCase().includes(spotifyArtist.toLowerCase().split(',')[0].trim())
+          if (artistMatch) confidence += 0.1
+        }
+        
+        // Se titoli sono molto diversi, riduci confidence
+        const titleWords = fullTitle.toLowerCase().split(' ').filter(w => w.length > 2)
+        const matchWords = spotifyTitle.toLowerCase().split(' ').filter(w => w.length > 2)
+        const commonWords = titleWords.filter(w => matchWords.includes(w))
+        
+        if (commonWords.length === 0) {
+          confidence = 0.5 // Troppo diverso
+        } else if (commonWords.length < Math.min(titleWords.length, matchWords.length) * 0.5) {
+          confidence = 0.6 // Parzialmente diverso
+        }
         
         let status = 'failed'
         if (confidence >= 0.75) {
@@ -179,8 +203,8 @@ export async function POST(request: NextRequest) {
             spotify_track_id: bestMatch?.id,
             spotify_preview_url: bestMatch?.preview_url,
             spotify_match_confidence: confidence,
-            artist_name: spotifyArtist, // Aggiorna con artista da Spotify
-            track_title: spotifyTitle,  // Aggiorna con titolo da Spotify
+            artist_name: spotifyArtist,
+            track_title: spotifyTitle,
             attempts: track.attempts + 1
           })
           .eq('id', track.id)
