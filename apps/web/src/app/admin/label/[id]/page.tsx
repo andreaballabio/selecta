@@ -274,48 +274,69 @@ export default function LabelDetailPage() {
     setParsedCount(count)
   }
 
+  // Funzione per pulire il titolo dai suffissi di mix/edit
+  const cleanTrackTitle = (title: string): string => {
+    // Pattern per rimuovere: Original Mix, Extended Mix, Radio Edit, Club Mix, Remix, Edit, etc.
+    const mixPatterns = [
+      /\s*[-–—]?\s*\(?\s*(Original Mix|Extended Mix|Radio Edit|Club Mix|Remix|Edit|Mix|Version|Vocal Mix|Dub Mix|Instrumental|Acapella)\s*\)?$/i,
+      /\s*[-–—]?\s*\(?\s*(Original|Extended|Radio|Club|Vocal|Dub)\s*\)?$/i,
+      /\s*\(?\s*(feat\.?\s+[^)]+)\s*\)?/i, // Rimuovi feat. per la ricerca (ma li teniamo separati)
+    ]
+    
+    let cleaned = title
+    for (const pattern of mixPatterns) {
+      cleaned = cleaned.replace(pattern, '').trim()
+    }
+    
+    // Rimuovi spazi multipli
+    cleaned = cleaned.replace(/\s+/g, ' ').trim()
+    
+    return cleaned
+  }
+
   const extractTracks = (text: string) => {
     const lines = text.split('\n')
-    const tracks: { artist: string; title: string }[] = []
+    const tracks: { artist: string; title: string; originalTitle: string }[] = []
     
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed || trimmed.length < 3) continue
       
+      let artist = ''
+      let title = ''
+      
+      // Pattern: Artista - Titolo (Mix)
       const dashMatch = trimmed.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|$)/)
       if (dashMatch) {
-        tracks.push({
-          artist: dashMatch[1].trim(),
-          title: dashMatch[2].trim()
-        })
-        continue
-      }
-      
-      const mixMatch = trimmed.match(/^(.+?)\s+(Original Mix|Extended Mix|Club Mix|Radio Edit|Remix|Edit)\s+(.+)$/i)
-      if (mixMatch) {
-        tracks.push({
-          artist: mixMatch[3].trim(),
-          title: `${mixMatch[1].trim()} ${mixMatch[2].trim()}`
-        })
-        continue
-      }
-      
-      const parenMatch = trimmed.match(/^(.+?)\s*[\(\[](.+?)[\)\]]\s*(.+)$/)
-      if (parenMatch) {
-        tracks.push({
-          artist: parenMatch[3].trim(),
-          title: `${parenMatch[1].trim()} (${parenMatch[2].trim()})`
-        })
-        continue
-      }
-      
-      const words = trimmed.split(/\s+/)
-      if (words.length >= 2) {
-        const artist = words.slice(-2).join(' ')
-        const title = words.slice(0, -2).join(' ')
-        if (title && artist) {
-          tracks.push({ artist, title })
+        artist = dashMatch[1].trim()
+        title = dashMatch[2].trim()
+      } else {
+        // Pattern: Titolo (Mix) Artista
+        const mixMatch = trimmed.match(/^(.+?)\s+(Original Mix|Extended Mix|Club Mix|Radio Edit|Remix|Edit)\s+(.+)$/i)
+        if (mixMatch) {
+          artist = mixMatch[3].trim()
+          title = `${mixMatch[1].trim()} ${mixMatch[2].trim()}`
+        } else {
+          // Pattern: Parole con artista alla fine
+          const words = trimmed.split(/\s+/)
+          if (words.length >= 2) {
+            artist = words.slice(-2).join(' ')
+            title = words.slice(0, -2).join(' ')
+          }
         }
+      }
+      
+      if (artist && title) {
+        // Salva il titolo originale per riferimento
+        const originalTitle = title
+        // Pulisci il titolo per la ricerca
+        const cleanedTitle = cleanTrackTitle(title)
+        
+        tracks.push({ 
+          artist, 
+          title: cleanedTitle,
+          originalTitle
+        })
       }
     }
     
