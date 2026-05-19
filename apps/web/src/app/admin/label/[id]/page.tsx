@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 
 interface Track {
@@ -93,6 +93,12 @@ export default function LabelDetailPage() {
   const [searchResults, setSearchResults] = useState<SpotifyTrack[]>([])
   const [searching, setSearching] = useState(false)
   const [showSearchPanel, setShowSearchPanel] = useState(false)
+  
+  // Stati per il processing batch
+  const [countdown, setCountdown] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const batchTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const countdownRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (labelId) {
@@ -310,31 +316,126 @@ export default function LabelDetailPage() {
   }
 
   const startMatching = async () => {
-    if (!dna || dna.matchedTracks + dna.needsReviewTracks + dna.failedTracks === 0) return
+    if (!dna || dna.totalTracks === 0) return
     
     setProcessing(true)
+    setIsPaused(false)
     
     try {
-      await fetch('/api/admin/process-ingestion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label_id: labelId, batch_size: 5 })
-      })
+      // Processa il primo batch immediatamente
+      await processBatch()
       
-      const interval = setInterval(async () => {
-        await fetchLabelData()
-      }, 5000)
-      
-      setTimeout(() => {
-        clearInterval(interval)
-        setProcessing(false)
-      }, 120000)
+      // Avvia il timer per i batch successivi
+      startBatchTimer()
       
     } catch (error) {
       console.error('Error starting matching:', error)
       setProcessing(false)
     }
   }
+
+  // Processa un singolo batch di 5 tracce
+  const processBatch = async () => {
+    try {
+      const response = await fetch('/api/admin/process-ingestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label_id: labelId, batch_size: 5 })
+      })
+      
+      const data = await response.json()
+      
+      // Aggiorna i dati
+      await fetchLabelData()
+      
+      // Controlla se ci sono ancora tracce pending
+      const pendingCount = tracks.filter(t => t.status === 'pending').length
+      
+      if (pendingCount === 0 || data.remaining === 0) {
+        // Fine analisi
+        setProcessing(false)
+        setCountdown(0)
+        if (batchTimerRef.current) {
+          clearInterval(batchTimerRef.current)
+          batchTimerRef.current = null
+        }
+      }
+      
+      return data
+    } catch (error) {
+      console.error('Error processing batch:', error)
+      throw error
+    }
+  }
+
+  // Timer per il prossimo batch (12 secondi = 5 richieste al minuto)
+  const BATCH_INTERVAL = 12
+
+  const startBatchTimer = () => {
+    // Pulisci timer precedenti
+    if (batchTimerRef.current) clearInterval(batchTimerRef.current)
+    if (countdownRef.current) clearInterval(countdownRef.current)
+    
+    setCountdown(BATCH_INTERVAL)
+    
+    // Timer per il countdown visivo
+    countdownRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    
+    // Timer per processare il prossimo batch
+    batchTimerRef.current = setInterval(async () => {
+      if (isPaused) return
+      
+      const pendingCount = tracks.filter(t => t.status === 'pending').length
+      if (pendingCount === 0) {
+        // Fine
+        setProcessing(false)
+        setCountdown(0)
+        if (batchTimerRef.current) clearInterval(batchTimerRef.current)
+        if (countdownRef.current) clearInterval(countdownRef.current)
+        return
+      }
+      
+      // Processa prossimo batch
+      await processBatch()
+      // Reset countdown
+      setCountdown(BATCH_INTERVAL)
+    }, BATCH_INTERVAL * 1000)
+  }
+
+  // Pausa/Riprendi
+  const togglePause = () => {
+    setIsPaused(prev => !prev)
+  }
+
+  // Ferma completamente
+  const stopProcessing = () => {
+    setProcessing(false)
+    setCountdown(0)
+    setIsPaused(false)
+    if (batchTimerRef.current) {
+      clearInterval(batchTimerRef.current)
+      batchTimerRef.current = null
+    }
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current)
+      countdownRef.current = null
+    }
+  }
+
+  // Cleanup quando il componente si smonta
+  useEffect(() => {
+    return () => {
+      if (batchTimerRef.current) clearInterval(batchTimerRef.current)
+      if (countdownRef.current) clearInterval(countdownRef.current)
+    }
+  }, [])
 
   const verifyTrack = async (trackId: string, isCorrect: boolean) => {
     try {
@@ -733,16 +834,65 @@ export default function LabelDetailPage() {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-white">Lista Tracce</h2>
-              {dna.totalTracks > 0 && (
+              
+              {!processing ? (
                 <button
                   onClick={startMatching}
-                  disabled={processing}
+                  disabled={dna.totalTracks === 0}
                   className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
                 >
-                  {processing ? 'Analisi in corso...' : '🔍 Avvia Matching Spotify'}
+                  🔍 Avvia Matching Spotify
                 </button>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {/* Countdown */}
+                  <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
+                    <span className="text-sm text-zinc-400">Prossima analisi:</span>
+                    <span className="text-lg font-bold text-emerald-400">
+                      {isPaused ? '⏸️ PAUSA' : `${countdown}s`}
+                    </span>
+                  </div>
+                  
+                  {/* Pulsante Pausa/Riprendi */}
+                  <button
+                    onClick={togglePause}
+                    className={`rounded-lg px-3 py-2 text-sm font-semibold ${
+                      isPaused 
+                        ? 'bg-emerald-600 text-white hover:bg-emerald-500' 
+                        : 'bg-yellow-600 text-white hover:bg-yellow-500'
+                    }`}
+                  >
+                    {isPaused ? '▶️ Riprendi' : '⏸️ Pausa'}
+                  </button>
+                  
+                  {/* Pulsante Stop */}
+                  <button
+                    onClick={stopProcessing}
+                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500"
+                  >
+                    ⏹️ Stop
+                  </button>
+                </div>
               )}
             </div>
+            
+            {/* Info durante processing */}
+            {processing && (
+              <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
+                <p className="text-sm text-zinc-400">
+                  {isPaused ? (
+                    '⏸️ Analisi in pausa. Clicca "Riprendi" per continuare.'
+                  ) : (
+                    <>
+                      ⏱️ Analisi in corso: 5 tracce ogni 12 secondi per rispettare i rate limit di Spotify.
+                      <span className="ml-2 text-emerald-400">
+                        ({tracks.filter(t => t.status === 'pending').length} tracce rimanenti)
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+            )}
             
             <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
               <div className="max-h-[60vh] overflow-auto">
