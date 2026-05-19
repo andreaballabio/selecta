@@ -1318,7 +1318,7 @@ export default function LabelDetailPage() {
                       <div className="mb-6">
                         <p className="mb-3 text-center text-sm text-zinc-400">
                           {currentTrack.proposed_matches?.length > 0 
-                            ? 'Scegli il match corretto da Spotify:' 
+                            ? 'Scegli il match corretto (Deezer = arancione, Spotify = verde):' 
                             : 'Nessun match trovato automaticamente'}
                         </p>
                         
@@ -1330,7 +1330,7 @@ export default function LabelDetailPage() {
                                 idx === 0 
                                   ? 'border-emerald-500/50 bg-emerald-950/20' 
                                   : 'border-zinc-700 bg-zinc-800/50'
-                              }`}
+                              } ${!match.preview_url ? 'opacity-60' : ''}`}
                             >
                               {match.image ? (
                                 <img src={match.image} alt="" className="h-16 w-16 rounded object-cover" />
@@ -1341,21 +1341,37 @@ export default function LabelDetailPage() {
                               )}
                               
                               <div className="flex-1 min-w-0">
-                                <p className="truncate font-bold text-white">{match.name}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate font-bold text-white">{match.name}</p>
+                                  {match.source === 'deezer' && (
+                                    <span className="rounded bg-orange-600 px-1.5 py-0.5 text-xs text-white">Deezer</span>
+                                  )}
+                                  {match.source === 'spotify' && (
+                                    <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-xs text-white">Spotify</span>
+                                  )}
+                                  {!match.preview_url && (
+                                    <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-400">No Preview</span>
+                                  )}
+                                </div>
                                 <p className="truncate text-zinc-400">{match.artist}</p>
                                 <p className="truncate text-sm text-zinc-500">{match.album}</p>
                                 <div className="mt-1 flex gap-3 text-xs text-zinc-500">
                                   <span>⏱ {match.duration_formatted}</span>
-                                  <span>♥ {match.popularity}/100</span>
+                                  <span>♥ {match.rank || match.popularity}/100</span>
+                                  {match.explicit && <span className="text-red-400">🔞 Explicit</span>}
                                 </div>
                               </div>
                               
                               <div className="flex flex-col gap-2">
                                 <button
                                   onClick={() => confirmCurrentMatch(match)}
-                                  className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
+                                  className={`rounded px-4 py-2 text-sm font-semibold text-white ${
+                                    match.preview_url 
+                                      ? 'bg-emerald-600 hover:bg-emerald-500' 
+                                      : 'bg-yellow-600 hover:bg-yellow-500'
+                                  }`}
                                 >
-                                  ✓ Questo!
+                                  {match.preview_url ? '✓ Questo!' : '✓ Salva (no preview)'}
                                 </button>
                                 <a
                                   href={match.url}
@@ -1363,7 +1379,7 @@ export default function LabelDetailPage() {
                                   rel="noopener noreferrer"
                                   className="rounded bg-zinc-700 px-4 py-1 text-center text-xs text-zinc-300 hover:bg-zinc-600"
                                 >
-                                  Apri Spotify
+                                  Apri {match.source === 'deezer' ? 'Deezer' : 'Spotify'}
                                 </a>
                               </div>
                             </div>

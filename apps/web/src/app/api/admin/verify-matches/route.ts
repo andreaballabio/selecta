@@ -24,22 +24,79 @@ async function getSpotifyToken() {
   return data.access_token
 }
 
-// Cerca traccia su Spotify
-async function searchSpotifyTrack(token: string, query: string) {
-  const response = await fetch(
-    `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`,
-    {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }
-  )
-  
-  if (!response.ok) return []
-  
-  const data = await response.json()
-  return data.tracks?.items || []
+// Cerca traccia su Deezer (primario)
+async function searchDeezerTrack(query: string) {
+  try {
+    const response = await fetch(
+      `https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=5`,
+      { headers: { 'Accept': 'application/json' } }
+    )
+    
+    if (!response.ok) return []
+    
+    const data = await response.json()
+    
+    if (!data.data || !Array.isArray(data.data)) return []
+    
+    return data.data.map((track: any) => ({
+      id: `deezer_${track.id}`,
+      name: track.title,
+      artist: track.artist?.name,
+      album: track.album?.title,
+      image: track.album?.cover_medium || track.album?.cover,
+      preview_url: track.preview,
+      url: track.link,
+      duration_ms: track.duration * 1000,
+      duration_formatted: formatDuration(track.duration * 1000),
+      rank: track.rank ? Math.min(Math.round(track.rank / 10000), 100) : undefined,
+      explicit: track.explicit_lyrics,
+      source: 'deezer',
+      release_date: track.album?.release_date,
+      genre: track.album?.genre?.name,
+      contributors: track.contributors?.map((c: any) => c.name)
+    }))
+  } catch (error) {
+    console.error('Deezer search error:', error)
+    return []
+  }
 }
 
-// GET: Ottieni tracce pending con match proposti da Spotify
+// Cerca traccia su Spotify (fallback)
+async function searchSpotifyTrack(token: string, query: string) {
+  try {
+    const response = await fetch(
+      `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`,
+      {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }
+    )
+    
+    if (!response.ok) return []
+    
+    const data = await response.json()
+    
+    return (data.tracks?.items || []).map((track: any) => ({
+      id: `spotify_${track.id}`,
+      name: track.name,
+      artist: track.artists?.map((a: any) => a.name).join(', '),
+      album: track.album?.name,
+      image: track.album?.images?.[0]?.url,
+      preview_url: track.preview_url,
+      url: track.external_urls?.spotify,
+      duration_ms: track.duration_ms,
+      duration_formatted: formatDuration(track.duration_ms),
+      rank: track.popularity,
+      explicit: track.explicit,
+      source: 'spotify',
+      release_date: track.album?.release_date
+    }))
+  } catch (error) {
+    console.error('Spotify search error:', error)
+    return []
+  }
+}
+
+// GET: Ottieni tracce pending con match proposti da Deezer (primario) e Spotify (fallback)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
@@ -76,28 +133,43 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Ottieni token Spotify
-    const token = await getSpotifyToken()
-    
-    // Per ogni traccia, cerca match su Spotify
+    // Per ogni traccia, cerca match su Deezer (primario) e Spotify (fallback)
     const tracksWithMatches = await Promise.all(
       tracks.map(async (track) => {
         const query = `${track.artist_name} ${track.track_title}`
-        const searchResults = await searchSpotifyTrack(token, query)
         
-        // Formatta i risultati
-        const matches = searchResults.map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          artist: t.artists?.map((a: any) => a.name).join(', '),
-          album: t.album?.name,
-          image: t.album?.images?.[0]?.url,
-          preview_url: t.preview_url,
-          url: t.external_urls?.spotify,
-          duration_ms: t.duration_ms,
-          duration_formatted: formatDuration(t.duration_ms),
-          popularity: t.popularity
-        }))
+        // 1. Cerca su Deezer (primario)
+        let matches = await searchDeezerTrack(query)
+        
+        // 2. Se Deezer trova poche tracce o nessuna con preview, aggiungi Spotify
+        const deezerWithPreview = matches.filter((m: any) => m.preview_url).length
+        
+        if (matches.length === 0 || deezerWithPreview < 2) {
+          try {
+            const token = await getSpotifyToken()
+            const spotifyMatches = await searchSpotifyTrack(token, query)
+            
+            // Aggiungi solo tracce Spotify che non sono già in lista
+            const existingIds = new Set(matches.map((m: any) => `${m.name}_${m.artist}`.toLowerCase()))
+            const uniqueSpotify = spotifyMatches.filter((m: any) => {
+              const key = `${m.name}_${m.artist}`.toLowerCase()
+              if (existingIds.has(key)) return false
+              existingIds.add(key)
+              return true
+            })
+            
+            matches = [...matches, ...uniqueSpotify]
+          } catch (e) {
+            console.log('Spotify fallback failed:', e)
+          }
+        }
+        
+        // Ordina: prima quelle con preview, poi per rank
+        matches.sort((a: any, b: any) => {
+          if (a.preview_url && !b.preview_url) return -1
+          if (!a.preview_url && b.preview_url) return 1
+          return (b.rank || 0) - (a.rank || 0)
+        })
         
         return {
           ...track,
@@ -135,48 +207,36 @@ export async function POST(request: NextRequest) {
     }
     
     if (action === 'confirm' && spotify_track) {
-      // Se non c'è preview_url, recupera i dettagli completi della traccia
-      let trackDetails = spotify_track
-      if (!spotify_track.preview_url) {
-        try {
-          const token = await getSpotifyToken()
-          console.log('Fetching track details for:', spotify_track.id)
-          const detailResponse = await fetch(
-            `https://api.spotify.com/v1/tracks/${spotify_track.id}`,
-            { headers: { 'Authorization': `Bearer ${token}` } }
-          )
-          if (detailResponse.ok) {
-            const fullTrack = await detailResponse.json()
-            console.log('Track details preview_url:', fullTrack.preview_url)
-            trackDetails = {
-              ...spotify_track,
-              preview_url: fullTrack.preview_url
-            }
-          } else {
-            console.log('Track details error:', detailResponse.status)
-          }
-        } catch (e) {
-          console.log('Could not fetch track details:', e)
-        }
+      // Estrai source e ID originale
+      const source = spotify_track.source || 'spotify'
+      const originalId = spotify_track.id?.replace(/^(deezer_|spotify_)/, '') || spotify_track.id
+      
+      // Conferma il match con tutti i dati disponibili
+      const updateData: any = {
+        status: 'matched',
+        spotify_track_id: originalId,
+        spotify_track_name: spotify_track.name,
+        spotify_artist_name: spotify_track.artist,
+        spotify_url: spotify_track.url,
+        spotify_album_name: spotify_track.album,
+        spotify_album_image: spotify_track.image,
+        spotify_preview_url: spotify_track.preview_url,
+        spotify_duration_ms: spotify_track.duration_ms,
+        spotify_popularity: spotify_track.rank || spotify_track.popularity,
+        spotify_match_confidence: 0.95,
+        reviewed_at: new Date().toISOString(),
+        // Nuovi campi multi-source
+        audio_source: source,
+        audio_preview_url: spotify_track.preview_url,
+        track_rank: spotify_track.rank || spotify_track.popularity,
+        track_explicit: spotify_track.explicit,
+        track_genre: spotify_track.genre,
+        release_date: spotify_track.release_date
       }
       
-      // Conferma il match
       const { error } = await supabase
         .from('label_ingestion_queue')
-        .update({
-          status: 'matched',
-          spotify_track_id: trackDetails.id,
-          spotify_track_name: trackDetails.name,
-          spotify_artist_name: trackDetails.artist,
-          spotify_url: trackDetails.url,
-          spotify_album_name: trackDetails.album,
-          spotify_album_image: trackDetails.image,
-          spotify_preview_url: trackDetails.preview_url,
-          spotify_duration_ms: trackDetails.duration_ms,
-          spotify_popularity: trackDetails.popularity,
-          spotify_match_confidence: 0.95, // Confermato manualmente = alta confidence
-          reviewed_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', track_id)
       
       if (error) {
@@ -188,7 +248,9 @@ export async function POST(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        message: 'Match confermato'
+        message: 'Match confermato',
+        source: source,
+        has_preview: !!spotify_track.preview_url
       })
     }
     
