@@ -429,6 +429,52 @@ export default function LabelDetailPage() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
   }
 
+  // Elimina traccia
+  const deleteTrack = async (trackId: string) => {
+    if (!confirm('Sei sicuro di voler eliminare questa traccia?')) return
+    
+    try {
+      const response = await fetch(`/api/admin/track?id=${trackId}`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        fetchLabelData()
+        closeTrackModal()
+      } else {
+        const error = await response.json()
+        alert('Errore: ' + error.error)
+      }
+    } catch (error) {
+      console.error('Error deleting track:', error)
+      alert('Errore durante l\'eliminazione')
+    }
+  }
+
+  // Reset traccia per rianalisi
+  const resetTrack = async (trackId: string) => {
+    if (!confirm('Resettare questa traccia per una nuova analisi?')) return
+    
+    try {
+      const response = await fetch('/api/admin/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId, action: 'reset' })
+      })
+      
+      if (response.ok) {
+        fetchLabelData()
+        closeTrackModal()
+      } else {
+        const error = await response.json()
+        alert('Errore: ' + error.error)
+      }
+    } catch (error) {
+      console.error('Error resetting track:', error)
+      alert('Errore durante il reset')
+    }
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-black p-8 text-white">Caricamento...</div>
   }
@@ -613,6 +659,62 @@ export default function LabelDetailPage() {
                 <span className="text-white">{dna.hasPreview} / {dna.totalTracks}</span>
               </div>
               
+              {/* Statistiche Avanzate per Matching */}
+              <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                <h3 className="mb-3 font-medium text-white">📊 Statistiche per Matching</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="rounded bg-zinc-900 p-3">
+                    <p className="text-xs text-zinc-500">Tracce con Preview</p>
+                    <p className="text-xl font-bold text-emerald-400">
+                      {dna.totalTracks > 0 ? Math.round((dna.hasPreview / dna.totalTracks) * 100) : 0}%
+                    </p>
+                  </div>
+                  
+                  <div className="rounded bg-zinc-900 p-3">
+                    <p className="text-xs text-zinc-500">Match Perfetti</p>
+                    <p className="text-xl font-bold text-blue-400">
+                      {dna.totalTracks > 0 ? Math.round((dna.matchedTracks / dna.totalTracks) * 100) : 0}%
+                    </p>
+                  </div>
+                  
+                  <div className="rounded bg-zinc-900 p-3">
+                    <p className="text-xs text-zinc-500">Da Verificare</p>
+                    <p className="text-xl font-bold text-yellow-400">{dna.needsReviewTracks}</p>
+                  </div>
+                  
+                  <div className="rounded bg-zinc-900 p-3">
+                    <p className="text-xs text-zinc-500">Non Trovati</p>
+                    <p className="text-xl font-bold text-red-400">{dna.failedTracks}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-4 border-t border-zinc-800 pt-4">
+                  <h4 className="mb-2 text-sm font-medium text-white">Qualità del Dataset</h4>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-zinc-400">Copertura Spotify</span>
+                      <span className={dna.coverageScore >= 70 ? 'text-emerald-400' : 'text-yellow-400'}>
+                        {dna.coverageScore}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-zinc-800">
+                      <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${dna.coverageScore}%` }} />
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-zinc-400">Affidabilità Media</span>
+                      <span className={dna.qualityScore >= 70 ? 'text-emerald-400' : 'text-yellow-400'}>
+                        {dna.qualityScore}%
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-zinc-800">
+                      <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${dna.qualityScore}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div className="mt-6 rounded-lg bg-zinc-950 p-4">
                 <p className="text-sm text-zinc-400">
                   <strong className="text-white">Cosa significa:</strong>
@@ -631,7 +733,7 @@ export default function LabelDetailPage() {
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-white">Lista Tracce</h2>
-              {dna.matchedTracks + dna.needsReviewTracks + dna.failedTrack > 0 && (
+              {dna.totalTracks > 0 && (
                 <button
                   onClick={startMatching}
                   disabled={processing}
@@ -848,7 +950,7 @@ export default function LabelDetailPage() {
                 )}
 
                 {/* Pulsanti azione */}
-                <div className="mb-6 flex gap-3">
+                <div className="mb-6 flex flex-wrap gap-3">
                   <button
                     onClick={() => setShowSearchPanel(!showSearchPanel)}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-500"
@@ -878,6 +980,23 @@ export default function LabelDetailPage() {
                       </button>
                     </>
                   )}
+                  
+                  {/* Azioni sempre disponibili */}
+                  <button
+                    onClick={() => resetTrack(modalTrack.id)}
+                    className="rounded-lg bg-yellow-600 px-4 py-2 text-white hover:bg-yellow-500"
+                    title="Resetta per nuova analisi"
+                  >
+                    🔄 Rianalizza
+                  </button>
+                  
+                  <button
+                    onClick={() => deleteTrack(modalTrack.id)}
+                    className="rounded-lg bg-zinc-700 px-4 py-2 text-white hover:bg-red-600"
+                    title="Elimina traccia"
+                  >
+                    🗑️ Elimina
+                  </button>
                 </div>
 
                 {/* Pannello ricerca */}
