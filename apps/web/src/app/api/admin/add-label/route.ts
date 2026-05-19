@@ -144,16 +144,26 @@ async function getChannelVideos(channelId: string, maxResults: number = 100) {
             const seconds = parseInt(match[3] || '0')
             const totalMinutes = hours * 60 + minutes + seconds / 60
             
-            // FILTRO DURATA: solo tracce 1-7 minuti
-            if (totalMinutes < 1 || totalMinutes > 7) continue
+            // FILTRO DURATA: solo tracce 1-9 minuti
+            if (totalMinutes < 1 || totalMinutes > 9) continue
             
             const title = video.snippet?.title || ''
             const publishedAt = new Date(video.snippet?.publishedAt)
             
+            // DEBUG: log per tracce escluse
+            if (title.toLowerCase().includes('solid') || title.toLowerCase().includes('groove')) {
+              console.log(`Video: ${title}, Duration: ${totalMinutes.toFixed(2)}min, Date: ${publishedAt.toISOString()}`)
+            }
+            
             // FILTRO DATA: ultimi 3 anni
             const cutoffDate = new Date()
             cutoffDate.setFullYear(cutoffDate.getFullYear() - 3)
-            if (publishedAt < cutoffDate) continue
+            if (publishedAt < cutoffDate) {
+              if (title.toLowerCase().includes('solid') || title.toLowerCase().includes('groove')) {
+                console.log(`  -> SKIPPED: too old`)
+              }
+              continue
+            }
             
             // Usa titolo completo, lascia che Spotify faccia il matching
             videos.push({
