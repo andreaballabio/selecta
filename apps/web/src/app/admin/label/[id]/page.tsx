@@ -19,6 +19,33 @@ interface Label {
   slug: string
   primary_genre: string
   cataloged_tracks: number
+  created_at: string
+}
+
+interface LabelDNA {
+  totalTracks: number
+  analyzedTracks: number
+  matchedTracks: number
+  needsReviewTracks: number
+  failedTracks: number
+  
+  // Qualità dati
+  hasAudioAnalysis: number
+  hasPreview: number
+  
+  // Metriche
+  averageConfidence: number
+  coverageScore: number // 0-100
+  qualityScore: number // 0-100
+  
+  // Stato DNA
+  dnaStatus: 'incomplete' | 'building' | 'ready' | 'excellent'
+  dnaProgress: number // 0-100
+  
+  // Dettagli
+  uniqueArtists: number
+  avgTrackDuration: number | null
+  releaseYearRange: { min: number; max: number } | null
 }
 
 export default function LabelDetailPage() {
@@ -27,17 +54,13 @@ export default function LabelDetailPage() {
   
   const [label, setLabel] = useState<Label | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
+  const [dna, setDna] = useState<LabelDNA | null>(null)
   const [rawText, setRawText] = useState('')
   const [parsedCount, setParsedCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'report' | 'add'>('report')
+  const [activeTab, setActiveTab] = useState<'dna' | 'tracks' | 'add' | 'verify'>('dna')
   const [processing, setProcessing] = useState(false)
-  const [stats, setStats] = useState({
-    pending: 0,
-    matched: 0,
-    needs_review: 0,
-    failed: 0
-  })
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
 
   useEffect(() => {
     if (labelId) {
@@ -59,12 +82,7 @@ export default function LabelDetailPage() {
       const tracksData = await tracksRes.json()
       if (tracksRes.ok) {
         setTracks(tracksData.tracks || [])
-        // Calculate stats
-        const counts = { pending: 0, matched: 0, needs_review: 0, failed: 0 }
-        tracksData.tracks?.forEach((t: Track) => {
-          counts[t.status as keyof typeof counts]++
-        })
-        setStats(counts)
+        calculateDNA(tracksData.tracks || [])
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -73,6 +91,89 @@ export default function LabelDetailPage() {
     }
   }
 
+  const calculateDNA = (trackList: Track[]) => {
+    const total = trackList.length
+    const matched = trackList.filter(t => t.status === 'matched').length
+    const needsReview = trackList.filter(t => t.status === 'needs_review').length
+    const failed = trackList.filter(t => t.status === 'failed').length
+    const pending = trackList.filter(t => t.status === 'pending').length
+    const analyzed = matched + needsReview + failed
+    
+    const withPreview = trackList.filter(t => t.spotify_preview_url).length
+    
+    // Calcola confidence media
+    const confidences = trackList
+      .filter(t => t.spotify_match_confidence)
+      .map(t => t.spotify_match_confidence)
+    const avgConfidence = confidences.length > 0 
+      ? confidences.reduce((a, b) => a + b, 0) / confidences.length 
+      : 0
+    
+    // Artisti unici
+    const artists = new Set(trackList.map(t => t.artist_name).filter(Boolean))
+    
+    // Score copertura (quante tracce hanno match)
+    const coverageScore = total > 0 ? Math.round((matched / total) * 100) : 0
+    
+    // Score qualità (confidence media)
+    const qualityScore = Math.round(avgConfidence * 100)
+    
+    // Stato DNA
+    let dnaStatus: LabelDNA['dnaStatus'] = 'incomplete'
+    let dnaProgress = 0
+    
+    if (total >= 50 && coverageScore >= 80 && qualityScore >= 80) {
+      dnaStatus = 'excellent'
+      dnaProgress = 100
+    } else if (total >= 20 && coverageScore >= 60 && qualityScore >= 60) {
+      dnaStatus = 'ready'
+      dnaProgress = 75
+    } else if (total >= 10 && coverageScore >= 40) {
+      dnaStatus = 'building'
+      dnaProgress = 50
+    } else {
+      dnaStatus = 'incomplete'
+      dnaProgress = Math.round((total / 20) * 50)
+    }
+    
+    setDna({
+      totalTracks: total,
+      analyzedTracks: analyzed,
+      matchedTracks: matched,
+      needsReviewTracks: needsReview,
+      failedTracks: failed,
+      hasAudioAnalysis: matched,
+      hasPreview: withPreview,
+      averageConfidence: avgConfidence,
+      coverageScore,
+      qualityScore,
+      dnaStatus,
+      dnaProgress,
+      uniqueArtists: artists.size,
+      avgTrackDuration: null,
+      releaseYearRange: null
+    })
+  }
+
+  const getStatusColor = (status: LabelDNA['dnaStatus']) => {
+    switch (status) {
+      case 'excellent': return 'text-emerald-400 border-emerald-500 bg-emerald-900/20'
+      case 'ready': return 'text-blue-400 border-blue-500 bg-blue-900/20'
+      case 'building': return 'text-yellow-400 border-yellow-500 bg-yellow-900/20'
+      case 'incomplete': return 'text-red-400 border-red-500 bg-red-900/20'
+    }
+  }
+
+  const getStatusLabel = (status: LabelDNA['dnaStatus']) => {
+    switch (status) {
+      case 'excellent': return '🌟 Eccellente'
+      case 'ready': return '✅ Pronto'
+      case 'building': return '🔧 In costruzione'
+      case 'incomplete': return '⚠️ Incompleto'
+    }
+  }
+
+  // ... resto del componente (parseText, extractTracks, addTracks, startMatching)
   const parseText = () => {
     const lines = rawText.split('\n').filter(l => l.trim().length > 0)
     let count = 0
@@ -81,16 +182,11 @@ export default function LabelDetailPage() {
       const trimmed = line.trim()
       if (!trimmed || trimmed.length < 3) continue
       
-      // Pattern 1: "Artista - Titolo" (standard)
       if (trimmed.match(/^(.+?)\s*[-–—]\s*(.+)/)) {
         count++
-      }
-      // Pattern 2: "Titolo Mix Artista" (come nel tuo esempio)
-      else if (trimmed.match(/(.+?)\s+(Original Mix|Extended Mix|Remix|Edit)\s+(.+)/i)) {
+      } else if (trimmed.match(/(.+?)\s+(Original Mix|Extended Mix|Remix|Edit)\s+(.+)/i)) {
         count++
-      }
-      // Pattern 3: Parole multiple (probabilmente una traccia)
-      else if (trimmed.split(/\s+/).length >= 3) {
+      } else if (trimmed.split(/\s+/).length >= 3) {
         count++
       }
     }
@@ -106,7 +202,6 @@ export default function LabelDetailPage() {
       const trimmed = line.trim()
       if (!trimmed || trimmed.length < 3) continue
       
-      // Pattern 1: "Artista - Titolo"
       const dashMatch = trimmed.match(/^(.+?)\s*[-–—]\s*(.+?)(?:\s*[\(\[]|$)/)
       if (dashMatch) {
         tracks.push({
@@ -116,7 +211,6 @@ export default function LabelDetailPage() {
         continue
       }
       
-      // Pattern 2: "Titolo Mix Artista" (es: "Cut The Noise Original Mix Fer BR")
       const mixMatch = trimmed.match(/^(.+?)\s+(Original Mix|Extended Mix|Club Mix|Radio Edit|Remix|Edit)\s+(.+)$/i)
       if (mixMatch) {
         tracks.push({
@@ -126,7 +220,6 @@ export default function LabelDetailPage() {
         continue
       }
       
-      // Pattern 3: "Titolo (Mix) Artista"
       const parenMatch = trimmed.match(/^(.+?)\s*[\(\[](.+?)[\)\]]\s*(.+)$/)
       if (parenMatch) {
         tracks.push({
@@ -136,10 +229,8 @@ export default function LabelDetailPage() {
         continue
       }
       
-      // Pattern 4: Fallback - ultima parola come artista, resto come titolo
       const words = trimmed.split(/\s+/)
       if (words.length >= 2) {
-        // Prova: ultime 1-2 parole come artista
         const artist = words.slice(-2).join(' ')
         const title = words.slice(0, -2).join(' ')
         if (title && artist) {
@@ -156,7 +247,6 @@ export default function LabelDetailPage() {
     
     setProcessing(true)
     
-    // Usa la nuova funzione extractTracks
     const tracksToAdd = extractTracks(rawText)
     
     if (tracksToAdd.length === 0) {
@@ -177,8 +267,8 @@ export default function LabelDetailPage() {
       if (response.ok) {
         setRawText('')
         setParsedCount(0)
-        setActiveTab('report')
-        fetchLabelData() // Refresh
+        setActiveTab('dna')
+        fetchLabelData()
       }
     } catch (error) {
       console.error('Error adding tracks:', error)
@@ -188,7 +278,7 @@ export default function LabelDetailPage() {
   }
 
   const startMatching = async () => {
-    if (stats.pending === 0) return
+    if (!dna || dna.matchedTracks + dna.needsReviewTracks + dna.failedTracks === 0) return
     
     setProcessing(true)
     
@@ -199,12 +289,10 @@ export default function LabelDetailPage() {
         body: JSON.stringify({ label_id: labelId, batch_size: 5 })
       })
       
-      // Poll per aggiornamenti
       const interval = setInterval(async () => {
         await fetchLabelData()
       }, 5000)
       
-      // Ferma dopo 2 minuti
       setTimeout(() => {
         clearInterval(interval)
         setProcessing(false)
@@ -216,11 +304,29 @@ export default function LabelDetailPage() {
     }
   }
 
+  const verifyTrack = async (trackId: string, isCorrect: boolean) => {
+    try {
+      await fetch('/api/admin/verify-track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          track_id: trackId,
+          is_correct: isCorrect
+        })
+      })
+      
+      fetchLabelData()
+      setSelectedTrack(null)
+    } catch (error) {
+      console.error('Error verifying track:', error)
+    }
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-black p-8 text-white">Caricamento...</div>
   }
 
-  if (!label) {
+  if (!label || !dna) {
     return <div className="min-h-screen bg-black p-8 text-white">Label non trovata</div>
   }
 
@@ -230,40 +336,128 @@ export default function LabelDetailPage() {
         <div className="mb-8">
           <a href="/admin/labels" className="text-sm text-zinc-500 hover:text-white">← Torna alle label</a>
           <h1 className="mt-2 text-2xl font-bold text-white">{label.name}</h1>
-          <p className="text-zinc-500">{label.primary_genre} • {tracks.length} tracce</p>
+          <p className="text-zinc-500">{label.primary_genre} • {dna.totalTracks} tracce • {dna.uniqueArtists} artisti</p>
         </div>
 
-        {/* Stats */}
-        <div className="mb-8 grid grid-cols-4 gap-4">
+        {/* DNA Status Card */}
+        <div className={`mb-8 rounded-lg border-2 p-6 ${getStatusColor(dna.dnaStatus)}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold">{getStatusLabel(dna.dnaStatus)}</h2>
+              <p className="mt-1 text-sm opacity-80">
+                {dna.dnaStatus === 'excellent' && 'Il profilo label è completo e altamente affidabile per il matching'}
+                {dna.dnaStatus === 'ready' && 'Il profilo è pronto per essere usato, ma può essere migliorato'}
+                {dna.dnaStatus === 'building' && 'Il profilo è in costruzione, aggiungi più tracce'}
+                {dna.dnaStatus === 'incomplete' && 'Profilo incompleto, servono più dati per matching affidabile'}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-3xl font-bold">{dna.dnaProgress}%</p>
+              <p className="text-sm opacity-80">Completamento</p>
+            </div>
+          </div>
+          
+          <div className="mt-4 h-2 rounded-full bg-black/30">
+            <div 
+              className="h-2 rounded-full bg-current transition-all"
+              style={{ width: `${dna.dnaProgress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
           <div className="rounded-lg bg-zinc-900/50 p-4 text-center">
-            <p className="text-2xl font-bold text-white">{stats.pending}</p>
-            <p className="text-xs text-zinc-500">In attesa</p>
+            <p className="text-2xl font-bold text-white">{dna.totalTracks}</p>
+            <p className="text-xs text-zinc-500">Tracce Totali</p>
           </div>
+          
           <div className="rounded-lg bg-emerald-900/20 p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-400">{stats.matched}</p>
-            <p className="text-xs text-zinc-500">Match trovati</p>
+            <p className="text-2xl font-bold text-emerald-400">{dna.matchedTracks}</p>
+            <p className="text-xs text-zinc-500">✓ Match Perfetti</p>
           </div>
+          
           <div className="rounded-lg bg-yellow-900/20 p-4 text-center">
-            <p className="text-2xl font-bold text-yellow-400">{stats.needs_review}</p>
-            <p className="text-xs text-zinc-500">Da verificare</p>
+            <p className="text-2xl font-bold text-yellow-400">{dna.needsReviewTracks}</p>
+            <p className="text-xs text-zinc-500">⚠️ Da Verificare</p>
           </div>
+          
           <div className="rounded-lg bg-red-900/20 p-4 text-center">
-            <p className="text-2xl font-bold text-red-400">{stats.failed}</p>
-            <p className="text-xs text-zinc-500">Non trovati</p>
+            <p className="text-2xl font-bold text-red-400">{dna.failedTracks}</p>
+            <p className="text-xs text-zinc-500">✗ Non Trovati</p>
+          </div>
+        </div>
+
+        {/* Quality Metrics */}
+        <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <p className="text-sm text-zinc-500">Copertura Dati</p>
+            <div className="mt-2 flex items-end justify-between">
+              <p className="text-3xl font-bold text-white">{dna.coverageScore}%</p>
+              <p className="text-xs text-zinc-500">{dna.matchedTracks}/{dna.totalTracks} tracce</p>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-zinc-800">
+              <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${dna.coverageScore}%` }} />
+            </div>
+          </div>
+          
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <p className="text-sm text-zinc-500">Qualità Matching</p>
+            <div className="mt-2 flex items-end justify-between">
+              <p className="text-3xl font-bold text-white">{dna.qualityScore}%>
+              <p className="text-xs text-zinc-500">Confidence media</p>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-zinc-800">
+              <div className="h-2 rounded-full bg-blue-500" style={{ width: `${dna.qualityScore}%` }} />
+            </div>
+          </div>
+          
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <p className="text-sm text-zinc-500">Audio Disponibile</p>
+            <div className="mt-2 flex items-end justify-between">
+              <p className="text-3xl font-bold text-white">{dna.hasPreview}</p>
+              <p className="text-xs text-zinc-500">Preview Spotify</p>
+            </div>
+            <div className="mt-2 h-2 rounded-full bg-zinc-800">
+              <div 
+                className="h-2 rounded-full bg-purple-500" 
+                style={{ width: `${dna.totalTracks > 0 ? (dna.hasPreview / dna.totalTracks) * 100 : 0}%` }} 
+              />
+            </div>
           </div>
         </div>
 
         {/* Tabs */}
         <div className="mb-6 flex gap-4 border-b border-zinc-800">
           <button
-            onClick={() => setActiveTab('report')}
+            onClick={() => setActiveTab('dna')}
             className={`pb-3 text-sm font-medium ${
-              activeTab === 'report' 
+              activeTab === 'dna' 
                 ? 'border-b-2 border-emerald-500 text-emerald-400' 
                 : 'text-zinc-500 hover:text-white'
             }`}
           >
-            📊 Report Tracce
+            🧬 DNA Label
+          </button>
+          <button
+            onClick={() => setActiveTab('tracks')}
+            className={`pb-3 text-sm font-medium ${
+              activeTab === 'tracks' 
+                ? 'border-b-2 border-emerald-500 text-emerald-400' 
+                : 'text-zinc-500 hover:text-white'
+            }`}
+          >
+            📋 Lista Tracce ({dna.totalTracks})
+          </button>
+          <button
+            onClick={() => setActiveTab('verify')}
+            className={`pb-3 text-sm font-medium ${
+              activeTab === 'verify' 
+                ? 'border-b-2 border-emerald-500 text-emerald-400' 
+                : 'text-zinc-500 hover:text-white'
+            }`}
+          >
+            ⚠️ Da Verificare ({dna.needsReviewTracks})
           </button>
           <button
             onClick={() => setActiveTab('add')}
@@ -278,11 +472,59 @@ export default function LabelDetailPage() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'report' ? (
+        {activeTab === 'dna' && (
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+            <h2 className="mb-4 font-semibold text-white">Analisi DNA Label</h2>
+            
+            <div className="space-y-4">
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-400">Stato Profilo</span>
+                <span className={dna.dnaStatus === 'excellent' ? 'text-emerald-400' : dna.dnaStatus === 'ready' ? 'text-blue-400' : 'text-yellow-400'}>
+                  {getStatusLabel(dna.dnaStatus)}
+                </span>
+              </div>
+              
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-400">Tracce Analizzate</span>
+                <span className="text-white">{dna.analyzedTracks} / {dna.totalTracks}</span>
+              </div>
+              
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-400">Artisti Unici</span>
+                <span className="text-white">{dna.uniqueArtists}</span>
+              </div>
+              
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-400">Confidence Media</span>
+                <span className={dna.averageConfidence >= 0.8 ? 'text-emerald-400' : dna.averageConfidence >= 0.6 ? 'text-yellow-400' : 'text-red-400'}>
+                  {(dna.averageConfidence * 100).toFixed(0)}%
+                </span>
+              </div>
+              
+              <div className="flex justify-between border-b border-zinc-800 pb-2">
+                <span className="text-zinc-400">Preview Audio</span>
+                <span className="text-white">{dna.hasPreview} / {dna.totalTracks}</span>
+              </div>
+              
+              <div className="mt-6 rounded-lg bg-zinc-950 p-4">
+                <p className="text-sm text-zinc-400">
+                  <strong className="text-white">Cosa significa:</strong>
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-zinc-500">
+                  <li>• <strong>Copertura Dati:</strong> Percentuale di tracce con match Spotify trovato</li>
+                  <li>• <strong>Qualità Matching:</strong> Affidabilità media delle corrispondenze trovate</li>
+                  <li>• <strong>DNA Pronto:</strong> Il profilo è sufficiente per matching con tracce utente</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'tracks' && (
           <div>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-semibold text-white">Lista Tracce</h2>
-              {stats.pending > 0 && (
+              {dna.matchedTracks + dna.needsReviewTracks + dna.failedTrack > 0 && (
                 <button
                   onClick={startMatching}
                   disabled={processing}
@@ -327,12 +569,56 @@ export default function LabelDetailPage() {
               </div>
             </div>
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'verify' && (
+          <div>
+            <h2 className="mb-4 font-semibold text-white">Tracce da Verificare</h2>
+            
+            {tracks.filter(t => t.status === 'needs_review').length === 0 ? (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+                <p className="text-zinc-500">🎉 Nessuna traccia da verificare!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {tracks
+                  .filter(t => t.status === 'needs_review')
+                  .map((track) => (
+                    <div key={track.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-white">{track.artist_name} - {track.track_title}</p>
+                          <p className="text-sm text-zinc-500">Confidence: {(track.spotify_match_confidence || 0) * 100}%</p>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => verifyTrack(track.id, true)}
+                            className="rounded bg-emerald-900/50 px-3 py-1 text-sm text-emerald-400 hover:bg-emerald-900"
+                          >
+                            ✓ Conferma
+                          </button>
+                          <button
+                            onClick={() => verifyTrack(track.id, false)}
+                            className="rounded bg-red-900/50 px-3 py-1 text-sm text-red-400 hover:bg-red-900"
+                          >
+                            ✗ Rifiuta
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'add' && (
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
             <h2 className="mb-4 font-semibold text-white">Aggiungi Tracce</h2>
             
             <p className="mb-4 text-sm text-zinc-400">
-              Incolla la lista tracce da Beatport/Traxsource (formato: Artista - Titolo, oppure Titolo Mix Artista)
+              Incolla la lista tracce da Beatport/Traxsource
             </p>
             
             <textarea
