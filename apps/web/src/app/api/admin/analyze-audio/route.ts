@@ -65,16 +65,36 @@ export async function POST(request: NextRequest) {
     
     // Altrimenti, trova la prossima traccia da analizzare per la label
     if (label_id) {
-      const { data: track, error } = await supabase
+      // Prima prova con analysis_status = 'pending' o NULL
+      let { data: track, error } = await supabase
         .from('label_ingestion_queue')
         .select('id, track_title, artist_name, spotify_preview_url')
         .eq('label_id', label_id)
         .eq('status', 'matched')
-        .or('analysis_status.eq.pending,analysis_status.is.null') // Gestisce tracce vecchie (NULL) e nuove (pending)
+        .or('analysis_status.eq.pending,analysis_status.is.null')
         .not('spotify_preview_url', 'is', null)
         .order('created_at', { ascending: true })
         .limit(1)
-        .single()
+        .maybeSingle() // Usa maybeSingle invece di single per non fare errore se vuoto
+      
+      // Se non trova nulla, prova anche con analysis_status vuoto
+      if (!track && !error) {
+        const { data: track2, error: error2 } = await supabase
+          .from('label_ingestion_queue')
+          .select('id, track_title, artist_name, spotify_preview_url')
+          .eq('label_id', label_id)
+          .eq('status', 'matched')
+          .eq('analysis_status', '')
+          .not('spotify_preview_url', 'is', null)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
+        
+        if (track2) {
+          track = track2
+          error = error2
+        }
+      }
       
       if (error) {
         console.log('Supabase error:', error)
