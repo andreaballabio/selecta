@@ -230,6 +230,18 @@ async function analyzeSingleTrack(trackId: string) {
       throw new Error(`Errore salvataggio: ${updateError.message}`)
     }
     
+    // Aggiorna il profilo della label in background
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/update-label-profile`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label_id: track.label_id })
+      })
+    } catch (profileError) {
+      // Non blocchiamo l'analisi se il profilo fallisce
+      console.error('Failed to update label profile:', profileError)
+    }
+    
     return {
       success: true,
       track_id: trackId,
