@@ -112,7 +112,9 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     const matchResults = (profiles ?? []).map((label: Record<string, unknown>) => {
       const labelEmbedding: number[] = parseEmbedding(label.avg_embedding)
 
-      const cosine = cosineSimilarity(trackEmbedding, labelEmbedding)
+      const rawCosine = cosineSimilarity(trackEmbedding, labelEmbedding)
+      // Audio embeddings live in range ~0.5–1.0, rescale to 0–1 for meaningful scores
+      const cosine = Math.max(0, (rawCosine - 0.5) / 0.5)
       const feat = featureScore(f, label as Record<string, number>)
       const confBoost = ((label.confidence_score as number) ?? 0) * 0.10
       const score = cosine * 0.55 + feat * 0.35 + confBoost
