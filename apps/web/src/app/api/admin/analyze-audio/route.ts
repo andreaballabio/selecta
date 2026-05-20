@@ -187,7 +187,8 @@ async function analyzeSingleTrack(trackId: string) {
         artist_level: 'established',
         title: track.track_title,
         artist: track.artist_name,
-        is_preview: true  // Sempre preview per tracce label (30s)
+        is_preview: true,  // Sempre preview per tracce label (30s)
+        track_status: 'unknown'  // per tracce label, sempre unknown
       }),
       timeout: 120000 // 2 minuti timeout
     } as any)
@@ -217,6 +218,10 @@ async function analyzeSingleTrack(trackId: string) {
         lufs: features.lufs,
         duration: features.duration,
         audio_embedding: features.embedding,
+        onset_strength: features.onset_strength ?? null,
+        sub_ratio: features.sub_ratio ?? null,
+        mid_presence: features.mid_presence ?? null,
+        tempo_stability: features.tempo_stability ?? null,
         analyzed_at: new Date().toISOString()
       })
       .eq('id', trackId)
