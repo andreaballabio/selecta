@@ -275,6 +275,9 @@ async function analyzeSingleTrack(trackId: string) {
         mid_presence: features.mid_presence ?? null,
         tempo_stability: features.tempo_stability ?? null,
         spectral_contrast: features.spectral_contrast ?? null,
+        spectral_centroid: features.spectral_centroid ?? null,
+        spectral_rolloff: features.spectral_rolloff ?? null,
+        zero_crossing_rate: features.zero_crossing_rate ?? null,
         analyzed_at: new Date().toISOString()
       })
       .eq('id', trackId)

@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { data: tracks, error } = await supabase
       .from('label_ingestion_queue')
       .select(`
-        energy, lufs, spectral_centroid, spectral_rolloff,
+        energy, lufs, spectral_centroid, spectral_rolloff, spectral_contrast,
         zero_crossing_rate, onset_strength, sub_ratio,
         mid_presence, tempo_stability, audio_embedding
       `)
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       avg_lufs: avg('lufs'),
       avg_spectral_centroid: avg('spectral_centroid'),
       avg_spectral_rolloff: avg('spectral_rolloff'),
+      avg_spectral_contrast: avg('spectral_contrast'),
       avg_zero_crossing_rate: avg('zero_crossing_rate'),
       avg_onset_strength: avg('onset_strength'),
       avg_sub_ratio: avg('sub_ratio'),
