@@ -59,6 +59,7 @@ export async function GET(request: NextRequest) {
         sub_ratio,
         mid_presence,
         tempo_stability,
+        spectral_contrast,
         created_at
       `)
       .eq('label_id', labelId)
