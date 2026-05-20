@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
       .select(`
         energy, lufs, spectral_centroid, spectral_rolloff,
         zero_crossing_rate, onset_strength, sub_ratio,
-        mid_presence, tempo_stability, embedding
+        mid_presence, tempo_stability, audio_embedding
       `)
       .eq('label_id', label_id)
       .eq('analysis_status', 'analyzed')
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Embedding medio
     const validEmbeddings = tracks
-      .map(t => t.embedding)
+      .map(t => t.audio_embedding)
       .filter(e => Array.isArray(e) && e.length === 64)
 
     let avg_embedding: number[] | null = null
