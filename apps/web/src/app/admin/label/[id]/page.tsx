@@ -40,6 +40,7 @@ interface Track {
   sub_ratio: number | null
   mid_presence: number | null
   tempo_stability: number | null
+  spectral_contrast: number | null
 }
 
 interface UnifiedTrack {
@@ -1204,6 +1205,9 @@ export default function LabelDetailPage() {
                                 )}
                                 {track.tempo_stability != null && (
                                   <span title="Stabilità groove">🎯 {(track.tempo_stability * 100).toFixed(0)}%</span>
+                                )}
+                                {track.spectral_contrast != null && (
+                                  <span title="Contrasto spettrale">🎛️ {(track.spectral_contrast * 100).toFixed(0)}%</span>
                                 )}
                               </div>
                             </div>
