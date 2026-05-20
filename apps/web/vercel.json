@@ -1,4 +1,9 @@
 {
   "version": 2,
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "functions": {
+    "app/api/match/route.ts": {
+      "maxDuration": 150
+    }
+  }
 }
