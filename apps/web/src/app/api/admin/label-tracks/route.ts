@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         spotify_match_confidence,
         suggested_matches,
         analysis_status,
+        analysis_error,
         bpm,
         key,
         scale,
@@ -81,6 +82,49 @@ export async function GET(request: NextRequest) {
     })
     
   } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const labelId = searchParams.get('label_id')
+    const action = searchParams.get('action')
+    
+    if (!labelId) {
+      return NextResponse.json({ error: 'Label ID richiesto' }, { status: 400 })
+    }
+    
+    if (action === 'delete_all') {
+      // Elimina tutte le tracce della label
+      const { error, count } = await supabase
+        .from('label_ingestion_queue')
+        .delete({ count: 'exact' })
+        .eq('label_id', labelId)
+      
+      if (error) {
+        console.error('Error deleting tracks:', error)
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      
+      // Resetta anche il profilo della label
+      await supabase
+        .from('label_profiles')
+        .delete()
+        .eq('label_id', labelId)
+      
+      return NextResponse.json({ 
+        success: true, 
+        deleted: count || 0,
+        message: `${count || 0} tracce eliminate`
+      })
+    }
+    
+    return NextResponse.json({ error: 'Azione non valida' }, { status: 400 })
+    
+  } catch (error: any) {
+    console.error('Error in DELETE:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

@@ -21,6 +21,7 @@ interface Track {
   created_at: string
   // Analisi audio
   analysis_status: string
+  analysis_error?: string | null
   bpm: number | null
   key: string | null
   scale: string | null
@@ -811,6 +812,35 @@ export default function LabelDetailPage() {
     }
   }
 
+  // Elimina tutte le tracce della label
+  const deleteAllTracks = async () => {
+    const count = tracks.length
+    if (!confirm(`⚠️ ATTENZIONE!\n\nStai per eliminare TUTTE le ${count} tracce di questa label.\n\nQuesta azione è irreversibile.\n\nSei sicuro di voler procedere?`)) return
+    
+    // Seconda conferma
+    if (!confirm(`Conferma finale: eliminare ${count} tracce?`)) return
+    
+    try {
+      setProcessing(true)
+      const response = await fetch(`/api/admin/label-tracks?label_id=${labelId}&action=delete_all`, {
+        method: 'DELETE'
+      })
+      
+      if (response.ok) {
+        alert(`✓ ${count} tracce eliminate`)
+        fetchLabelData()
+      } else {
+        const error = await response.json()
+        alert('Errore: ' + error.error)
+      }
+    } catch (error) {
+      console.error('Error deleting all tracks:', error)
+      alert('Errore durante l\'eliminazione')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-black p-8 text-white">Caricamento...</div>
   }
@@ -1092,7 +1122,27 @@ export default function LabelDetailPage() {
                     <span className="text-yellow-400">
                       ⏳ {tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length} da analizzare
                     </span>
+                    {tracks.filter(t => t.analysis_status === 'failed' && t.analysis_error?.includes('403')).length > 0 && (
+                      <>
+                        <span>|</span>
+                        <span className="text-orange-400" title="URL preview scaduto, serve ri-verificare">
+                          ⚠ {tracks.filter(t => t.analysis_status === 'failed' && t.analysis_error?.includes('403')).length} da ri-verificare
+                        </span>
+                      </>
+                    )}
                   </div>
+                  
+                  {/* Pulsante Elimina Tutte */}
+                  {tracks.length > 0 && (
+                    <button
+                      onClick={deleteAllTracks}
+                      disabled={processing}
+                      className="rounded-lg border border-red-800 bg-red-900/30 px-3 py-2 text-sm font-semibold text-red-400 hover:bg-red-900/50"
+                      title="Elimina tutte le tracce"
+                    >
+                      🗑️ Elimina Tutte
+                    </button>
+                  )}
                   
                   <button
                     onClick={startAudioAnalysis}
