@@ -35,7 +35,8 @@ export async function POST(request: NextRequest) {
     // Get public URL for the track
     const { data: publicUrlData } = supabase.storage
       .from('audio-tracks')
-      .getPublicUrl(track.storage_path)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .getPublicUrl((track as any).storage_path)
     
     console.log('Calling worker at:', `${WORKER_URL}/analyze`)
     console.log('Track URL:', publicUrlData.publicUrl)
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
         scale: features.scale || 'minor',
         lufs: features.lufs || -14.2,
         duration_seconds: features.duration || 240.0,
-        energy_curve: features.energy_curve || [0.5] * 10,
+        energy_curve: features.energy_curve || Array(10).fill(0.5),
         features: {
           spectral_centroid: features.spectral_centroid || 2500.0,
           spectral_rolloff: features.spectral_rolloff || 6000.0,

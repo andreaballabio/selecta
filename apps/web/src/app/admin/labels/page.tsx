@@ -48,8 +48,6 @@ export default function AdminLabelsPage() {
       if (response.ok) {
         setMessage('✓ Label eliminata')
         setLabels(labels.filter(l => l.id !== labelId))
-        setSelectedLabel(null)
-        setStats(null)
       } else {
         setMessage('✗ Errore nell\'eliminazione')
       }
@@ -69,7 +67,7 @@ export default function AdminLabelsPage() {
 
       if (response.ok) {
         setMessage('✓ Label resettata. Ora puoi riprocessare.')
-        fetchLabelStats(labelId)
+        fetchLabels()
       }
     } catch (error) {
       setMessage('✗ Errore nel reset')

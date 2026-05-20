@@ -331,7 +331,7 @@ export default function TrackAnalysisPage() {
                     .sort((a, b) => a.rank - b.rank)
                     .map((match) => (
                       <div
-                        key={match.labels?.slug || match.label_id}
+                        key={match.labels?.slug || String(match.rank)}
                         className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5 transition-colors hover:border-zinc-700"
                       >
                         <div className="mb-4 flex items-start justify-between">
