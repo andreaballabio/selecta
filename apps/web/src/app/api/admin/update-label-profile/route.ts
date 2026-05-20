@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const validEmbeddings = tracks
       .map(t => t.audio_embedding)
       .filter(e => Array.isArray(e) && e.length === 64)
+      .map(e => e.map((v: any) => parseFloat(v)))  // converti stringhe in numeri
 
     let avg_embedding: number[] | null = null
     if (validEmbeddings.length > 0) {
