@@ -4,6 +4,19 @@ import { createClient } from '@supabase/supabase-js'
 
 const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
+function parseEmbedding(raw: unknown): number[] {
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.map((v) => parseFloat(String(v))) : []
+    } catch {
+      return []
+    }
+  }
+  if (Array.isArray(raw)) return (raw as (string | number)[]).map((v) => parseFloat(String(v)))
+  return []
+}
+
 function cosineSimilarity(a: number[], b: number[]): number {
   const dot = a.reduce((sum, v, i) => sum + v * b[i], 0)
   const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0))
@@ -89,9 +102,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     // Worker may return features at top level or nested under .features
     const f: Record<string, number> = workerData.features ?? workerData
 
-    // embedding: worker returns float[], but always parse to be safe
-    const trackEmbedding: number[] = ((workerData.embedding ?? f.embedding ?? []) as (string | number)[])
-      .map((v) => parseFloat(String(v)))
+    const trackEmbedding: number[] = parseEmbedding(workerData.embedding ?? f.embedding)
 
     const { data: profiles } = await supabase
       .from('label_profiles')
@@ -99,9 +110,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       .gte('analyzed_tracks_count', 3)
 
     const matchResults = (profiles ?? []).map((label: Record<string, unknown>) => {
-      // avg_embedding from Supabase VECTOR is returned as string[]
-      const labelEmbedding: number[] = ((label.avg_embedding ?? []) as (string | number)[])
-        .map((v) => parseFloat(String(v)))
+      const labelEmbedding: number[] = parseEmbedding(label.avg_embedding)
 
       const cosine = cosineSimilarity(trackEmbedding, labelEmbedding)
       const feat = featureScore(f, label as Record<string, number>)
