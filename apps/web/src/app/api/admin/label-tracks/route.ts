@@ -49,6 +49,16 @@ export async function GET(request: NextRequest) {
         lufs,
         duration,
         audio_embedding,
+        audio_source,
+        audio_preview_url,
+        track_rank,
+        track_explicit,
+        track_genre,
+        release_date,
+        onset_strength,
+        sub_ratio,
+        mid_presence,
+        tempo_stability,
         created_at
       `)
       .eq('label_id', labelId)

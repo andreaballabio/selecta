@@ -35,6 +35,11 @@ interface Track {
   track_explicit: boolean | null
   track_genre: string | null
   release_date: string | null
+  // Nuovi campi stilistici
+  onset_strength: number | null
+  sub_ratio: number | null
+  mid_presence: number | null
+  tempo_stability: number | null
 }
 
 interface UnifiedTrack {
@@ -1175,9 +1180,32 @@ export default function LabelDetailPage() {
                         </td>
                         <td className="px-4 py-3">
                           {track.analysis_status === 'analyzed' && (
-                            <div className="text-xs text-purple-400">
-                              <span>✓ {track.bpm?.toFixed(0)} BPM</span>
-                              <span className="ml-2">{track.key} {track.scale}</span>
+                            <div className="text-xs space-y-1">
+                              {/* BPM e Key — solo se presenti (full track, non preview) */}
+                              {track.bpm && (
+                                <div className="text-purple-400">
+                                  <span>✓ {track.bpm.toFixed(0)} BPM</span>
+                                  {track.key && <span className="ml-2">{track.key} {track.scale}</span>}
+                                </div>
+                              )}
+                              {!track.bpm && (
+                                <div className="text-purple-400">✓ Analizzata</div>
+                              )}
+                              {/* Nuove feature stilistiche */}
+                              <div className="text-gray-400 flex flex-wrap gap-x-3">
+                                {track.onset_strength != null && (
+                                  <span title="Aggressività groove">⚡ {(track.onset_strength * 100).toFixed(0)}</span>
+                                )}
+                                {track.sub_ratio != null && (
+                                  <span title="Peso sub">🔊 {(track.sub_ratio * 100).toFixed(0)}%</span>
+                                )}
+                                {track.mid_presence != null && (
+                                  <span title="Mid presence">〰️ {(track.mid_presence * 100).toFixed(0)}%</span>
+                                )}
+                                {track.tempo_stability != null && (
+                                  <span title="Stabilità groove">🎯 {(track.tempo_stability * 100).toFixed(0)}%</span>
+                                )}
+                              </div>
                             </div>
                           )}
                           {track.analysis_status === 'analyzing' && <span className="text-xs text-yellow-400">🔬 Analizzando...</span>}
