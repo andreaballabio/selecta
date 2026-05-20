@@ -173,28 +173,60 @@ async function analyzeSingleTrack(trackId: string) {
       })
       .eq('id', trackId)
     
-    // Chiama il worker
-    const response = await fetch(`${WORKER_URL}/analyze`, {
-      method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        track_id: trackId,
-        file_url: track.spotify_preview_url,
-        artist_level: 'established',
-        title: track.track_title,
-        artist: track.artist_name,
-        is_preview: true,  // Sempre preview per tracce label (30s)
-        track_status: 'unknown'  // per tracce label, sempre unknown
-      }),
-      timeout: 120000 // 2 minuti timeout
-    } as any)
+    // Chiama il worker con retry
+    let lastError = null
+    let response = null
     
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Worker error: ${response.status} - ${errorText}`)
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        response = await fetch(`${WORKER_URL}/analyze`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            track_id: trackId,
+            file_url: track.spotify_preview_url,
+            artist_level: 'established',
+            title: track.track_title,
+            artist: track.artist_name,
+            is_preview: true,
+            track_status: 'unknown'
+          }),
+          timeout: 120000
+        } as any)
+        
+        if (response.ok) {
+          lastError = null
+          break
+        }
+        
+        // Se 403 o 500, riprova dopo attesa
+        if (response.status === 403 || response.status >= 500) {
+          console.log(`Worker returned ${response.status}, attempt ${attempt}/3`)
+          lastError = new Error(`Worker error: ${response.status}`)
+          if (attempt < 3) {
+            await new Promise(r => setTimeout(r, 5000 * attempt))
+            continue
+          }
+        }
+        
+        // Altri errori, non riprovare
+        const errorText = await response.text()
+        throw new Error(`Worker error: ${response.status} - ${errorText}`)
+        
+      } catch (fetchError: any) {
+        lastError = fetchError
+        console.log(`Fetch error attempt ${attempt}/3:`, fetchError.message)
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 5000 * attempt))
+        }
+      }
+    }
+    
+    if (lastError || !response || !response.ok) {
+      throw lastError || new Error('Worker failed after 3 attempts')
     }
     
     const result = await response.json()
