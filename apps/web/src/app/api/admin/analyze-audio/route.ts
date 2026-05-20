@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
         .eq('status', 'matched')
         .not('spotify_preview_url', 'is', null)
         .order('created_at', { ascending: true })
-        .limit(10)
       
       if (error) {
         console.log('Supabase error:', error)
