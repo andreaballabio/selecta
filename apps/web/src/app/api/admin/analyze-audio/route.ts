@@ -231,8 +231,29 @@ async function analyzeSingleTrack(trackId: string) {
     
     const result = await response.json()
     
-    if (!result.success || !result.features) {
-      throw new Error(result.error || 'Analisi fallita')
+    // Se il worker ha fallito (es. 403 da Deezer), marca come failed e continua
+    if (!result.success) {
+      console.log(`Worker reported failure for track ${trackId}:`, result.error)
+      
+      await supabase
+        .from('label_ingestion_queue')
+        .update({
+          analysis_status: 'failed',
+          analysis_error: result.error?.slice(0, 500) || 'Download preview fallito',
+          spotify_preview_url: null  // Resetta l'URL scaduto
+        })
+        .eq('id', trackId)
+      
+      return {
+        success: false,
+        error: result.error || 'Analisi fallita',
+        track_id: trackId,
+        needs_reverify: true  // Segnala che serve ri-verificare il match
+      }
+    }
+    
+    if (!result.features) {
+      throw new Error('Nessuna feature ricevuta dal worker')
     }
     
     const features = result.features

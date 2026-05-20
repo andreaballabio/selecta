@@ -79,8 +79,19 @@ async def analyze_track(request: AnalysisRequest):
         
         # Download audio file
         async with httpx.AsyncClient() as client:
-            response = await client.get(request.file_url, timeout=60.0)
-            response.raise_for_status()
+            try:
+                response = await client.get(request.file_url, timeout=60.0)
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 403:
+                    logger.error(f"403 Forbidden - Preview URL expired or blocked: {request.file_url}")
+                    return AnalysisResponse(
+                        track_id=request.track_id,
+                        features=None,
+                        success=False,
+                        error="PREVIEW_EXPIRED"
+                    )
+                raise
             
             with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp:
                 tmp.write(response.content)
