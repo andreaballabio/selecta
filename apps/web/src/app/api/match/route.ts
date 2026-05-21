@@ -25,15 +25,32 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 function featureScore(track: Record<string, number>, label: Record<string, number>): number {
+  // Usa solo feature restituite dal worker E presenti in label_profiles
   const checks = [
-    { t: track.sub_ratio,         l: label.avg_sub_ratio,         std: label.std_sub_ratio },
-    { t: track.onset_strength,    l: label.avg_onset_strength,     std: label.std_onset_strength },
-    { t: track.mid_presence,      l: label.avg_mid_presence,       std: 0.05 },
-    { t: track.spectral_contrast, l: label.avg_spectral_contrast,  std: 0.05 },
+    {
+      t: track.spectral_centroid,
+      l: label.avg_spectral_centroid,
+      std: Math.max(label.std_spectral_centroid ?? 800, 200), // std disponibile in label_profiles
+    },
+    {
+      t: track.spectral_rolloff,
+      l: label.avg_spectral_rolloff,
+      std: 1500, // Hz, tolleranza fissa
+    },
+    {
+      t: track.lufs,
+      l: label.avg_lufs,
+      std: 4.0, // dBLUFS, tolleranza fissa
+    },
+    {
+      t: track.zero_crossing_rate,
+      l: label.avg_zero_crossing_rate,
+      std: 0.03, // 0-1 range, tolleranza fissa
+    },
   ]
   const scores = checks.map(({ t, l, std }) => {
     if (t == null || l == null) return 0.5
-    const tol = Math.max((std ?? 0.05) * 1.5, 0.05)
+    const tol = Math.max(std * 1.5, 0.01)
     return Math.max(0, 1 - Math.abs(t - l) / tol)
   })
   return scores.reduce((s, v) => s + v, 0) / scores.length
@@ -42,28 +59,28 @@ function featureScore(track: Record<string, number>, label: Record<string, numbe
 function generateFeedback(track: Record<string, number>, label: Record<string, number>): string[] {
   const checks = [
     {
-      diff: track.sub_ratio - label.avg_sub_ratio,
-      thr: 0.15,
-      hi: 'Il tuo basso è più pesante del sound tipico',
-      lo: 'Il tuo basso è più contenuto del sound tipico',
-    },
-    {
-      diff: track.onset_strength - label.avg_onset_strength,
-      thr: 0.15,
-      hi: 'Il tuo groove è più aggressivo della media',
-      lo: 'Il tuo groove è più morbido della media',
-    },
-    {
       diff: track.spectral_centroid - label.avg_spectral_centroid,
-      thr: 300,
-      hi: 'Il tuo mix è più brillante del sound tipico',
-      lo: 'Il tuo mix è più dark del sound tipico',
+      thr: 400,
+      hi: 'Il tuo mix è più brillante del sound tipico della label',
+      lo: 'Il tuo mix è più dark del sound tipico della label',
     },
     {
-      diff: track.mid_presence - label.avg_mid_presence,
-      thr: 0.08,
-      hi: 'Hai più presenza nei medi rispetto alla label',
-      lo: 'Hai meno presenza nei medi rispetto alla label',
+      diff: track.spectral_rolloff - label.avg_spectral_rolloff,
+      thr: 1200,
+      hi: 'Le tue alte frequenze sono più presenti rispetto alla media',
+      lo: 'Le tue alte frequenze sono più contenute rispetto alla media',
+    },
+    {
+      diff: track.lufs - label.avg_lufs,
+      thr: 3.0,
+      hi: 'Il tuo master è più loud della media della label',
+      lo: 'Il tuo master è più quiet della media della label',
+    },
+    {
+      diff: track.zero_crossing_rate - label.avg_zero_crossing_rate,
+      thr: 0.025,
+      hi: 'La tua texture sonora è più ricca di transienti',
+      lo: 'La tua texture sonora è più pulita e minimale',
     },
   ]
   const lines: string[] = []
