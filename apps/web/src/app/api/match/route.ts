@@ -25,27 +25,52 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 function featureScore(track: Record<string, number>, label: Record<string, number>): number {
-  // Usa solo feature restituite dal worker E presenti in label_profiles
+  // 8 features: spectral shape (4) + band ratios (2) + transients + timbro
+  // Note: tempo_stability excluded — preview clips always return 0.5, making label profiles unreliable
   const checks = [
+    // ── Spectral shape ───────────────────────────────────────────────────
     {
       t: track.spectral_centroid,
       l: label.avg_spectral_centroid,
-      std: Math.max(label.std_spectral_centroid ?? 800, 200), // std disponibile in label_profiles
+      std: Math.max(label.std_spectral_centroid ?? 800, 200),
     },
     {
       t: track.spectral_rolloff,
       l: label.avg_spectral_rolloff,
-      std: 1500, // Hz, tolleranza fissa
+      std: 1500, // Hz, fixed tolerance
     },
     {
       t: track.lufs,
       l: label.avg_lufs,
-      std: 4.0, // dBLUFS, tolleranza fissa
+      std: 4.0, // dBLUFS, fixed tolerance
     },
     {
       t: track.zero_crossing_rate,
       l: label.avg_zero_crossing_rate,
-      std: 0.03, // 0-1 range, tolleranza fissa
+      std: 0.03,
+    },
+    // ── Band energy ratios ───────────────────────────────────────────────
+    {
+      t: track.sub_ratio,
+      l: label.avg_sub_ratio,
+      std: Math.max(label.std_sub_ratio ?? 0.04, 0.01), // sub-bass fraction 0-1
+    },
+    {
+      t: track.mid_presence,
+      l: label.avg_mid_presence,
+      std: 0.05, // mid-freq fraction 0-1, fixed tolerance
+    },
+    // ── Transient density ────────────────────────────────────────────────
+    {
+      t: track.onset_strength,
+      l: label.avg_onset_strength,
+      std: Math.max(label.std_onset_strength ?? 0.08, 0.02),
+    },
+    // ── Tonal vs noise ───────────────────────────────────────────────────
+    {
+      t: track.spectral_contrast,
+      l: label.avg_spectral_contrast,
+      std: 0.5, // log-domain, fixed tolerance
     },
   ]
   const scores = checks.map(({ t, l, std }) => {
@@ -81,6 +106,24 @@ function generateFeedback(track: Record<string, number>, label: Record<string, n
       thr: 0.025,
       hi: 'La tua texture sonora è più ricca di transienti',
       lo: 'La tua texture sonora è più pulita e minimale',
+    },
+    {
+      diff: track.sub_ratio - label.avg_sub_ratio,
+      thr: 0.04,
+      hi: 'Il tuo sound ha più sub-bass rispetto alla media della label',
+      lo: 'Il tuo sound ha meno sub-bass rispetto alla media della label',
+    },
+    {
+      diff: track.mid_presence - label.avg_mid_presence,
+      thr: 0.04,
+      hi: 'Le frequenze medie sono più presenti rispetto alla media della label',
+      lo: 'Le frequenze medie sono più contenute rispetto alla media della label',
+    },
+    {
+      diff: track.onset_strength - label.avg_onset_strength,
+      thr: 0.08,
+      hi: 'Il tuo sound è più percussivo e transient-rich della label',
+      lo: 'Il tuo sound è più smooth e meno percussivo della label',
     },
   ]
   const lines: string[] = []
