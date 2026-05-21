@@ -6,6 +6,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const label_id = searchParams.get('label_id')
+  if (!label_id) return NextResponse.json({ error: 'label_id required' }, { status: 400 })
+
+  const { data, error } = await supabase
+    .from('label_profiles')
+    .select('*')
+    .eq('label_id', label_id)
+    .single()
+
+  if (error || !data) return NextResponse.json({ profile: null })
+  return NextResponse.json({ profile: data })
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { label_id } = await request.json()

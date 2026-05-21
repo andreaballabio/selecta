@@ -85,6 +85,25 @@ interface Label {
   created_at: string
 }
 
+interface LabelProfile {
+  analyzed_tracks_count: number
+  confidence_score: number
+  updated_at: string
+  avg_energy: number | null
+  avg_lufs: number | null
+  avg_spectral_centroid: number | null
+  avg_spectral_rolloff: number | null
+  avg_zero_crossing_rate: number | null
+  avg_onset_strength: number | null
+  avg_sub_ratio: number | null
+  avg_mid_presence: number | null
+  avg_tempo_stability: number | null
+  avg_spectral_contrast: number | null
+  std_sub_ratio: number | null
+  std_onset_strength: number | null
+  std_spectral_centroid: number | null
+}
+
 interface LabelDNA {
   totalTracks: number
   analyzedTracks: number
@@ -118,6 +137,7 @@ export default function LabelDetailPage() {
   const [label, setLabel] = useState<Label | null>(null)
   const [tracks, setTracks] = useState<Track[]>([])
   const [dna, setDna] = useState<LabelDNA | null>(null)
+  const [labelProfile, setLabelProfile] = useState<LabelProfile | null>(null)
   const [rawText, setRawText] = useState('')
   const [parsedCount, setParsedCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -169,6 +189,13 @@ export default function LabelDetailPage() {
       if (tracksRes.ok) {
         setTracks(tracksData.tracks || [])
         calculateDNA(tracksData.tracks || [])
+      }
+
+      // Fetch label profile
+      const profileRes = await fetch(`/api/admin/update-label-profile?label_id=${labelId}`)
+      const profileData = await profileRes.json()
+      if (profileRes.ok && profileData.profile) {
+        setLabelProfile(profileData.profile)
       }
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -450,8 +477,8 @@ export default function LabelDetailPage() {
     }
   }
 
-  // Timer per l'analisi (30 secondi tra una traccia e l'altra)
-  const ANALYSIS_INTERVAL = 30
+  // Timer per l'analisi (10 secondi tra una traccia e l'altra)
+  const ANALYSIS_INTERVAL = 10
 
   const startAnalysisTimer = () => {
     // Pulisci timer precedenti
@@ -1103,6 +1130,125 @@ export default function LabelDetailPage() {
                   <li>• <strong>Qualità Matching:</strong> Affidabilità media delle corrispondenze trovate</li>
                   <li>• <strong>DNA Pronto:</strong> Il profilo è sufficiente per matching con tracce utente</li>
                 </ul>
+              </div>
+
+              {/* ── PROFILO AUDIO IN TEMPO REALE ── */}
+              <div className="mt-6 rounded-lg border border-zinc-700 bg-zinc-950 p-4">
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="font-semibold text-white">🎛️ Profilo Audio Label</h3>
+                  {labelProfile ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-zinc-500">
+                        Aggiornato: {new Date(labelProfile.updated_at).toLocaleString('it-IT')}
+                      </span>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                        labelProfile.confidence_score >= 0.6
+                          ? 'bg-emerald-900/50 text-emerald-400'
+                          : labelProfile.confidence_score >= 0.3
+                          ? 'bg-yellow-900/50 text-yellow-400'
+                          : 'bg-red-900/50 text-red-400'
+                      }`}>
+                        {labelProfile.confidence_score >= 0.6
+                          ? '✓ Profilo solido'
+                          : labelProfile.confidence_score >= 0.3
+                          ? '⚠ In costruzione'
+                          : '✗ Dati insufficienti'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-zinc-600">Nessun profilo ancora — avvia l&apos;analisi audio</span>
+                  )}
+                </div>
+
+                {labelProfile ? (
+                  <div className="space-y-5">
+                    {/* Confidence + tracce */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-lg bg-zinc-900 p-3">
+                        <p className="mb-1 text-xs text-zinc-500">Tracce nel profilo</p>
+                        <p className="text-2xl font-bold text-white">{labelProfile.analyzed_tracks_count}</p>
+                        <p className="text-xs text-zinc-600">min. 3 per il matching, 20 per profilo solido</p>
+                      </div>
+                      <div className="rounded-lg bg-zinc-900 p-3">
+                        <p className="mb-1 text-xs text-zinc-500">Confidence Score</p>
+                        <p className="text-2xl font-bold text-emerald-400">
+                          {Math.round(labelProfile.confidence_score * 100)}%
+                        </p>
+                        <div className="mt-1 h-1.5 rounded-full bg-zinc-800">
+                          <div
+                            className="h-1.5 rounded-full bg-emerald-500 transition-all"
+                            style={{ width: `${labelProfile.confidence_score * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Loudness & Energia */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Loudness & Energia</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FeatureStat label="LUFS medio" value={labelProfile.avg_lufs} unit="dB" decimals={1} />
+                        <FeatureStat label="Energia" value={labelProfile.avg_energy} unit="" decimals={3} />
+                      </div>
+                    </div>
+
+                    {/* Timbro */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Timbro</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FeatureStat label="Centroide spettrale" value={labelProfile.avg_spectral_centroid} unit="Hz" decimals={0} />
+                        <FeatureStat label="Rolloff spettrale" value={labelProfile.avg_spectral_rolloff} unit="Hz" decimals={0} />
+                      </div>
+                    </div>
+
+                    {/* Groove & Ritmo */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Groove & Ritmo</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FeatureBar label="Aggressività groove" value={labelProfile.avg_onset_strength} />
+                        <FeatureBar label="Stabilità tempo" value={labelProfile.avg_tempo_stability} />
+                      </div>
+                    </div>
+
+                    {/* Bilanciamento frequenze */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Bilanciamento frequenze</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <FeatureBar label="Sub / Bassi" value={labelProfile.avg_sub_ratio} />
+                        <FeatureBar label="Mid presence" value={labelProfile.avg_mid_presence} />
+                        <FeatureBar label="Contrasto spettrale" value={labelProfile.avg_spectral_contrast} />
+                      </div>
+                    </div>
+
+                    {/* Consistenza stilistica (std dev) */}
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                        Consistenza stilistica <span className="normal-case font-normal text-zinc-600">(deviazione standard — più basso = più coerente)</span>
+                      </p>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-lg bg-zinc-900 p-3">
+                          <p className="text-xs text-zinc-500">Sub ratio</p>
+                          <p className="font-mono text-sm text-white">±{labelProfile.std_sub_ratio?.toFixed(3) ?? '—'}</p>
+                        </div>
+                        <div className="rounded-lg bg-zinc-900 p-3">
+                          <p className="text-xs text-zinc-500">Onset strength</p>
+                          <p className="font-mono text-sm text-white">±{labelProfile.std_onset_strength?.toFixed(3) ?? '—'}</p>
+                        </div>
+                        <div className="rounded-lg bg-zinc-900 p-3">
+                          <p className="text-xs text-zinc-500">Centroide spettrale</p>
+                          <p className="font-mono text-sm text-white">±{labelProfile.std_spectral_centroid?.toFixed(0) ?? '—'} Hz</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed border-zinc-800 p-6 text-center">
+                    <p className="text-sm text-zinc-600">
+                      Il profilo audio viene generato automaticamente dopo ogni analisi.<br />
+                      Avvia l&apos;analisi audio dalla tab &quot;Lista Tracce&quot;.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1777,6 +1923,56 @@ export default function LabelDetailPage() {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// Componente per valori numerici semplici (LUFS, Hz, ecc.)
+function FeatureStat({
+  label,
+  value,
+  unit,
+  decimals,
+}: {
+  label: string
+  value: number | null
+  unit: string
+  decimals: number
+}) {
+  return (
+    <div className="rounded-lg bg-zinc-900 p-3">
+      <p className="text-xs text-zinc-500">{label}</p>
+      <p className="mt-0.5 font-mono text-lg font-semibold text-white">
+        {value != null ? `${value.toFixed(decimals)}${unit ? ' ' + unit : ''}` : '—'}
+      </p>
+    </div>
+  )
+}
+
+// Componente per valori 0-1 con barra visuale
+function FeatureBar({ label, value }: { label: string; value: number | null }) {
+  const pct = value != null ? Math.min(Math.max(value, 0), 1) * 100 : null
+  const color =
+    pct == null
+      ? 'bg-zinc-700'
+      : pct >= 66
+      ? 'bg-emerald-500'
+      : pct >= 33
+      ? 'bg-yellow-500'
+      : 'bg-blue-500'
+
+  return (
+    <div className="rounded-lg bg-zinc-900 p-3">
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-xs text-zinc-500">{label}</p>
+        <p className="font-mono text-xs text-white">{pct != null ? `${pct.toFixed(0)}%` : '—'}</p>
+      </div>
+      <div className="h-1.5 rounded-full bg-zinc-800">
+        <div
+          className={`h-1.5 rounded-full transition-all ${color}`}
+          style={{ width: `${pct ?? 0}%` }}
+        />
       </div>
     </div>
   )
