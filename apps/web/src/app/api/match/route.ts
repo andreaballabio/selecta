@@ -4,6 +4,16 @@ import { createClient } from '@supabase/supabase-js'
 
 const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
+// ─── Tuning parameters ───────────────────────────────────────────────────────
+/** Min analyzed tracks for a label to appear in results */
+const MIN_LABEL_TRACKS = 3
+/** Top-K tracks per label used to compute quality average */
+const TOP_K_PER_LABEL = 10
+/** Minimum combined score for a track to count as a "good match"
+ *  (used for coverage weight only — does not gate inclusion) */
+const GOOD_MATCH_THRESHOLD = 0.30
+// ─────────────────────────────────────────────────────────────────────────────
+
 function parseEmbedding(raw: unknown): number[] {
   if (typeof raw === 'string') {
     try {
@@ -18,109 +28,91 @@ function parseEmbedding(raw: unknown): number[] {
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
-  const dot = a.reduce((sum, v, i) => sum + v * b[i], 0)
+  if (a.length === 0 || b.length === 0) return 0
+  const dot = a.reduce((sum, v, i) => sum + v * (b[i] ?? 0), 0)
   const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0))
   const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0))
   return normA && normB ? dot / (normA * normB) : 0
 }
 
-function featureScore(track: Record<string, number>, label: Record<string, number>): number {
-  // 8 features: spectral shape (4) + band ratios (2) + transients + timbro
-  // Note: tempo_stability excluded — preview clips always return 0.5, making label profiles unreliable
-  const checks = [
-    // ── Spectral shape ───────────────────────────────────────────────────
-    {
-      t: track.spectral_centroid,
-      l: label.avg_spectral_centroid,
-      std: Math.max(label.std_spectral_centroid ?? 800, 200),
-    },
-    {
-      t: track.spectral_rolloff,
-      l: label.avg_spectral_rolloff,
-      std: 1500, // Hz, fixed tolerance
-    },
-    {
-      t: track.lufs,
-      l: label.avg_lufs,
-      std: 4.0, // dBLUFS, fixed tolerance
-    },
-    {
-      t: track.zero_crossing_rate,
-      l: label.avg_zero_crossing_rate,
-      std: 0.03,
-    },
-    // ── Band energy ratios ───────────────────────────────────────────────
-    {
-      t: track.sub_ratio,
-      l: label.avg_sub_ratio,
-      std: Math.max(label.std_sub_ratio ?? 0.04, 0.01), // sub-bass fraction 0-1
-    },
-    {
-      t: track.mid_presence,
-      l: label.avg_mid_presence,
-      std: 0.05, // mid-freq fraction 0-1, fixed tolerance
-    },
-    // ── Transient density ────────────────────────────────────────────────
-    {
-      t: track.onset_strength,
-      l: label.avg_onset_strength,
-      std: Math.max(label.std_onset_strength ?? 0.08, 0.02),
-    },
-    // ── Tonal vs noise ───────────────────────────────────────────────────
-    {
-      t: track.spectral_contrast,
-      l: label.avg_spectral_contrast,
-      std: 0.5, // log-domain, fixed tolerance
-    },
+/**
+ * Feature similarity between the user's track and a single DB track.
+ * Uses fixed tolerances (no per-label std available for individual tracks).
+ * Returns 0–1 where 1 = identical.
+ */
+function trackFeatureSimilarity(
+  user: Record<string, number>,
+  db: Record<string, number | null>
+): number {
+  const checks: { t: number | undefined; l: number | null | undefined; tol: number }[] = [
+    // Spectral shape
+    { t: user.spectral_centroid,  l: db.spectral_centroid,  tol: 1200  },
+    { t: user.spectral_rolloff,   l: db.spectral_rolloff,   tol: 2250  },
+    { t: user.zero_crossing_rate, l: db.zero_crossing_rate, tol: 0.045 },
+    // Dynamics
+    { t: user.lufs,               l: db.lufs,               tol: 6.0   },
+    // Band energy
+    { t: user.sub_ratio,          l: db.sub_ratio,          tol: 0.06  },
+    { t: user.mid_presence,       l: db.mid_presence,       tol: 0.075 },
+    // Transients
+    { t: user.onset_strength,     l: db.onset_strength,     tol: 0.12  },
+    // Tonal definition
+    { t: user.spectral_contrast,  l: db.spectral_contrast,  tol: 0.75  },
   ]
-  const scores = checks.map(({ t, l, std }) => {
-    if (t == null || l == null) return 0.5
-    const tol = Math.max(std * 1.5, 0.01)
+  const scores = checks.map(({ t, l, tol }) => {
+    if (t == null || l == null) return 0.5 // neutral when data missing
     return Math.max(0, 1 - Math.abs(t - l) / tol)
   })
   return scores.reduce((s, v) => s + v, 0) / scores.length
 }
 
-function generateFeedback(track: Record<string, number>, label: Record<string, number>): string[] {
+/**
+ * Generates Italian feedback comparing the user's track to the average
+ * features of the best-matching tracks for that specific label.
+ */
+function generateFeedback(
+  user: Record<string, number>,
+  ref: Record<string, number>
+): string[] {
   const checks = [
     {
-      diff: track.spectral_centroid - label.avg_spectral_centroid,
+      diff: user.spectral_centroid - (ref.spectral_centroid ?? 0),
       thr: 400,
       hi: 'Il tuo mix è più brillante del sound tipico della label',
       lo: 'Il tuo mix è più dark del sound tipico della label',
     },
     {
-      diff: track.spectral_rolloff - label.avg_spectral_rolloff,
+      diff: user.spectral_rolloff - (ref.spectral_rolloff ?? 0),
       thr: 1200,
       hi: 'Le tue alte frequenze sono più presenti rispetto alla media',
       lo: 'Le tue alte frequenze sono più contenute rispetto alla media',
     },
     {
-      diff: track.lufs - label.avg_lufs,
+      diff: user.lufs - (ref.lufs ?? 0),
       thr: 3.0,
       hi: 'Il tuo master è più loud della media della label',
       lo: 'Il tuo master è più quiet della media della label',
     },
     {
-      diff: track.zero_crossing_rate - label.avg_zero_crossing_rate,
+      diff: user.zero_crossing_rate - (ref.zero_crossing_rate ?? 0),
       thr: 0.025,
       hi: 'La tua texture sonora è più ricca di transienti',
       lo: 'La tua texture sonora è più pulita e minimale',
     },
     {
-      diff: track.sub_ratio - label.avg_sub_ratio,
+      diff: user.sub_ratio - (ref.sub_ratio ?? 0),
       thr: 0.04,
       hi: 'Il tuo sound ha più sub-bass rispetto alla media della label',
       lo: 'Il tuo sound ha meno sub-bass rispetto alla media della label',
     },
     {
-      diff: track.mid_presence - label.avg_mid_presence,
+      diff: user.mid_presence - (ref.mid_presence ?? 0),
       thr: 0.04,
       hi: 'Le frequenze medie sono più presenti rispetto alla media della label',
       lo: 'Le frequenze medie sono più contenute rispetto alla media della label',
     },
     {
-      diff: track.onset_strength - label.avg_onset_strength,
+      diff: user.onset_strength - (ref.onset_strength ?? 0),
       thr: 0.08,
       hi: 'Il tuo sound è più percussivo e transient-rich della label',
       lo: 'Il tuo sound è più smooth e meno percussivo della label',
@@ -135,6 +127,10 @@ function generateFeedback(track: Record<string, number>, label: Record<string, n
   return lines.slice(0, 3)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Background processing (runs after HTTP response is sent via after())
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function processSubmission(submissionId: string, fileUrl: string, trackStatus: string) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -142,6 +138,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
   )
 
   try {
+    // ── 1. Analyze the user's track with the worker ────────────────────────
     const workerRes = await fetch(`${WORKER_URL}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -159,41 +156,128 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     }
 
     const workerData = await workerRes.json()
-    // Worker may return features at top level or nested under .features
     const f: Record<string, number> = workerData.features ?? workerData
+    const userEmbedding: number[] = parseEmbedding(workerData.embedding ?? f.embedding)
 
-    const trackEmbedding: number[] = parseEmbedding(workerData.embedding ?? f.embedding)
+    // ── 2. Load all analyzed label tracks (kNN candidates) ─────────────────
+    const { data: dbTracks, error: tracksErr } = await supabase
+      .from('label_ingestion_queue')
+      .select(`
+        id, label_id, audio_embedding,
+        spectral_centroid, spectral_rolloff, lufs, zero_crossing_rate,
+        sub_ratio, mid_presence, onset_strength, spectral_contrast
+      `)
+      .eq('analysis_status', 'analyzed')
+      .not('audio_embedding', 'is', null)
 
-    const { data: profiles } = await supabase
-      .from('label_profiles')
-      .select('*, labels(name, primary_genre)')
-      .gte('analyzed_tracks_count', 3)
+    if (tracksErr) throw tracksErr
 
-    const matchResults = (profiles ?? []).map((label: Record<string, unknown>) => {
-      const labelEmbedding: number[] = parseEmbedding(label.avg_embedding)
+    // ── 3. Load label metadata + profiles (for name, genre, confidence) ────
+    const [labelsRes, profilesRes] = await Promise.all([
+      supabase.from('labels').select('id, name, primary_genre'),
+      supabase.from('label_profiles').select('label_id, confidence_score, analyzed_tracks_count'),
+    ])
 
-      const rawCosine = cosineSimilarity(trackEmbedding, labelEmbedding)
-      // Audio embeddings live in range ~0.5–1.0, rescale to 0–1 for meaningful scores
+    const labelMap = new Map((labelsRes.data ?? []).map((l) => [l.id, l]))
+    const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.label_id, p]))
+
+    // ── 4. Score every DB track against the user's track ──────────────────
+    type ScoredTrack = {
+      label_id: string
+      score: number
+      features: Record<string, number | null>
+    }
+
+    const scoredTracks: ScoredTrack[] = (dbTracks ?? []).map((dbTrack) => {
+      const dbEmbedding = parseEmbedding(dbTrack.audio_embedding)
+      const rawCosine = dbEmbedding.length > 0
+        ? cosineSimilarity(userEmbedding, dbEmbedding)
+        : 0
+      // Audio embeddings naturally cluster in [0.5, 1] → rescale to [0, 1]
       const cosine = Math.max(0, (rawCosine - 0.5) / 0.5)
-      const feat = featureScore(f, label as Record<string, number>)
-      const confBoost = ((label.confidence_score as number) ?? 0) * 0.10
-      const score = cosine * 0.55 + feat * 0.35 + confBoost
-
-      const labelMeta = label.labels as { name: string; primary_genre: string } | null
+      const feat = trackFeatureSimilarity(f, dbTrack as Record<string, number | null>)
+      const score = cosine * 0.6 + feat * 0.4
 
       return {
-        label_id: label.label_id as string,
-        label_name: labelMeta?.name ?? 'Unknown',
-        primary_genre: labelMeta?.primary_genre ?? '',
-        score: Math.round(score * 1000) / 1000,
-        confidence_score: (label.confidence_score as number) ?? 0,
-        analyzed_tracks_count: (label.analyzed_tracks_count as number) ?? 0,
-        feedback: generateFeedback(f, label as Record<string, number>),
+        label_id: dbTrack.label_id,
+        score,
+        features: dbTrack as Record<string, number | null>,
       }
     })
 
+    // ── 5. Group scored tracks by label ───────────────────────────────────
+    const byLabel = new Map<string, ScoredTrack[]>()
+    for (const st of scoredTracks) {
+      if (!byLabel.has(st.label_id)) byLabel.set(st.label_id, [])
+      byLabel.get(st.label_id)!.push(st)
+    }
+
+    // ── 6. Aggregate per-label score ──────────────────────────────────────
+    const FEATURE_KEYS = [
+      'spectral_centroid', 'spectral_rolloff', 'lufs', 'zero_crossing_rate',
+      'sub_ratio', 'mid_presence', 'onset_strength', 'spectral_contrast',
+    ] as const
+
+    const matchResults: {
+      label_id: string
+      label_name: string
+      primary_genre: string
+      score: number
+      confidence_score: number
+      analyzed_tracks_count: number
+      matched_tracks: number
+      feedback: string[]
+    }[] = []
+
+    for (const [labelId, tracks] of byLabel.entries()) {
+      const labelMeta = labelMap.get(labelId)
+      if (!labelMeta) continue
+
+      const profile = profileMap.get(labelId)
+      const totalAnalyzed = profile?.analyzed_tracks_count ?? tracks.length
+      if (totalAnalyzed < MIN_LABEL_TRACKS) continue
+
+      // Sort by score, take top-K for quality average
+      const sorted = [...tracks].sort((a, b) => b.score - a.score)
+      const topK = sorted.slice(0, TOP_K_PER_LABEL)
+
+      const avgScore = topK.reduce((s, t) => s + t.score, 0) / topK.length
+
+      // Coverage weight: rewards labels with many genuinely similar tracks
+      // Formula: 1 - e^(-n/3) → 0 for n=0, ~0.28 for n=1, ~0.63 for n=3, ~0.96 for n=10
+      const goodMatchCount = tracks.filter((t) => t.score >= GOOD_MATCH_THRESHOLD).length
+      const coverageWeight = 1 - Math.exp(-goodMatchCount / 3)
+
+      // Confidence boost: rewards labels with more analyzed tracks (data quality)
+      const confBoost = (profile?.confidence_score ?? 0) * 0.10
+
+      // Final score: quality × consistency + data quality bonus
+      const finalScore = avgScore * (0.7 + 0.3 * coverageWeight) + confBoost
+
+      // Compute average features of top-K tracks for feedback generation
+      const refAvg: Record<string, number> = {}
+      for (const key of FEATURE_KEYS) {
+        const vals = topK
+          .map((t) => t.features[key])
+          .filter((v): v is number => typeof v === 'number' && !isNaN(v))
+        refAvg[key] = vals.length > 0 ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
+      }
+
+      matchResults.push({
+        label_id: labelId,
+        label_name: labelMeta.name,
+        primary_genre: labelMeta.primary_genre ?? '',
+        score: Math.round(finalScore * 1000) / 1000,
+        confidence_score: profile?.confidence_score ?? 0,
+        analyzed_tracks_count: totalAnalyzed,
+        matched_tracks: goodMatchCount,
+        feedback: generateFeedback(f, refAvg),
+      })
+    }
+
     const top5 = matchResults.sort((a, b) => b.score - a.score).slice(0, 5)
 
+    // ── 7. Persist results ────────────────────────────────────────────────
     await supabase
       .from('user_submissions')
       .update({
@@ -212,10 +296,11 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         mid_presence: f.mid_presence,
         tempo_stability: f.tempo_stability,
         spectral_contrast: f.spectral_contrast,
-        audio_embedding: trackEmbedding,
+        audio_embedding: userEmbedding,
         match_results: top5,
       })
       .eq('id', submissionId)
+
   } catch (err) {
     console.error('[match] processing error:', err)
     await createClient(
@@ -227,6 +312,10 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       .eq('id', submissionId)
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HTTP handler
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   const body = await request.json()

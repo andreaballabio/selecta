@@ -21,6 +21,7 @@ interface MatchResult {
   score: number
   confidence_score: number
   analyzed_tracks_count: number
+  matched_tracks: number
   feedback: string[]
 }
 
@@ -383,7 +384,14 @@ function ResultsView({
                   >
                     {Math.round(result.score * 100)}%
                   </p>
-                  <ConfidenceBadge score={result.confidence_score} />
+                  <div className="mt-1 flex flex-col items-end gap-1">
+                    <ConfidenceBadge score={result.confidence_score} />
+                    {result.matched_tracks > 0 && (
+                      <span className="text-xs text-zinc-600">
+                        {result.matched_tracks} tracce simili
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
