@@ -14,7 +14,12 @@ export async function GET(
 
   const { data: submission, error } = await supabase
     .from('user_submissions')
-    .select('analysis_status, match_results, bpm, key, scale, energy, lufs, duration')
+    .select(`
+      analysis_status, match_results,
+      bpm, key, scale, energy, lufs, duration,
+      spectral_centroid, spectral_rolloff, zero_crossing_rate,
+      onset_strength, sub_ratio, mid_presence, tempo_stability, spectral_contrast
+    `)
     .eq('id', id)
     .single()
 
@@ -32,6 +37,14 @@ export async function GET(
       energy: submission.energy,
       lufs: submission.lufs,
       duration: submission.duration,
+      spectral_centroid: submission.spectral_centroid,
+      spectral_rolloff: submission.spectral_rolloff,
+      zero_crossing_rate: submission.zero_crossing_rate,
+      onset_strength: submission.onset_strength,
+      sub_ratio: submission.sub_ratio,
+      mid_presence: submission.mid_presence,
+      tempo_stability: submission.tempo_stability,
+      spectral_contrast: submission.spectral_contrast,
     },
   })
 }

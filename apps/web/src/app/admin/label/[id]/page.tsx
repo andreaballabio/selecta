@@ -1339,7 +1339,7 @@ export default function LabelDetailPage() {
                     '⏸️ Analisi audio in pausa. Clicca "Riprendi" per continuare.'
                   ) : (
                     <>
-                      ⏱️ Analisi audio in corso: 1 traccia ogni 30 secondi per rispettare i limiti del worker.
+                      ⏱️ Analisi audio in corso: 1 traccia ogni {ANALYSIS_INTERVAL} secondi per rispettare i limiti del worker.
                       <span className="ml-2 text-purple-400">
                         ({tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length} tracce rimanenti)
                       </span>

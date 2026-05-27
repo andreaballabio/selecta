@@ -24,6 +24,18 @@ interface MatchResult {
   feedback: string[]
 }
 
+interface TrackFeatures {
+  bpm: number | null
+  key: string | null
+  scale: string | null
+  lufs: number | null
+  duration: number | null
+  onset_strength: number | null
+  sub_ratio: number | null
+  mid_presence: number | null
+  spectral_contrast: number | null
+}
+
 export default function MatchPage() {
   const [pageStatus, setPageStatus] = useState<PageStatus>('idle')
   const [uploadedFile, setUploadedFile] = useState<{ path: string; name: string; size: number } | null>(null)
@@ -32,6 +44,7 @@ export default function MatchPage() {
   const [trackStatus, setTrackStatus] = useState('unknown')
   const [submissionId, setSubmissionId] = useState<string | null>(null)
   const [results, setResults] = useState<MatchResult[]>([])
+  const [trackFeatures, setTrackFeatures] = useState<TrackFeatures | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -95,6 +108,7 @@ export default function MatchPage() {
         if (data.status === 'analyzed') {
           clearInterval(pollRef.current!)
           setResults(data.match_results ?? [])
+          setTrackFeatures(data.features ?? null)
           setProgress(100)
           setPageStatus('done')
         } else if (data.status === 'failed') {
@@ -118,13 +132,14 @@ export default function MatchPage() {
     setTrackStatus('unknown')
     setSubmissionId(null)
     setResults([])
+    setTrackFeatures(null)
     setError(null)
     setProgress(0)
     elapsedRef.current = 0
   }
 
   if (pageStatus === 'done') {
-    return <ResultsView results={results} submissionId={submissionId} onReset={handleReset} />
+    return <ResultsView results={results} features={trackFeatures} submissionId={submissionId} onReset={handleReset} />
   }
 
   return (
@@ -252,13 +267,22 @@ export default function MatchPage() {
 
 function ResultsView({
   results,
+  features,
   submissionId,
   onReset,
 }: {
   results: MatchResult[]
+  features: TrackFeatures | null
   submissionId: string | null
   onReset: () => void
 }) {
+  const formatDuration = (s: number | null) => {
+    if (!s) return '--:--'
+    const m = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `${m}:${sec.toString().padStart(2, '0')}`
+  }
+
   return (
     <div className="min-h-screen bg-black">
       <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">
@@ -275,6 +299,51 @@ function ResultsView({
             Nuova analisi
           </button>
         </div>
+
+        {/* Dati audio rilevati dalla traccia */}
+        {features && (
+          <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">La tua traccia</p>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+              {features.bpm != null && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-white">{Math.round(features.bpm)}</p>
+                  <p className="text-xs text-zinc-600">BPM</p>
+                </div>
+              )}
+              {features.key && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-white">{features.key} {features.scale ?? ''}</p>
+                  <p className="text-xs text-zinc-600">Key</p>
+                </div>
+              )}
+              {features.lufs != null && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-white">{features.lufs.toFixed(1)}</p>
+                  <p className="text-xs text-zinc-600">LUFS</p>
+                </div>
+              )}
+              {features.duration != null && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-white">{formatDuration(features.duration)}</p>
+                  <p className="text-xs text-zinc-600">Durata</p>
+                </div>
+              )}
+              {features.sub_ratio != null && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-white">{Math.round(features.sub_ratio * 100)}%</p>
+                  <p className="text-xs text-zinc-600">Sub</p>
+                </div>
+              )}
+              {features.onset_strength != null && (
+                <div className="text-center">
+                  <p className="text-lg font-bold text-white">{Math.round(features.onset_strength * 100)}</p>
+                  <p className="text-xs text-zinc-600">Groove</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-4">
           {results.map((result, index) => (
@@ -348,6 +417,7 @@ function ResultsView({
     </div>
   )
 }
+
 
 function ConfidenceBadge({ score }: { score: number }) {
   if (score >= 0.6) {
