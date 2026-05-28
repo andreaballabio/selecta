@@ -51,6 +51,7 @@ class TrackFeatures(BaseModel):
     # --- Vettori ---
     mfcc_mean: List[float]          # 13 coefficienti MFCC medi su tutto il brano
     embedding: List[float]          # vettore normalizzato per cosine similarity
+    embeddings: Optional[List[List[float]]] = None  # sliding-window (solo full track)
 
     analysis_type: str = "full"     # "preview" | "full"
 
@@ -442,6 +443,97 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
 
 
 # ---------------------------------------------------------------------------
+# Sliding-window embeddings (full track → multiple 30s windows)
+# ---------------------------------------------------------------------------
+
+def compute_sliding_window_embeddings(
+    audio: np.ndarray,
+    sr: int,
+    window_sec: float = 30.0,
+    stride_sec: float = 5.0,
+) -> List[List[float]]:
+    """
+    Divide la traccia intera in finestre sovrapposte da 30s (stride 5s).
+    Tutte le feature frame-level vengono calcolate in un solo passaggio
+    sull'intera traccia per efficienza, poi aggregate per ogni finestra.
+
+    Una traccia da 6 min produce ~66 embedding, uno per finestra.
+    Il match route userà il MAX di similarità coseno su tutte le finestre,
+    confrontando così "drop contro drop" invece di "traccia intera contro preview".
+    """
+    import librosa
+
+    hop_length = 512
+    window_samples = int(window_sec * sr)
+    audio_f = audio.astype(np.float32)
+
+    # Traccia più corta di una finestra → analizza come preview (3 segmenti)
+    if len(audio_f) <= window_samples:
+        feat = analyze_with_librosa(audio_f, sr, is_preview=True)
+        feat.pop("sample_rate")
+        return [build_embedding(
+            mfcc_mean=feat["mfcc_mean"],
+            spectral_centroid_norm=min(feat["spectral_centroid"] / (sr / 2), 1.0),
+            spectral_rolloff_norm=min(feat["spectral_rolloff"] / (sr / 2), 1.0),
+            zero_crossing_rate=feat["zero_crossing_rate"],
+            energy=feat["energy"],
+            onset_strength=feat["onset_strength"],
+            sub_ratio=feat["sub_ratio"],
+            mid_presence=feat["mid_presence"],
+            tempo_stability=feat["tempo_stability"],
+            spectral_contrast=feat["spectral_contrast"],
+        )]
+
+    # ── Calcolo frame-level in un unico passaggio ──────────────────────────
+    mfccs      = librosa.feature.mfcc(y=audio_f, sr=sr, n_mfcc=13, hop_length=hop_length)
+    sc_frames  = librosa.feature.spectral_centroid(y=audio_f, sr=sr, hop_length=hop_length)[0]
+    sro_frames = librosa.feature.spectral_rolloff(y=audio_f, sr=sr, hop_length=hop_length)[0]
+    zcr_frames = librosa.feature.zero_crossing_rate(audio_f, hop_length=hop_length)[0]
+    rms_frames = librosa.feature.rms(y=audio_f, hop_length=hop_length)[0]
+    onset_env  = librosa.onset.onset_strength(y=audio_f, sr=sr, hop_length=hop_length)
+
+    # STFT condiviso per sub_ratio, mid_presence, spectral_contrast
+    stft_mag  = np.abs(librosa.stft(audio_f, n_fft=2048, hop_length=hop_length))
+    freqs     = librosa.fft_frequencies(sr=sr, n_fft=2048)
+    total_pwr = np.sum(stft_mag ** 2, axis=0)
+    sub_pwr   = np.sum(stft_mag[freqs < 80, :] ** 2, axis=0)
+    mid_pwr   = np.sum(stft_mag[(freqs >= 300) & (freqs <= 3000), :] ** 2, axis=0)
+    sub_f     = np.where(total_pwr > 0, sub_pwr   / total_pwr, 0.0)
+    mid_f     = np.where(total_pwr > 0, mid_pwr   / total_pwr, 0.0)
+    con_f     = librosa.feature.spectral_contrast(S=stft_mag, sr=sr, n_bands=6)  # (7, N)
+
+    # ── Aggregazione per finestra ──────────────────────────────────────────
+    total_frames    = mfccs.shape[1]
+    frames_per_win  = int(window_sec  * sr / hop_length)
+    frames_per_step = max(1, int(stride_sec * sr / hop_length))
+
+    embeddings: List[List[float]] = []
+    f0 = 0
+    while f0 + frames_per_win <= total_frames:
+        f1 = f0 + frames_per_win
+        emb = build_embedding(
+            mfcc_mean=[float(np.mean(mfccs[i, f0:f1])) for i in range(13)],
+            spectral_centroid_norm=min(float(np.mean(sc_frames[f0:f1]))  / (sr / 2), 1.0),
+            spectral_rolloff_norm= min(float(np.mean(sro_frames[f0:f1])) / (sr / 2), 1.0),
+            zero_crossing_rate=float(np.mean(zcr_frames[f0:f1])),
+            energy=float(np.mean(rms_frames[f0:f1])),
+            onset_strength=normalize_onset_strength_librosa(onset_env[f0:f1]),
+            sub_ratio=float(np.mean(sub_f[f0:f1])),
+            mid_presence=float(np.mean(mid_f[f0:f1])),
+            tempo_stability=0.5,  # troppo costoso per ogni finestra
+            spectral_contrast=float(np.clip(np.mean(con_f[:, f0:f1]) / 40.0, 0.0, 1.0)),
+        )
+        embeddings.append(emb)
+        f0 += frames_per_step
+
+    return embeddings or [build_embedding(
+        mfcc_mean=[0.0] * 13, spectral_centroid_norm=0.5, spectral_rolloff_norm=0.5,
+        zero_crossing_rate=0.0, energy=0.0, onset_strength=0.0,
+        sub_ratio=0.0, mid_presence=0.0, tempo_stability=0.5, spectral_contrast=0.0,
+    )]
+
+
+# ---------------------------------------------------------------------------
 # Endpoint
 # ---------------------------------------------------------------------------
 
@@ -465,6 +557,7 @@ async def analyze_track(request: AnalysisRequest):
             logger.info(f"Downloaded {len(response.content)} bytes → {tmp_path}")
 
         # Carica audio una sola volta
+        audio_mono: np.ndarray
         try:
             import essentia.standard as es
             logger.info("Using Essentia")
@@ -495,6 +588,15 @@ async def analyze_track(request: AnalysisRequest):
             spectral_contrast=feat["spectral_contrast"],
         )
 
+        # Sliding-window embeddings solo per tracce intere (non preview)
+        # Divide la traccia in ~60-70 finestre da 30s (stride 5s) per confrontarle
+        # direttamente con le preview Deezer/Spotify del catalogo.
+        embeddings_list: Optional[List[List[float]]] = None
+        if not request.is_preview:
+            logger.info(f"Computing sliding-window embeddings (30s window, 5s stride)...")
+            embeddings_list = compute_sliding_window_embeddings(audio_mono, sr)
+            logger.info(f"Generated {len(embeddings_list)} window embeddings")
+
         analysis_type = "preview" if request.is_preview else "full"
         logger.info(
             f"Done — type={analysis_type} BPM={feat['bpm']} "
@@ -522,6 +624,7 @@ async def analyze_track(request: AnalysisRequest):
                 spectral_contrast=feat["spectral_contrast"],
                 mfcc_mean=feat["mfcc_mean"],
                 embedding=embedding,
+                embeddings=embeddings_list,
                 analysis_type=analysis_type,
             ),
             success=True,

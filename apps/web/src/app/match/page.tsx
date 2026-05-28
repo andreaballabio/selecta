@@ -21,7 +21,11 @@ interface MatchResult {
   score: number
   confidence_score: number
   analyzed_tracks_count: number
-  matched_tracks: number
+  good_matches: number
+  best_track_title: string | null
+  best_track_artist: string | null
+  best_track_score: number
+  match_context: string[]
   feedback: string[]
 }
 
@@ -347,75 +351,111 @@ function ResultsView({
         )}
 
         <div className="space-y-4">
-          {results.map((result, index) => (
-            <div
-              key={result.label_id}
-              className={`rounded-xl border p-6 ${
-                index === 0
-                  ? 'border-emerald-500/40 bg-emerald-950/20'
-                  : 'border-zinc-800 bg-zinc-950/50'
-              }`}
-            >
-              {/* Header */}
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
+          {results.map((result, index) => {
+            const displayScore = Math.min(100, Math.round(result.score * 100))
+            const isTop = index === 0
+            return (
+              <div
+                key={result.label_id}
+                className={`rounded-xl border p-6 ${
+                  isTop
+                    ? 'border-emerald-500/40 bg-emerald-950/20'
+                    : 'border-zinc-800 bg-zinc-950/50'
+                }`}
+              >
+                {/* Header */}
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
+                        isTop ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-400'
+                      }`}
+                    >
+                      {index + 1}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">{result.label_name}</h3>
+                      {result.primary_genre && (
+                        <p className="text-xs text-zinc-500">{result.primary_genre}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p className={`text-2xl font-bold ${isTop ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                      {displayScore}%
+                    </p>
+                    <div className="mt-1 flex flex-col items-end gap-1">
+                      <ConfidenceBadge score={result.confidence_score} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Score bar */}
+                <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-zinc-900">
                   <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                      index === 0
-                        ? 'bg-emerald-500 text-black'
-                        : 'bg-zinc-800 text-zinc-400'
-                    }`}
-                  >
-                    {index + 1}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-white">{result.label_name}</h3>
-                    {result.primary_genre && (
-                      <p className="text-xs text-zinc-500">{result.primary_genre}</p>
-                    )}
-                  </div>
+                    className={`h-full rounded-full ${isTop ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                    style={{ width: `${displayScore}%` }}
+                  />
                 </div>
 
-                <div className="text-right shrink-0">
-                  <p
-                    className={`text-2xl font-bold ${
-                      index === 0 ? 'text-emerald-400' : 'text-zinc-300'
-                    }`}
-                  >
-                    {Math.round(result.score * 100)}%
-                  </p>
-                  <div className="mt-1 flex flex-col items-end gap-1">
-                    <ConfidenceBadge score={result.confidence_score} />
-                    {result.matched_tracks > 0 && (
-                      <span className="text-xs text-zinc-600">
-                        {result.matched_tracks} tracce simili
-                      </span>
-                    )}
+                {/* Traccia più simile trovata */}
+                {result.best_track_title && (
+                  <div className={`mb-3 rounded-lg px-3 py-2 text-sm ${
+                    isTop ? 'bg-emerald-950/40 border border-emerald-800/30' : 'bg-zinc-900/60'
+                  }`}>
+                    <span className="text-zinc-500">Traccia più simile: </span>
+                    <span className="font-medium text-zinc-200">
+                      {result.best_track_artist ? `${result.best_track_artist} — ` : ''}
+                      {result.best_track_title}
+                    </span>
+                    <span className={`ml-2 font-semibold ${isTop ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                      {result.best_track_score}%
+                    </span>
                   </div>
+                )}
+
+                {/* Badge contesto */}
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {result.match_context.includes('exact_match') && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                      ✦ Traccia quasi identica nel catalogo
+                    </span>
+                  )}
+                  {result.match_context.includes('strong_isolated') && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs text-yellow-400">
+                      ⚠ Match forte su traccia singola — verifica il catalogo
+                    </span>
+                  )}
+                  {result.match_context.includes('consistent') && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">
+                      ◆ Stile coerente con {result.good_matches} tracce del catalogo
+                    </span>
+                  )}
+                  {result.match_context.includes('sparse') && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs text-zinc-500">
+                      Poche tracce corrispondenti
+                    </span>
+                  )}
+                  {result.match_context.length === 0 && result.good_matches > 0 && (
+                    <span className="text-xs text-zinc-600">
+                      {result.good_matches} tracce simili su {result.analyzed_tracks_count}
+                    </span>
+                  )}
                 </div>
-              </div>
 
-              {/* Score bar */}
-              <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-zinc-900">
-                <div
-                  className={`h-full rounded-full ${
-                    index === 0 ? 'bg-emerald-500' : 'bg-zinc-600'
-                  }`}
-                  style={{ width: `${Math.round(result.score * 100)}%` }}
-                />
+                {/* Feedback */}
+                <ul className="space-y-1.5">
+                  {result.feedback.map((line, i) => (
+                    <li key={i} className="flex gap-2 text-sm text-zinc-400">
+                      <span className="shrink-0 text-zinc-600">—</span>
+                      {line}
+                    </li>
+                  ))}
+                </ul>
               </div>
-
-              {/* Feedback */}
-              <ul className="space-y-1.5">
-                {result.feedback.map((line, i) => (
-                  <li key={i} className="flex gap-2 text-sm text-zinc-400">
-                    <span className="shrink-0 text-zinc-600">—</span>
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {submissionId && (

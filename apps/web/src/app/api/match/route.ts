@@ -5,12 +5,10 @@ import { createClient } from '@supabase/supabase-js'
 const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
 // ─── Tuning parameters ───────────────────────────────────────────────────────
-/** Min analyzed tracks for a label to appear in results */
-const MIN_LABEL_TRACKS = 3
-/** Top-K tracks per label used to compute quality average */
-const TOP_K_PER_LABEL = 10
-/** Minimum combined score to count as a genuine match for relative coverage.
- *  Kept at 0.50 so NULL-inflated scores (≈0.30–0.40) don't count as matches. */
+const MIN_LABEL_TRACKS    = 3
+const TOP_K_PER_LABEL     = 10
+/** Soglia minima per contare una traccia come "buon match".
+ *  0.50 filtra i punteggi gonfiati dai NULL (~0.30–0.40). */
 const GOOD_MATCH_THRESHOLD = 0.50
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -33,6 +31,15 @@ function cosineSimilarity(a: number[], b: number[]): number {
   const normA = Math.sqrt(a.reduce((sum, v) => sum + v * v, 0))
   const normB = Math.sqrt(b.reduce((sum, v) => sum + v * v, 0))
   return normA && normB ? dot / (normA * normB) : 0
+}
+
+/** Sliding window: usa il MAX di similarità coseno su tutte le finestre
+ *  dell'utente contro l'embedding del catalogo.
+ *  Risponde a "esiste almeno una sezione di 30s della tua traccia
+ *  che suona come questa traccia del catalogo?" */
+function maxCosineSimilarity(userEmbeddings: number[][], catalogEmbedding: number[]): number {
+  if (userEmbeddings.length === 0) return 0
+  return Math.max(...userEmbeddings.map(e => cosineSimilarity(e, catalogEmbedding)))
 }
 
 /**
@@ -156,14 +163,26 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     }
 
     const workerData = await workerRes.json()
-    const f: Record<string, number> = workerData.features ?? workerData
-    const userEmbedding: number[] = parseEmbedding(workerData.embedding ?? f.embedding)
+    const workerFeatures = workerData.features ?? workerData
+    const f: Record<string, number> = workerFeatures as Record<string, number>
+
+    // Embedding singolo (fallback)
+    const userEmbedding: number[] = parseEmbedding(workerFeatures.embedding)
+
+    // Sliding-window embeddings (tracce intere): ogni finestra da 30s confrontata
+    // direttamente con le preview del catalogo → max cosine similarity
+    const rawEmbeddings = workerFeatures.embeddings
+    const userEmbeddings: number[][] =
+      Array.isArray(rawEmbeddings) && rawEmbeddings.length > 0
+        ? (rawEmbeddings as unknown[]).map(e => parseEmbedding(e))
+        : [userEmbedding]
 
     // ── 2. Load all analyzed label tracks (kNN candidates) ─────────────────
     const { data: dbTracks, error: tracksErr } = await supabase
       .from('label_ingestion_queue')
       .select(`
         id, label_id, audio_embedding,
+        track_title, artist_name,
         spectral_centroid, spectral_rolloff, lufs, zero_crossing_rate,
         sub_ratio, mid_presence, onset_strength, spectral_contrast
       `)
@@ -186,14 +205,17 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       label_id: string
       score: number
       features: Record<string, number | null>
+      track_title: string | null
+      artist_name: string | null
     }
 
     const scoredTracks: ScoredTrack[] = (dbTracks ?? []).map((dbTrack) => {
       const dbEmbedding = parseEmbedding(dbTrack.audio_embedding)
+      // MAX cosine su tutte le finestre sliding-window → "drop contro drop"
       const rawCosine = dbEmbedding.length > 0
-        ? cosineSimilarity(userEmbedding, dbEmbedding)
+        ? maxCosineSimilarity(userEmbeddings, dbEmbedding)
         : 0
-      // Audio embeddings naturally cluster in [0.5, 1] → rescale to [0, 1]
+      // Gli embedding audio si concentrano in [0.5, 1] → riscala in [0, 1]
       const cosine = Math.max(0, (rawCosine - 0.5) / 0.5)
       const feat = trackFeatureSimilarity(f, dbTrack as Record<string, number | null>)
       const score = cosine * 0.6 + feat * 0.4
@@ -202,6 +224,8 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         label_id: dbTrack.label_id,
         score,
         features: dbTrack as Record<string, number | null>,
+        track_title: (dbTrack as Record<string, unknown>).track_title as string | null ?? null,
+        artist_name: (dbTrack as Record<string, unknown>).artist_name as string | null ?? null,
       }
     })
 
@@ -225,7 +249,11 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       score: number
       confidence_score: number
       analyzed_tracks_count: number
-      matched_tracks: number
+      good_matches: number
+      best_track_title: string | null
+      best_track_artist: string | null
+      best_track_score: number
+      match_context: string[]
       feedback: string[]
     }[] = []
 
@@ -236,35 +264,64 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const profile = profileMap.get(labelId)
       if (tracks.length < MIN_LABEL_TRACKS) continue
 
-      // Sort by score descending, take top-K for quality average
       const sorted = [...tracks].sort((a, b) => b.score - a.score)
       const topK = sorted.slice(0, TOP_K_PER_LABEL)
 
-      // Quality: average score of the best-matching tracks
-      const avgScore = topK.reduce((s, t) => s + t.score, 0) / topK.length
+      // ── Componenti dello score ───────────────────────────────────────────
 
-      // Best match: the single most similar track in this label.
-      // Critical for the case where the user's track is identical (or very close)
-      // to one already in the DB — that track should dominate the result.
-      const bestScore = sorted[0]?.score ?? 0
+      // 1. bestScore: traccia più simile nel catalogo.
+      //    Se trovi una traccia quasi identica (>0.85) questa label deve vincere.
+      const bestTrack = sorted[0]
+      const bestScore = bestTrack?.score ?? 0
 
-      // Relative consistency: what % of this label's catalog sounds like the
-      // user's track. Uses the actual count from the DB query (always current).
-      // Threshold 0.50 filters out NULL-inflated scores (≈0.30–0.40).
-      const goodMatchCount = tracks.filter((t) => t.score >= GOOD_MATCH_THRESHOLD).length
+      // 2. avgGoodScore: media dei soli "buoni" match nel topK.
+      //    Ignora le tracce mediocri che gonfiano la media.
+      const goodMatches = topK.filter(t => t.score >= GOOD_MATCH_THRESHOLD)
+      const avgGoodScore = goodMatches.length > 0
+        ? goodMatches.reduce((s, t) => s + t.score, 0) / goodMatches.length
+        : 0
+
+      // 3. relativeCoverage: % del catalogo che corrisponde.
+      //    Normalizzato → grandi label non penalizzano quelle piccole.
+      const goodMatchCount = tracks.filter(t => t.score >= GOOD_MATCH_THRESHOLD).length
       const relativeCoverage = goodMatchCount / tracks.length
 
-      // Confidence boost: small bonus for labels with more analyzed tracks
-      const confBoost = (profile?.confidence_score ?? 0) * 0.08
+      // 4. consistency: quanto sono coerenti i topK tra loro.
+      //    Bassa varianza = la label ha uno stile preciso e riconoscibile.
+      //    Alta varianza = la label è eclettica O il match è un outlier.
+      const topKScores = topK.map(t => t.score)
+      const meanTopK = topKScores.reduce((s, v) => s + v, 0) / topKScores.length
+      const stdTopK = Math.sqrt(topKScores.reduce((s, v) => s + (v - meanTopK) ** 2, 0) / topKScores.length)
+      const consistency = meanTopK > 0 ? Math.max(0, 1 - stdTopK / meanTopK) : 0
 
-      // Final score breakdown:
-      //   50% — quality (avg of top-K matched tracks)
-      //   20% — best single match (rewards near-identical track detection)
-      //   22% — relative consistency (% of catalog that genuinely fits)
-      //    8% — data quality bonus
-      const finalScore = avgScore * 0.50 + bestScore * 0.20 + relativeCoverage * 0.22 + confBoost
+      // 5. qualityBoost: moltiplicatore non-lineare per match quasi perfetti.
+      //    Sopra 0.85 cresce in modo più che proporzionale → la traccia identica
+      //    non può più essere battuta da N tracce mediocri.
+      //    Esempio: bestScore 0.99 → boost ×1.28 | 0.90 → ×1.10 | 0.80 → ×1.00
+      const qualityBoost = bestScore > 0.85 ? 1.0 + (bestScore - 0.85) * 2.0 : 1.0
 
-      // Compute average features of top-K tracks for feedback generation
+      const confBoost = (profile?.confidence_score ?? 0) * 0.05
+
+      // Formula finale (base × boost + confBoost):
+      //   40% — bestScore (domina quando trovi la traccia identica)
+      //   35% — avgGoodScore (qualità dei match genuini)
+      //   15% — relativeCoverage (quante tracce del catalogo corrispondono)
+      //   10% — consistency (lo stile è uniforme o eclettico?)
+      const base = bestScore * 0.40 + avgGoodScore * 0.35 + relativeCoverage * 0.15 + consistency * 0.10
+      const finalScore = base * qualityBoost + confBoost
+
+      // ── Contesto del match (mostrato all'utente) ─────────────────────────
+      const match_context: string[] = []
+      if (bestScore > 0.90)
+        match_context.push('exact_match')       // traccia quasi identica trovata
+      else if (bestScore > 0.80 && goodMatchCount < 3)
+        match_context.push('strong_isolated')   // match forte ma su traccia singola
+      if (goodMatchCount >= 4 && consistency >= 0.65)
+        match_context.push('consistent')        // stile coerente con il catalogo
+      if (goodMatchCount < 2 && tracks.length >= 8)
+        match_context.push('sparse')            // poche tracce corrispondenti
+
+      // ── Feature medie dei top-K per generare il feedback ─────────────────
       const refAvg: Record<string, number> = {}
       for (const key of FEATURE_KEYS) {
         const vals = topK
@@ -280,7 +337,11 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         score: Math.round(finalScore * 1000) / 1000,
         confidence_score: profile?.confidence_score ?? 0,
         analyzed_tracks_count: tracks.length,
-        matched_tracks: goodMatchCount,
+        good_matches: goodMatchCount,
+        best_track_title: bestTrack?.track_title ?? null,
+        best_track_artist: bestTrack?.artist_name ?? null,
+        best_track_score: Math.round(bestScore * 100),
+        match_context,
         feedback: generateFeedback(f, refAvg),
       })
     }
