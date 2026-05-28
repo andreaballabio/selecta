@@ -151,62 +151,44 @@ export async function POST(request: NextRequest) {
     
     // Altrimenti, trova la prossima traccia da analizzare per la label
     if (label_id) {
-      // DEBUG: Prima vediamo TUTTE le tracce della label, senza filtri
-      const { data: allTracks, error: allError } = await supabase
-        .from('label_ingestion_queue')
-        .select('id, track_title, status, spotify_preview_url, analysis_status')
-        .eq('label_id', label_id)
-        .limit(20)
-      
-      if (allError) {
-        console.log('Supabase error:', allError)
-      }
-      
-      // Ora la query normale
+      // Trova la prossima traccia pending — senza filtrare per URL:
+      // analyzeSingleTrack gestisce il refresh automatico se l'URL è null
       const { data: tracks, error } = await supabase
         .from('label_ingestion_queue')
-        .select('id, track_title, artist_name, spotify_preview_url, analysis_status')
+        .select('id, analysis_status')
         .eq('label_id', label_id)
         .eq('status', 'matched')
-        .not('spotify_preview_url', 'is', null)
+        .in('analysis_status', ['pending', ''])
         .order('created_at', { ascending: true })
-      
+        .limit(1)
+
       if (error) {
-        console.log('Supabase error:', error)
-        return NextResponse.json({
-          success: false,
-          error: error.message,
-          debug: { label_id, all_error: allError?.message }
-        })
+        return NextResponse.json({ success: false, error: error.message })
       }
-      
-      // Filtra manualmente quelle già analizzate
-      const track = tracks?.find(t => 
-        t.analysis_status === null || 
-        t.analysis_status === '' || 
-        t.analysis_status === 'pending'
-      )
-      
-      if (!track) {
+
+      // Controlla anche analysis_status IS NULL con query separata se necessario
+      let trackId = tracks?.[0]?.id ?? null
+      if (!trackId) {
+        const { data: nullTracks } = await supabase
+          .from('label_ingestion_queue')
+          .select('id')
+          .eq('label_id', label_id)
+          .eq('status', 'matched')
+          .is('analysis_status', null)
+          .order('created_at', { ascending: true })
+          .limit(1)
+        trackId = nullTracks?.[0]?.id ?? null
+      }
+
+      if (!trackId) {
         return NextResponse.json({
           success: true,
           message: 'Nessuna traccia da analizzare',
           done: true,
-          debug: { 
-            label_id, 
-            total_tracks: tracks?.length || 0,
-            all_tracks_count: allTracks?.length || 0,
-            all_tracks: allTracks?.map(t => ({ 
-              id: t.id.slice(0,8), 
-              status: t.status, 
-              has_preview: !!t.spotify_preview_url,
-              analysis: t.analysis_status 
-            }))
-          }
         })
       }
-      
-      const result = await analyzeSingleTrack(track.id)
+
+      const result = await analyzeSingleTrack(trackId)
       return NextResponse.json(result)
     }
     
