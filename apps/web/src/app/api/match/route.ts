@@ -8,15 +8,12 @@ const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-wor
 const MIN_LABEL_TRACKS    = 3
 const TOP_K_PER_LABEL     = 10
 /**
- * Soglia per contare una traccia come "buon match".
- * Calibrata su rawCosine diretto (non riscalato).
- * Per embedding Essentia 64-dim su musica dello stesso genere:
- *   - traccia identica:       ~0.95–0.99
- *   - stesso genere, diversa: ~0.82–0.92
- *   - genere diverso:         ~0.68–0.82
- * 0.88 separa "genuinamente simile" da "stesso genere generico".
+ * Soglia per contare una traccia come "buon match" (badge / contesto).
+ * NON influenza il ranking — usata solo per i badge informativi.
+ * Calibrata su rawCosine diretto: 0.90 separa "davvero simile"
+ * da "stesso genere ma diversa".
  */
-const GOOD_MATCH_THRESHOLD = 0.88
+const GOOD_MATCH_THRESHOLD = 0.90
 // ─────────────────────────────────────────────────────────────────────────────
 
 function parseEmbedding(raw: unknown): number[] {
@@ -296,53 +293,42 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const sorted = [...tracks].sort((a, b) => b.score - a.score)
       const topK = sorted.slice(0, TOP_K_PER_LABEL)
 
-      // ── Componenti dello score ───────────────────────────────────────────
+      // ── Score ─────────────────────────────────────────────────────────────
 
-      // 1. bestScore: traccia più simile nel catalogo.
-      //    Se trovi una traccia quasi identica (>0.85) questa label deve vincere.
       const bestTrack = sorted[0]
       const bestScore = bestTrack?.score ?? 0
 
-      // 2. avgGoodScore: media dei soli "buoni" match nel topK.
-      //    Ignora le tracce mediocri che gonfiano la media.
-      const goodMatches = topK.filter(t => t.score >= GOOD_MATCH_THRESHOLD)
-      const avgGoodScore = goodMatches.length > 0
-        ? goodMatches.reduce((s, t) => s + t.score, 0) / goodMatches.length
-        : 0
-
-      // 3. relativeCoverage: % del catalogo che corrisponde.
-      //    Normalizzato → grandi label non penalizzano quelle piccole.
-      const goodMatchCount = tracks.filter(t => t.score >= GOOD_MATCH_THRESHOLD).length
-      const relativeCoverage = goodMatchCount / tracks.length
-
-      // 4. consistency: quanto sono coerenti i topK tra loro.
-      //    Bassa varianza = la label ha uno stile preciso e riconoscibile.
-      //    Alta varianza = la label è eclettica O il match è un outlier.
+      // Media del topK (usata come tiebreaker e per badge, NON come componente
+      // primaria — altrimenti label con molte tracce mediocri battono quella
+      // con UNA traccia identica).
       const topKScores = topK.map(t => t.score)
-      const meanTopK = topKScores.reduce((s, v) => s + v, 0) / topKScores.length
-      const stdTopK = Math.sqrt(topKScores.reduce((s, v) => s + (v - meanTopK) ** 2, 0) / topKScores.length)
-      const consistency = meanTopK > 0 ? Math.max(0, 1 - stdTopK / meanTopK) : 0
+      const topKMean = topKScores.reduce((s, v) => s + v, 0) / topKScores.length
 
-      // 5. qualityBoost: moltiplicatore non-lineare per match quasi perfetti.
-      //    Ora lavoriamo su rawCosine diretto (~0.80–0.99 per stesso genere).
-      //    Soglia 0.88: traccia identica (0.95+) ottiene boost forte,
-      //    traccia "stessa vibe" (0.88–0.93) boost lieve.
-      //    Esempi: bestScore 0.97 → ×1.45 | 0.93 → ×1.25 | 0.88 → ×1.00
-      const qualityBoost = bestScore > 0.88 ? 1.0 + (bestScore - 0.88) * 5.0 : 1.0
-
-      const confBoost = (profile?.confidence_score ?? 0) * 0.05
-
-      // Formula finale (base × boost + confBoost):
-      //   55% — bestScore  (la singola traccia più simile domina il risultato)
-      //   25% — avgGoodScore (qualità media dei match genuini)
-      //   10% — relativeCoverage (quante tracce del catalogo corrispondono)
-      //   10% — consistency (lo stile è uniforme o eclettico?)
+      // Punteggio = cubo di bestScore  (+ piccoli bonus per tiebreaker)
       //
-      // Rispetto alla versione precedente: bestScore passa da 40% a 55%,
-      // e qualityBoost è molto più aggressivo (×5 invece di ×2 sopra la soglia).
-      // Questo garantisce che UNA traccia quasi identica batta N tracce mediocri.
-      const base = bestScore * 0.55 + avgGoodScore * 0.25 + relativeCoverage * 0.10 + consistency * 0.10
-      const finalScore = base * qualityBoost + confBoost
+      // Il cubo amplifica le differenze nel range stretto [0.88, 1.0]
+      // senza overflow, nessun moltiplicatore che fa esplodere tutto a 100%.
+      // Risultati tipici (stessa label):
+      //   0.99^3 = 0.970  ← traccia quasi identica
+      //   0.97^3 = 0.913  ← match molto forte
+      //   0.95^3 = 0.857  ← match buono
+      //   0.90^3 = 0.729  ← stessa vibe
+      //   0.85^3 = 0.614  ← generico
+      //
+      // Garantisce che UNA traccia a 0.97 batta SEMPRE label con molte
+      // tracce a 0.93, qualunque sia la dimensione del catalogo.
+      //
+      // + 5% topKMean  → tiebreaker: label con stile coerente su più tracce
+      // + 2% confidence → affidabilità del profilo label
+      const finalScore =
+        Math.pow(bestScore, 3) +
+        topKMean * 0.05 +
+        (profile?.confidence_score ?? 0) * 0.02
+
+      // Per i badge informativi (non influenzano il ranking)
+      const goodMatchCount = tracks.filter(t => t.score >= GOOD_MATCH_THRESHOLD).length
+      const stdTopK = Math.sqrt(topKScores.reduce((s, v) => s + (v - topKMean) ** 2, 0) / topKScores.length)
+      const consistency = topKMean > 0 ? Math.max(0, 1 - stdTopK / topKMean) : 0
 
       // ── Contesto del match (mostrato all'utente) ─────────────────────────
       // Soglie calibrate su rawCosine diretto (non riscalato).
