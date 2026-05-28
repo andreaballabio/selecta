@@ -8,6 +8,92 @@ const supabase = createClient(
 
 const WORKER_URL = process.env.HF_WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
+// ─── Preview URL refresh ──────────────────────────────────────────────────────
+
+async function getSpotifyToken(): Promise<string | null> {
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization:
+          'Basic ' +
+          Buffer.from(
+            process.env.SPOTIFY_CLIENT_ID + ':' + process.env.SPOTIFY_CLIENT_SECRET
+          ).toString('base64'),
+      },
+      body: 'grant_type=client_credentials',
+    })
+    const data = await res.json()
+    return data.access_token ?? null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Tries to fetch a fresh preview URL from the source API (Deezer or Spotify)
+ * using the track ID already saved in the DB.
+ * Saves the new URL to the DB if found and returns it.
+ */
+async function refreshPreviewUrl(track: Record<string, any>): Promise<string | null> {
+  const trackId = track.spotify_track_id // actual ID regardless of source
+  if (!trackId) return null
+
+  // ── Deezer (public API, no auth needed) ────────────────────────────────
+  if (track.audio_source === 'deezer') {
+    try {
+      const res = await fetch(`https://api.deezer.com/track/${trackId}`, {
+        headers: { Accept: 'application/json' },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.preview && !data.error) {
+          await supabase
+            .from('label_ingestion_queue')
+            .update({ audio_preview_url: data.preview, analysis_error: null })
+            .eq('id', track.id)
+          console.log(`[refresh] Deezer URL refreshed for ${track.id}`)
+          return data.preview as string
+        }
+      }
+    } catch (e) {
+      console.error('[refresh] Deezer error:', e)
+    }
+    return null
+  }
+
+  // ── Spotify (needs OAuth) ───────────────────────────────────────────────
+  if (track.audio_source === 'spotify' || !track.audio_source) {
+    try {
+      const token = await getSpotifyToken()
+      if (!token) return null
+      const res = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.preview_url) {
+          await supabase
+            .from('label_ingestion_queue')
+            .update({
+              spotify_preview_url: data.preview_url,
+              audio_preview_url: data.preview_url,
+              analysis_error: null,
+            })
+            .eq('id', track.id)
+          console.log(`[refresh] Spotify URL refreshed for ${track.id}`)
+          return data.preview_url as string
+        }
+      }
+    } catch (e) {
+      console.error('[refresh] Spotify error:', e)
+    }
+  }
+
+  return null
+}
+
 // GET: Ottieni statistiche analisi
 export async function GET(request: NextRequest) {
   try {
@@ -152,16 +238,21 @@ async function analyzeSingleTrack(trackId: string) {
       return { success: false, error: 'Traccia non trovata' }
     }
     
-    // Use audio_preview_url (Deezer) first, fallback to spotify_preview_url
-    const audioUrl = track.audio_preview_url ?? track.spotify_preview_url
+    // Use audio_preview_url (Deezer) first, fallback to spotify_preview_url.
+    // If both are null (expired), try to refresh from the source API automatically.
+    let audioUrl: string | null = track.audio_preview_url ?? track.spotify_preview_url
 
     if (!audioUrl) {
-      // Aggiorna come failed (no preview)
+      console.log(`[analyze] No preview URL for ${trackId}, attempting refresh...`)
+      audioUrl = await refreshPreviewUrl(track)
+    }
+
+    if (!audioUrl) {
       await supabase
         .from('label_ingestion_queue')
         .update({
           analysis_status: 'failed',
-          analysis_error: 'Nessun preview audio disponibile'
+          analysis_error: 'Nessun preview audio disponibile (URL scaduto e refresh fallito)',
         })
         .eq('id', trackId)
 
