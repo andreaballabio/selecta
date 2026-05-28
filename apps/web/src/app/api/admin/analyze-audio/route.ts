@@ -269,47 +269,79 @@ async function analyzeSingleTrack(trackId: string) {
 
     // Chiama il worker con retry
     let lastError = null
-    let response = null
+    let response: Response | null = null
+
+    // Helper riusabile per chiamare il worker
+    const callWorker = (url: string) =>
+      fetch(`${WORKER_URL}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          track_id: trackId,
+          file_url: url,
+          artist_level: 'established',
+          title: track.track_title,
+          artist: track.artist_name,
+          is_preview: true,
+          track_status: 'unknown',
+        }),
+        timeout: 120000,
+      } as any) as Promise<Response>
 
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        response = await fetch(`${WORKER_URL}/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify({
-            track_id: trackId,
-            file_url: audioUrl,
-            artist_level: 'established',
-            title: track.track_title,
-            artist: track.artist_name,
-            is_preview: true,
-            track_status: 'unknown'
-          }),
-          timeout: 120000
-        } as any)
-        
+        response = await callWorker(audioUrl!)
+
         if (response.ok) {
           lastError = null
           break
         }
-        
-        // Se 403 o 500, riprova dopo attesa
-        if (response.status === 403 || response.status >= 500) {
+
+        // Worker restituisce 5xx — leggi il body per distinguere 403-CDN da vero 500
+        if (response.status >= 500) {
+          const errorBody = await response.text()
+
+          // Deezer/Spotify CDN ha restituito 403 al worker → URL scaduto
+          if (errorBody.includes('403') || errorBody.toLowerCase().includes('forbidden')) {
+            console.log(`[analyze] Worker got 403 CDN error for ${trackId}, attempting URL refresh...`)
+
+            // Azzera gli URL scaduti nel DB
+            await supabase
+              .from('label_ingestion_queue')
+              .update({ audio_preview_url: null, spotify_preview_url: null })
+              .eq('id', trackId)
+
+            // Prova a ottenere un URL fresco dall'API sorgente
+            const freshUrl = await refreshPreviewUrl(track)
+
+            if (freshUrl) {
+              audioUrl = freshUrl
+              console.log(`[analyze] Retrying with fresh URL for ${trackId}`)
+              response = await callWorker(freshUrl)
+              if (response.ok) lastError = null
+              else lastError = new Error(`Worker failed after URL refresh: ${response.status}`)
+            } else {
+              lastError = new Error('Preview URL scaduto e refresh fallito (403 CDN)')
+              response = null
+            }
+
+            break // Nessun ulteriore retry per errori 403-CDN
+          }
+
+          // Vero 500 transitorio — riprova con back-off
           console.log(`Worker returned ${response.status}, attempt ${attempt}/3`)
-          lastError = new Error(`Worker error: ${response.status}`)
+          lastError = new Error(`Worker error: ${response.status} - ${errorBody.slice(0, 200)}`)
           if (attempt < 3) {
             await new Promise(r => setTimeout(r, 5000 * attempt))
             continue
           }
+          break
         }
-        
-        // Altri errori, non riprovare
+
+        // Altri errori HTTP — non riprovare
         const errorText = await response.text()
         throw new Error(`Worker error: ${response.status} - ${errorText}`)
-        
+
       } catch (fetchError: any) {
         lastError = fetchError
         console.log(`Fetch error attempt ${attempt}/3:`, fetchError.message)
@@ -323,27 +355,54 @@ async function analyzeSingleTrack(trackId: string) {
       throw lastError || new Error('Worker failed after 3 attempts')
     }
     
-    const result = await response.json()
-    
-    // Se il worker ha fallito (es. 403 da Deezer), marca come failed e continua
+    let result = await response.json()
+
+    // Se il worker segnala failure per URL CDN scaduto (403) → refresh automatico + retry
+    if (!result.success) {
+      const errLow = (result.error ?? '').toLowerCase()
+      const isCdn403 = errLow.includes('403') || errLow.includes('forbidden') || errLow.includes('expired')
+
+      if (isCdn403) {
+        console.log(`[analyze] Worker reported 403 CDN for ${trackId}, attempting auto-refresh...`)
+
+        // Azzera gli URL scaduti nel DB
+        await supabase
+          .from('label_ingestion_queue')
+          .update({ spotify_preview_url: null, audio_preview_url: null })
+          .eq('id', trackId)
+
+        const freshUrl = await refreshPreviewUrl(track)
+        if (freshUrl) {
+          audioUrl = freshUrl
+          console.log(`[analyze] Retrying with fresh URL for ${trackId}`)
+          const retryResp = await callWorker(freshUrl)
+          if (retryResp.ok) {
+            result = await retryResp.json()
+            console.log(`[analyze] Retry after refresh: success=${result.success}`)
+          }
+        }
+      }
+    }
+
+    // Se il worker ha fallito (es. 403 da Deezer non recuperabile), marca come failed e continua
     if (!result.success) {
       console.log(`Worker reported failure for track ${trackId}:`, result.error)
-      
+
       await supabase
         .from('label_ingestion_queue')
         .update({
           analysis_status: 'failed',
           analysis_error: result.error?.slice(0, 500) || 'Download preview fallito',
-          spotify_preview_url: null,  // Resetta URL scaduti
-          audio_preview_url: null
+          spotify_preview_url: null,
+          audio_preview_url: null,
         })
         .eq('id', trackId)
-      
+
       return {
         success: false,
         error: result.error || 'Analisi fallita',
         track_id: trackId,
-        needs_reverify: true  // Segnala che serve ri-verificare il match
+        needs_reverify: true,
       }
     }
     

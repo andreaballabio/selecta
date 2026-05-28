@@ -64,7 +64,7 @@ class AnalysisRequest(BaseModel):
 
 class AnalysisResponse(BaseModel):
     track_id: str
-    features: TrackFeatures
+    features: Optional[TrackFeatures] = None
     success: bool = True
     error: Optional[str] = None
 
@@ -525,6 +525,19 @@ async def analyze_track(request: AnalysisRequest):
                 analysis_type=analysis_type,
             ),
             success=True,
+        )
+
+    except httpx.HTTPStatusError as e:
+        # CDN ha risposto con un errore HTTP (es. 403 = URL scaduto)
+        # Restituiamo HTTP 200 con success=False invece di 500, così il chiamante
+        # può gestirlo senza dover fare parsing del body dell'errore.
+        status_code = e.response.status_code
+        logger.error(f"Analysis failed: CDN returned {status_code} for URL (preview likely expired)")
+        return AnalysisResponse(
+            track_id=request.track_id,
+            features=None,
+            success=False,
+            error=f"CDN error {status_code}: preview URL expired or unavailable",
         )
 
     except Exception as e:
