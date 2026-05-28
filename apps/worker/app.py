@@ -310,6 +310,40 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
         onset_strength = normalize_onset_strength_essentia(np.array(energies))
         mfcc_mean = [float(np.mean([f[i] for f in mfcc_frames])) for i in range(13)]
 
+        # ── Sliding-window embeddings con feature Essentia ─────────────────
+        # Riusa i frame già calcolati sopra → stesso algoritmo del catalogo.
+        # Confronto diretto "drop utente vs preview catalogo" senza cambio engine.
+        energies_a  = np.array(energies)
+        centroids_a = np.array(centroids)
+        rolloffs_a  = np.array(rolloffs)
+        zcrs_a      = np.array(zcrs)
+        mfcc_a      = np.array(mfcc_frames)   # (n_frames, 13)
+        n_fr        = len(energies)
+        fr_win      = int(30.0 * sample_rate / hop_size)
+        fr_step     = max(1, int(5.0  * sample_rate / hop_size))
+
+        sliding_embeddings_essentia: List[List[float]] = []
+        f0 = 0
+        while f0 + fr_win <= n_fr:
+            f1  = f0 + fr_win
+            s0  = f0 * hop_size
+            s1  = min(f1 * hop_size + frame_size, len(audio_mono))
+            seg = audio_mono[s0:s1].astype(np.float32)
+
+            sliding_embeddings_essentia.append(build_embedding(
+                mfcc_mean=np.mean(mfcc_a[f0:f1], axis=0).tolist(),
+                spectral_centroid_norm=min(float(np.mean(centroids_a[f0:f1])) / (sample_rate / 2), 1.0),
+                spectral_rolloff_norm= min(float(np.mean(rolloffs_a[f0:f1]))  / (sample_rate / 2), 1.0),
+                zero_crossing_rate=float(np.mean(zcrs_a[f0:f1])),
+                energy=float(np.mean(energies_a[f0:f1])),
+                onset_strength=normalize_onset_strength_essentia(energies_a[f0:f1]),
+                sub_ratio=compute_sub_ratio(seg, sample_rate),
+                mid_presence=compute_mid_presence(seg, sample_rate),
+                tempo_stability=0.5,
+                spectral_contrast=compute_spectral_contrast_librosa(seg, sample_rate),
+            ))
+            f0 += fr_step
+
     # Tempo stability (solo full track)
     if not is_preview and bpm and bpm > 0:
         beats = es.RhythmExtractor2013()(audio_mono)[1]
@@ -340,6 +374,7 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
         spectral_contrast=spectral_contrast,
         mfcc_mean=mfcc_mean,
         sample_rate=sample_rate,
+        sliding_embeddings=sliding_embeddings_essentia if not is_preview else None,
     )
 
 
@@ -439,6 +474,7 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
         spectral_contrast=spectral_contrast,
         mfcc_mean=mfcc_mean,
         sample_rate=sr,
+        sliding_embeddings=None,  # Librosa fallback non computa finestre (engine diverso dal catalogo)
     )
 
 
@@ -498,8 +534,9 @@ def compute_sliding_window_embeddings(
     total_pwr = np.sum(stft_mag ** 2, axis=0)
     sub_pwr   = np.sum(stft_mag[freqs < 80, :] ** 2, axis=0)
     mid_pwr   = np.sum(stft_mag[(freqs >= 300) & (freqs <= 3000), :] ** 2, axis=0)
-    sub_f     = np.where(total_pwr > 0, sub_pwr   / total_pwr, 0.0)
-    mid_f     = np.where(total_pwr > 0, mid_pwr   / total_pwr, 0.0)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        sub_f = np.where(total_pwr > 0, sub_pwr / total_pwr, 0.0)
+        mid_f = np.where(total_pwr > 0, mid_pwr / total_pwr, 0.0)
     con_f     = librosa.feature.spectral_contrast(S=stft_mag, sr=sr, n_bands=6)  # (7, N)
 
     # ── Aggregazione per finestra ──────────────────────────────────────────
@@ -572,6 +609,9 @@ async def analyze_track(request: AnalysisRequest):
             feat = analyze_with_librosa(audio_mono, sample_rate, request.is_preview)
 
         sr = feat.pop("sample_rate")
+        # Essentia restituisce sliding_embeddings già calcolati (stesso engine del catalogo).
+        # Librosa fallback restituisce None → calcoliamo con Librosa solo come ultimo resort.
+        essentia_windows = feat.pop("sliding_embeddings", None)
         sc_norm = min(feat["spectral_centroid"] / (sr / 2), 1.0)
         sr_norm = min(feat["spectral_rolloff"] / (sr / 2), 1.0)
 
@@ -588,14 +628,17 @@ async def analyze_track(request: AnalysisRequest):
             spectral_contrast=feat["spectral_contrast"],
         )
 
-        # Sliding-window embeddings solo per tracce intere (non preview)
-        # Divide la traccia in ~60-70 finestre da 30s (stride 5s) per confrontarle
-        # direttamente con le preview Deezer/Spotify del catalogo.
+        # Sliding-window embeddings solo per tracce intere (non preview).
+        # Priorità: finestre Essentia (stesso engine catalogo) > Librosa (fallback).
         embeddings_list: Optional[List[List[float]]] = None
         if not request.is_preview:
-            logger.info(f"Computing sliding-window embeddings (30s window, 5s stride)...")
-            embeddings_list = compute_sliding_window_embeddings(audio_mono, sr)
-            logger.info(f"Generated {len(embeddings_list)} window embeddings")
+            if essentia_windows is not None:
+                embeddings_list = essentia_windows
+                logger.info(f"Using {len(embeddings_list)} Essentia sliding-window embeddings")
+            else:
+                logger.info("Essentia windows unavailable — computing via Librosa (fallback)")
+                embeddings_list = compute_sliding_window_embeddings(audio_mono, sr)
+                logger.info(f"Generated {len(embeddings_list)} Librosa window embeddings")
 
         analysis_type = "preview" if request.is_preview else "full"
         logger.info(
