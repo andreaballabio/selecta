@@ -7,9 +7,16 @@ const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-wor
 // ─── Tuning parameters ───────────────────────────────────────────────────────
 const MIN_LABEL_TRACKS    = 3
 const TOP_K_PER_LABEL     = 10
-/** Soglia minima per contare una traccia come "buon match".
- *  0.50 filtra i punteggi gonfiati dai NULL (~0.30–0.40). */
-const GOOD_MATCH_THRESHOLD = 0.50
+/**
+ * Soglia per contare una traccia come "buon match".
+ * Calibrata su rawCosine diretto (non riscalato).
+ * Per embedding Essentia 64-dim su musica dello stesso genere:
+ *   - traccia identica:       ~0.95–0.99
+ *   - stesso genere, diversa: ~0.82–0.92
+ *   - genere diverso:         ~0.68–0.82
+ * 0.88 separa "genuinamente simile" da "stesso genere generico".
+ */
+const GOOD_MATCH_THRESHOLD = 0.88
 // ─────────────────────────────────────────────────────────────────────────────
 
 function parseEmbedding(raw: unknown): number[] {
@@ -209,16 +216,23 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       artist_name: string | null
     }
 
+    // ── Debug: quante finestre sliding-window ha il worker restituito? ────────
+    console.log(
+      `[match] userEmbeddings=${userEmbeddings.length} windows | ` +
+      `catalogTracks=${(dbTracks ?? []).length}`
+    )
+
     const scoredTracks: ScoredTrack[] = (dbTracks ?? []).map((dbTrack) => {
       const dbEmbedding = parseEmbedding(dbTrack.audio_embedding)
-      // MAX cosine su tutte le finestre sliding-window → "drop contro drop"
-      const rawCosine = dbEmbedding.length > 0
+      // MAX cosine su tutte le finestre sliding-window → "drop contro drop".
+      // NON mischiamo con trackFeatureSimilarity: quella confronta feature medie
+      // del full track (6 min incluso intro) con feature del preview di 30s (solo drop),
+      // due contesti diversi → introduce rumore che penalizza la traccia corretta.
+      // Tutte le feature stilistiche (MFCC, centroid, sub, mid, onset) sono già
+      // codificate nell'embedding → il cosine cattura tutto ciò che serve.
+      const score = dbEmbedding.length > 0
         ? maxCosineSimilarity(userEmbeddings, dbEmbedding)
         : 0
-      // Gli embedding audio si concentrano in [0.5, 1] → riscala in [0, 1]
-      const cosine = Math.max(0, (rawCosine - 0.5) / 0.5)
-      const feat = trackFeatureSimilarity(f, dbTrack as Record<string, number | null>)
-      const score = cosine * 0.6 + feat * 0.4
 
       return {
         label_id: dbTrack.label_id,
@@ -228,6 +242,21 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         artist_name: (dbTrack as Record<string, unknown>).artist_name as string | null ?? null,
       }
     })
+
+    // ── Debug: distribuzione dei punteggi (utile per calibrare soglie) ────────
+    {
+      const allScores = scoredTracks.map(t => t.score).sort((a, b) => b - a)
+      const p = (pct: number) => allScores[Math.floor(allScores.length * pct)]?.toFixed(3) ?? 'n/a'
+      console.log(
+        `[match] score distribution: max=${p(0)} p10=${p(0.1)} p25=${p(0.25)} ` +
+        `median=${p(0.5)} p75=${p(0.75)} min=${p(1)}`
+      )
+      const topTracks = scoredTracks
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map(t => `${labelMap.get(t.label_id)?.name ?? t.label_id}/${t.track_title ?? '?'}=${t.score.toFixed(3)}`)
+      console.log(`[match] top5 tracks: ${topTracks.join(' | ')}`)
+    }
 
     // ── 5. Group scored tracks by label ───────────────────────────────────
     const byLabel = new Map<string, ScoredTrack[]>()
@@ -295,28 +324,34 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const consistency = meanTopK > 0 ? Math.max(0, 1 - stdTopK / meanTopK) : 0
 
       // 5. qualityBoost: moltiplicatore non-lineare per match quasi perfetti.
-      //    Sopra 0.85 cresce in modo più che proporzionale → la traccia identica
-      //    non può più essere battuta da N tracce mediocri.
-      //    Esempio: bestScore 0.99 → boost ×1.28 | 0.90 → ×1.10 | 0.80 → ×1.00
-      const qualityBoost = bestScore > 0.85 ? 1.0 + (bestScore - 0.85) * 2.0 : 1.0
+      //    Ora lavoriamo su rawCosine diretto (~0.80–0.99 per stesso genere).
+      //    Soglia 0.88: traccia identica (0.95+) ottiene boost forte,
+      //    traccia "stessa vibe" (0.88–0.93) boost lieve.
+      //    Esempi: bestScore 0.97 → ×1.45 | 0.93 → ×1.25 | 0.88 → ×1.00
+      const qualityBoost = bestScore > 0.88 ? 1.0 + (bestScore - 0.88) * 5.0 : 1.0
 
       const confBoost = (profile?.confidence_score ?? 0) * 0.05
 
       // Formula finale (base × boost + confBoost):
-      //   40% — bestScore (domina quando trovi la traccia identica)
-      //   35% — avgGoodScore (qualità dei match genuini)
-      //   15% — relativeCoverage (quante tracce del catalogo corrispondono)
+      //   55% — bestScore  (la singola traccia più simile domina il risultato)
+      //   25% — avgGoodScore (qualità media dei match genuini)
+      //   10% — relativeCoverage (quante tracce del catalogo corrispondono)
       //   10% — consistency (lo stile è uniforme o eclettico?)
-      const base = bestScore * 0.40 + avgGoodScore * 0.35 + relativeCoverage * 0.15 + consistency * 0.10
+      //
+      // Rispetto alla versione precedente: bestScore passa da 40% a 55%,
+      // e qualityBoost è molto più aggressivo (×5 invece di ×2 sopra la soglia).
+      // Questo garantisce che UNA traccia quasi identica batta N tracce mediocri.
+      const base = bestScore * 0.55 + avgGoodScore * 0.25 + relativeCoverage * 0.10 + consistency * 0.10
       const finalScore = base * qualityBoost + confBoost
 
       // ── Contesto del match (mostrato all'utente) ─────────────────────────
+      // Soglie calibrate su rawCosine diretto (non riscalato).
       const match_context: string[] = []
-      if (bestScore > 0.90)
+      if (bestScore > 0.93)
         match_context.push('exact_match')       // traccia quasi identica trovata
-      else if (bestScore > 0.80 && goodMatchCount < 3)
-        match_context.push('strong_isolated')   // match forte ma su traccia singola
-      if (goodMatchCount >= 4 && consistency >= 0.65)
+      else if (bestScore > 0.88 && goodMatchCount < 3)
+        match_context.push('strong_isolated')   // match forte ma su poche tracce
+      if (goodMatchCount >= 3 && consistency >= 0.65)
         match_context.push('consistent')        // stile coerente con il catalogo
       if (goodMatchCount < 2 && tracks.length >= 8)
         match_context.push('sparse')            // poche tracce corrispondenti
