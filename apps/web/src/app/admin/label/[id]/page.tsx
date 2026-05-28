@@ -158,6 +158,7 @@ export default function LabelDetailPage() {
   // Stati per il processing batch
   const [countdown, setCountdown] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+  const [reanalyzingAll, setReanalyzingAll] = useState(false)
   const batchTimerRef = useRef<NodeJS.Timeout | null>(null)
   const countdownRef = useRef<NodeJS.Timeout | null>(null)
   
@@ -538,6 +539,56 @@ export default function LabelDetailPage() {
     if (countdownRef.current) {
       clearInterval(countdownRef.current)
       countdownRef.current = null
+    }
+  }
+
+  // Ri-analizza tutte le tracce già analizzate (aggiorna le feature)
+  const reanalyzeAll = async () => {
+    const analyzedCount = tracks.filter(
+      (t) => t.status === 'matched' && (t.spotify_preview_url || t.audio_preview_url)
+    ).length
+
+    if (analyzedCount === 0) {
+      alert('Nessuna traccia con URL disponibile da ri-analizzare.')
+      return
+    }
+
+    if (!confirm(
+      `Ri-analizzare tutte le ${analyzedCount} tracce?\n\n` +
+      `Questo aggiornerà le feature audio (sub_ratio, mid_presence, ecc.) ` +
+      `e migliorerà la precisione del matching.\n\n` +
+      `Le tracce con URL scaduto verranno saltate automaticamente.`
+    )) return
+
+    setReanalyzingAll(true)
+    try {
+      const res = await fetch('/api/admin/reanalyze-label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label_id: labelId }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert('Errore: ' + data.error)
+        return
+      }
+
+      await fetchLabelData()
+
+      if (data.reset > 0 && !processing) {
+        startAudioAnalysis()
+      }
+
+      const msg = data.reset > 0
+        ? `✓ ${data.reset} tracce resettate per ri-analisi${data.no_url > 0 ? ` (${data.no_url} senza URL saltate)` : ''}.`
+        : `Nessuna traccia da ri-analizzare${data.no_url > 0 ? ` (${data.no_url} senza URL)` : ''}.`
+      alert(msg)
+    } catch (err) {
+      console.error('reanalyzeAll error:', err)
+      alert('Errore durante il reset')
+    } finally {
+      setReanalyzingAll(false)
     }
   }
 
@@ -1296,6 +1347,15 @@ export default function LabelDetailPage() {
                     className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:opacity-50"
                   >
                     🔬 Avvia Analisi Audio
+                  </button>
+
+                  <button
+                    onClick={reanalyzeAll}
+                    disabled={reanalyzingAll || tracks.filter(t => t.status === 'matched' && (t.spotify_preview_url || t.audio_preview_url)).length === 0}
+                    className="rounded-lg border border-amber-700 bg-amber-900/30 px-4 py-2 text-sm font-semibold text-amber-400 hover:bg-amber-900/50 disabled:opacity-50"
+                    title="Ri-analizza tutte le tracce per aggiornare le feature audio"
+                  >
+                    {reanalyzingAll ? '⏳ Reset...' : '🔄 Rianalizza Tutto'}
                   </button>
                 </div>
               ) : (

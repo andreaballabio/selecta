@@ -152,7 +152,10 @@ async function analyzeSingleTrack(trackId: string) {
       return { success: false, error: 'Traccia non trovata' }
     }
     
-    if (!track.spotify_preview_url) {
+    // Use audio_preview_url (Deezer) first, fallback to spotify_preview_url
+    const audioUrl = track.audio_preview_url ?? track.spotify_preview_url
+
+    if (!audioUrl) {
       // Aggiorna come failed (no preview)
       await supabase
         .from('label_ingestion_queue')
@@ -161,10 +164,10 @@ async function analyzeSingleTrack(trackId: string) {
           analysis_error: 'Nessun preview audio disponibile'
         })
         .eq('id', trackId)
-      
+
       return { success: false, error: 'Nessun preview audio' }
     }
-    
+
     // Imposta come in analisi
     await supabase
       .from('label_ingestion_queue')
@@ -172,22 +175,22 @@ async function analyzeSingleTrack(trackId: string) {
         analysis_status: 'analyzing'
       })
       .eq('id', trackId)
-    
+
     // Chiama il worker con retry
     let lastError = null
     let response = null
-    
+
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
         response = await fetch(`${WORKER_URL}/analyze`, {
           method: 'POST',
-          headers: { 
+          headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
           body: JSON.stringify({
             track_id: trackId,
-            file_url: track.spotify_preview_url,
+            file_url: audioUrl,
             artist_level: 'established',
             title: track.track_title,
             artist: track.artist_name,
@@ -240,7 +243,8 @@ async function analyzeSingleTrack(trackId: string) {
         .update({
           analysis_status: 'failed',
           analysis_error: result.error?.slice(0, 500) || 'Download preview fallito',
-          spotify_preview_url: null  // Resetta l'URL scaduto
+          spotify_preview_url: null,  // Resetta URL scaduti
+          audio_preview_url: null
         })
         .eq('id', trackId)
       
