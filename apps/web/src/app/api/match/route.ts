@@ -9,9 +9,9 @@ const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-wor
 const MIN_LABEL_TRACKS = 3
 /** Top-K tracks per label used to compute quality average */
 const TOP_K_PER_LABEL = 10
-/** Minimum combined score for a track to count as a "good match"
- *  (used for coverage weight only — does not gate inclusion) */
-const GOOD_MATCH_THRESHOLD = 0.30
+/** Minimum combined score to count as a genuine match for relative coverage.
+ *  Kept at 0.50 so NULL-inflated scores (≈0.30–0.40) don't count as matches. */
+const GOOD_MATCH_THRESHOLD = 0.50
 // ─────────────────────────────────────────────────────────────────────────────
 
 function parseEmbedding(raw: unknown): number[] {
@@ -234,25 +234,35 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       if (!labelMeta) continue
 
       const profile = profileMap.get(labelId)
-      const totalAnalyzed = profile?.analyzed_tracks_count ?? tracks.length
-      if (totalAnalyzed < MIN_LABEL_TRACKS) continue
+      if (tracks.length < MIN_LABEL_TRACKS) continue
 
-      // Sort by score, take top-K for quality average
+      // Sort by score descending, take top-K for quality average
       const sorted = [...tracks].sort((a, b) => b.score - a.score)
       const topK = sorted.slice(0, TOP_K_PER_LABEL)
 
+      // Quality: average score of the best-matching tracks
       const avgScore = topK.reduce((s, t) => s + t.score, 0) / topK.length
 
-      // Coverage weight: rewards labels with many genuinely similar tracks
-      // Formula: 1 - e^(-n/3) → 0 for n=0, ~0.28 for n=1, ~0.63 for n=3, ~0.96 for n=10
+      // Best match: the single most similar track in this label.
+      // Critical for the case where the user's track is identical (or very close)
+      // to one already in the DB — that track should dominate the result.
+      const bestScore = sorted[0]?.score ?? 0
+
+      // Relative consistency: what % of this label's catalog sounds like the
+      // user's track. Uses the actual count from the DB query (always current).
+      // Threshold 0.50 filters out NULL-inflated scores (≈0.30–0.40).
       const goodMatchCount = tracks.filter((t) => t.score >= GOOD_MATCH_THRESHOLD).length
-      const coverageWeight = 1 - Math.exp(-goodMatchCount / 3)
+      const relativeCoverage = goodMatchCount / tracks.length
 
-      // Confidence boost: rewards labels with more analyzed tracks (data quality)
-      const confBoost = (profile?.confidence_score ?? 0) * 0.10
+      // Confidence boost: small bonus for labels with more analyzed tracks
+      const confBoost = (profile?.confidence_score ?? 0) * 0.08
 
-      // Final score: quality × consistency + data quality bonus
-      const finalScore = avgScore * (0.7 + 0.3 * coverageWeight) + confBoost
+      // Final score breakdown:
+      //   50% — quality (avg of top-K matched tracks)
+      //   20% — best single match (rewards near-identical track detection)
+      //   22% — relative consistency (% of catalog that genuinely fits)
+      //    8% — data quality bonus
+      const finalScore = avgScore * 0.50 + bestScore * 0.20 + relativeCoverage * 0.22 + confBoost
 
       // Compute average features of top-K tracks for feedback generation
       const refAvg: Record<string, number> = {}
@@ -269,7 +279,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         primary_genre: labelMeta.primary_genre ?? '',
         score: Math.round(finalScore * 1000) / 1000,
         confidence_score: profile?.confidence_score ?? 0,
-        analyzed_tracks_count: totalAnalyzed,
+        analyzed_tracks_count: tracks.length,
         matched_tracks: goodMatchCount,
         feedback: generateFeedback(f, refAvg),
       })
