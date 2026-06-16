@@ -10,34 +10,61 @@ const TOP_K_PER_LABEL     = 10
 
 /**
  * Mappatura ASSOLUTA similarità → percentuale (NON relativa al set di risultati).
- * Il ranking dipende SOLO dalla similarità grezza: questi valori cambiano
- * unicamente la % MOSTRATA, mai l'ordine delle label.
+ * Il ranking dipende SOLO dalla similarità grezza; questi valori cambiano solo
+ * la % MOSTRATA, mai l'ordine delle label.
  *
- * CALIBRATO sul DEEP embedding EffNet + mean-centering (osservato 2026-06-16:
- * traccia ESATTA ~0.86, stesso-genere diverse ~0.33-0.50, label diverse <0.33):
- *   - traccia ESATTA          → ~0.80-0.90  → ~97-100%
- *   - match di stile forte     → ~0.55-0.75  → ~45-80%
- *   - stesso genere, diversa   → ~0.30-0.50  → ~0-35%
- * COSINE_FLOOR ↦ 0% , COSINE_CEIL ↦ 100%.
+ * CEIL = livello "match perfetto / quasi-duplicato": proprietà dell'embedding
+ * EffNet (stabile; si ritocca solo se si cambia il modello).
+ * FLOOR (lo 0%) è AUTO-CALIBRATO dal catalogo a ogni match (autoCalibrateFloor)
+ * → si adatta da solo quando aggiungi label/tracce.
  */
-const COSINE_FLOOR = 0.30
-const COSINE_CEIL  = 0.88
+const COSINE_CEIL      = 0.88
+const FLOOR_PERCENTILE = 75      // FLOOR = p75 delle similarità fra tracce DIVERSE
+const FLOOR_FALLBACK   = 0.30    // se il catalogo è troppo piccolo per stimarlo
+const FLOOR_MIN        = 0.15    // guardrail inferiore
 
-/** Soglia "buon match" per badge/conteggi (deep similarity) — NON ranking. */
-const GOOD_MATCH_THRESHOLD = 0.45
-/** Soglie di contesto (deep similarity) — solo badge. */
-const EXACT_MATCH_COSINE  = 0.75   // traccia quasi identica (stessa registrazione)
-const STRONG_MATCH_COSINE = 0.55   // match di stile forte
+/** Soglie di contesto/badge (livelli assoluti dell'embedding) — NON ranking. */
+const GOOD_MATCH_THRESHOLD = 0.45   // "buon match" per i conteggi
+const EXACT_MATCH_COSINE   = 0.75   // traccia quasi identica (stessa registrazione)
+const STRONG_MATCH_COSINE  = 0.55   // match di stile forte
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Forza del match in [0,1] da cosine grezzo — mappatura assoluta e monotona.
- * "Apre" i cosine schiacciati in alto, tipici di un catalogo omogeneo (tutto
- * techno), in un range visibile SENZA normalizzazione relativa fra label.
+ * Forza del match in [0,1] — mappatura assoluta e monotona, SENZA normalizzazione
+ * relativa fra label. `floor` è auto-calibrato dal catalogo (vedi sotto).
  */
-function matchStrength(cosine: number): number {
-  const t = (cosine - COSINE_FLOOR) / (COSINE_CEIL - COSINE_FLOOR)
+function matchStrength(cosine: number, floor: number): number {
+  const t = (cosine - floor) / (COSINE_CEIL - floor)
   return Math.max(0, Math.min(1, t))
+}
+
+/**
+ * AUTO-CALIBRAZIONE del FLOOR (lo 0%) = "livello base" di similarità fra tracce
+ * DIVERSE del catalogo. Deterministico (stesso catalogo → stesso valore, niente
+ * jitter fra match), ricalcolato a ogni match → si adatta quando aggiungi
+ * label/tracce. Resta ASSOLUTO: dipende SOLO dal catalogo, non dalle label nel
+ * risultato del singolo utente.
+ *   FLOOR = p75 delle cosine fra coppie di tracce diverse (mean-centered):
+ *   "il 75% delle coppie di tracce diverse è meno simile di così → sopra questo
+ *    c'è un match reale, non genericità di genere".
+ */
+function autoCalibrateFloor(centeredCatalog: number[][]): number {
+  const n = centeredCatalog.length
+  if (n < 12) return FLOOR_FALLBACK                  // troppo poche → default stabile
+  // sottoinsieme DETERMINISTICO (max 150, equispaziato): O(1), nessuna casualità
+  let sample = centeredCatalog
+  if (n > 150) {
+    const step = n / 150
+    sample = Array.from({ length: 150 }, (_, k) => centeredCatalog[Math.floor(k * step)])
+  }
+  const sims: number[] = []
+  for (let i = 0; i < sample.length; i++)
+    for (let j = i + 1; j < sample.length; j++)
+      sims.push(cosineSimilarity(sample[i], sample[j]))
+  if (sims.length === 0) return FLOOR_FALLBACK
+  sims.sort((a, b) => a - b)
+  const idx = Math.min(sims.length - 1, Math.floor((sims.length * FLOOR_PERCENTILE) / 100))
+  return Math.max(FLOOR_MIN, Math.min(sims[idx], COSINE_CEIL - 0.20))
 }
 
 function parseEmbedding(raw: unknown): number[] {
@@ -261,6 +288,11 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       v.length === EMB_DIM ? v.map((x, i) => x - meanEmbedding[i]) : v
     const centeredUserEmbeddings = userEmbeddings.map(center)
 
+    // Auto-calibrazione del FLOOR dal catalogo corrente (deterministica, stabile).
+    const centeredCatalog = catEmbeddings.map(center)
+    const cosineFloor = autoCalibrateFloor(centeredCatalog)
+    console.log(`[match] autoFloor=${cosineFloor.toFixed(3)} | catalog=${centeredCatalog.length} tracks`)
+
     // ── 4. Score every DB track against the user's track ──────────────────
     type ScoredTrack = {
       label_id: string
@@ -364,7 +396,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       // I tiebreaker (coerenza su più tracce, confidence del profilo) sono
       // INFINITESIMI: rompono i pari-merito nell'ordinamento senza spostare la
       // percentuale visibile (round a 2 cifre invariato).
-      const displayStrength = matchStrength(bestCosine)
+      const displayStrength = matchStrength(bestCosine, cosineFloor)
       const finalScore =
         displayStrength +
         topKMean * 0.001 +
