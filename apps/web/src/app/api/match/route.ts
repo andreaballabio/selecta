@@ -13,22 +13,21 @@ const TOP_K_PER_LABEL     = 10
  * Il ranking dipende SOLO dalla similarità grezza: questi valori cambiano
  * unicamente la % MOSTRATA, mai l'ordine delle label.
  *
- * NB: la similarità è ora su embedding MEAN-CENTERED (≈ correlazione di Pearson):
- * range molto più largo dei cosine grezzi → spread reale.
- *   - traccia ESATTA nel catalogo   → ~0.90-1.0
- *   - match di stile forte           → ~0.65-0.90
- *   - stesso genere, traccia diversa → ~0.30-0.65
- * Stime — RIFINIRE coi log [match] score distribution dopo questo deploy.
+ * CALIBRATO sul DEEP embedding EffNet + mean-centering (osservato 2026-06-16:
+ * traccia ESATTA ~0.86, stesso-genere diverse ~0.33-0.50, label diverse <0.33):
+ *   - traccia ESATTA          → ~0.80-0.90  → ~97-100%
+ *   - match di stile forte     → ~0.55-0.75  → ~45-80%
+ *   - stesso genere, diversa   → ~0.30-0.50  → ~0-35%
  * COSINE_FLOOR ↦ 0% , COSINE_CEIL ↦ 100%.
  */
-const COSINE_FLOOR = 0.40
-const COSINE_CEIL  = 0.90
+const COSINE_FLOOR = 0.30
+const COSINE_CEIL  = 0.88
 
-/** Soglia "buon match" per badge/conteggi (similarità mean-centered) — NON ranking. */
-const GOOD_MATCH_THRESHOLD = 0.55
-/** Soglie di contesto (similarità mean-centered) — solo badge. */
-const EXACT_MATCH_COSINE  = 0.88   // traccia quasi identica nel catalogo
-const STRONG_MATCH_COSINE = 0.65   // match forte ma su poche tracce
+/** Soglia "buon match" per badge/conteggi (deep similarity) — NON ranking. */
+const GOOD_MATCH_THRESHOLD = 0.45
+/** Soglie di contesto (deep similarity) — solo badge. */
+const EXACT_MATCH_COSINE  = 0.75   // traccia quasi identica (stessa registrazione)
+const STRONG_MATCH_COSINE = 0.55   // match di stile forte
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
