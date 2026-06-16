@@ -18,10 +18,14 @@ const TOP_K_PER_LABEL     = 10
  * FLOOR (lo 0%) è AUTO-CALIBRATO dal catalogo a ogni match (autoCalibrateFloor)
  * → si adatta da solo quando aggiungi label/tracce.
  */
-const COSINE_CEIL      = 0.88
-const FLOOR_PERCENTILE = 75      // FLOOR = p75 delle similarità fra tracce DIVERSE
-const FLOOR_FALLBACK   = 0.30    // se il catalogo è troppo piccolo per stimarlo
-const FLOOR_MIN        = 0.15    // guardrail inferiore
+const COSINE_CEIL    = 0.88
+// FLOOR = median + FRACTION·(p97 − median) delle similarità fra tracce DIVERSE.
+// Robusto alla forma della distribuzione: con EffNet le tracce diverse sono
+// ~scorrelate (mediana ~0); il p97 è "le diverse più simili". FLOOR si colloca
+// a metà strada → si adatta al catalogo senza dipendere da un percentile fragile.
+const FLOOR_FRACTION = 0.45
+const FLOOR_FALLBACK = 0.20      // catalogo troppo piccolo per stimarlo
+const FLOOR_MIN      = 0.10      // guardrail inferiore
 
 /** Soglie di contesto/badge (livelli assoluti dell'embedding) — NON ranking. */
 const GOOD_MATCH_THRESHOLD = 0.45   // "buon match" per i conteggi
@@ -44,9 +48,10 @@ function matchStrength(cosine: number, floor: number): number {
  * jitter fra match), ricalcolato a ogni match → si adatta quando aggiungi
  * label/tracce. Resta ASSOLUTO: dipende SOLO dal catalogo, non dalle label nel
  * risultato del singolo utente.
- *   FLOOR = p75 delle cosine fra coppie di tracce diverse (mean-centered):
- *   "il 75% delle coppie di tracce diverse è meno simile di così → sopra questo
- *    c'è un match reale, non genericità di genere".
+ *   FLOOR = mediana + 45%·(p97 − mediana) delle cosine fra coppie di tracce
+ *   diverse (mean-centered). La mediana è il "centro" (≈0 con EffNet: tracce
+ *   diverse scorrelate), il p97 è "le diverse più simili"; il FLOOR sta a metà
+ *   strada → un match reale deve battere chiaramente il rumore di fondo.
  */
 function autoCalibrateFloor(centeredCatalog: number[][]): number {
   const n = centeredCatalog.length
@@ -63,8 +68,11 @@ function autoCalibrateFloor(centeredCatalog: number[][]): number {
       sims.push(cosineSimilarity(sample[i], sample[j]))
   if (sims.length === 0) return FLOOR_FALLBACK
   sims.sort((a, b) => a - b)
-  const idx = Math.min(sims.length - 1, Math.floor((sims.length * FLOOR_PERCENTILE) / 100))
-  return Math.max(FLOOR_MIN, Math.min(sims[idx], COSINE_CEIL - 0.20))
+  const med = sims[Math.floor(sims.length * 0.50)]
+  const hi  = sims[Math.min(sims.length - 1, Math.floor(sims.length * 0.97))]
+  const floor = Math.max(FLOOR_MIN, Math.min(med + FLOOR_FRACTION * (hi - med), COSINE_CEIL - 0.20))
+  console.log(`[match] autoFloor=${floor.toFixed(3)} (median=${med.toFixed(3)} p97=${hi.toFixed(3)} pairs=${sims.length})`)
+  return floor
 }
 
 function parseEmbedding(raw: unknown): number[] {
@@ -291,7 +299,6 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     // Auto-calibrazione del FLOOR dal catalogo corrente (deterministica, stabile).
     const centeredCatalog = catEmbeddings.map(center)
     const cosineFloor = autoCalibrateFloor(centeredCatalog)
-    console.log(`[match] autoFloor=${cosineFloor.toFixed(3)} | catalog=${centeredCatalog.length} tracks`)
 
     // ── 4. Score every DB track against the user's track ──────────────────
     type ScoredTrack = {
