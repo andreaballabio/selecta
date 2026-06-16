@@ -9,26 +9,26 @@ const MIN_LABEL_TRACKS    = 3
 const TOP_K_PER_LABEL     = 10
 
 /**
- * Mappatura ASSOLUTA cosine → percentuale (NON relativa al set di risultati).
- * Il ranking dipende SOLO dal cosine grezzo: questi due valori cambiano
+ * Mappatura ASSOLUTA similarità → percentuale (NON relativa al set di risultati).
+ * Il ranking dipende SOLO dalla similarità grezza: questi valori cambiano
  * unicamente la % MOSTRATA, mai l'ordine delle label.
  *
- * OSSERVATO sul catalogo reale (tutto techno): i cosine restano MOLTO alti
- * anche fra tracce diverse → serve un FLOOR alto per "aprire" il range.
- * Stime post-aggregazione top-K (da rifinire coi log [match] score distribution):
- *   - traccia ESATTA nel catalogo   → ~0.99-1.0
- *   - match di stile forte           → ~0.96-0.99
- *   - stesso genere, traccia diversa → ~0.90-0.96
+ * NB: la similarità è ora su embedding MEAN-CENTERED (≈ correlazione di Pearson):
+ * range molto più largo dei cosine grezzi → spread reale.
+ *   - traccia ESATTA nel catalogo   → ~0.90-1.0
+ *   - match di stile forte           → ~0.65-0.90
+ *   - stesso genere, traccia diversa → ~0.30-0.65
+ * Stime — RIFINIRE coi log [match] score distribution dopo questo deploy.
  * COSINE_FLOOR ↦ 0% , COSINE_CEIL ↦ 100%.
  */
-const COSINE_FLOOR = 0.90
-const COSINE_CEIL  = 0.995
+const COSINE_FLOOR = 0.40
+const COSINE_CEIL  = 0.90
 
-/** Soglia "buon match" per badge/conteggi — NON influenza il ranking. */
-const GOOD_MATCH_THRESHOLD = 0.90
-/** Soglie di contesto (cosine grezzo, post-aggregazione top-K) — solo badge. */
-const EXACT_MATCH_COSINE  = 0.985  // traccia quasi identica nel catalogo
-const STRONG_MATCH_COSINE = 0.95   // match forte ma su poche tracce
+/** Soglia "buon match" per badge/conteggi (similarità mean-centered) — NON ranking. */
+const GOOD_MATCH_THRESHOLD = 0.55
+/** Soglie di contesto (similarità mean-centered) — solo badge. */
+const EXACT_MATCH_COSINE  = 0.88   // traccia quasi identica nel catalogo
+const STRONG_MATCH_COSINE = 0.65   // match forte ma su poche tracce
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -242,6 +242,26 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     const labelMap = new Map((labelsRes.data ?? []).map((l) => [l.id, l]))
     const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.label_id, p]))
 
+    // ── Mean-centering ─────────────────────────────────────────────────────
+    // Tutte le tracce techno condividono una "traccia media" comune (embedding
+    // tutto positivo → cosine alto a prescindere, tutto al ~100%). Sottraendo la
+    // media del catalogo da OGNI vettore (catalogo + finestre utente) resta solo
+    // CIÒ CHE DISTINGUE ogni traccia. Il cosine su vettori centrati è la
+    // correlazione di Pearson: molto più discriminante in un catalogo omogeneo.
+    const EMB_DIM = 64
+    const catEmbeddings = (dbTracks ?? [])
+      .map((t) => parseEmbedding(t.audio_embedding))
+      .filter((e) => e.length === EMB_DIM)
+    const meanEmbedding = new Array(EMB_DIM).fill(0)
+    if (catEmbeddings.length > 0) {
+      for (const e of catEmbeddings)
+        for (let i = 0; i < EMB_DIM; i++) meanEmbedding[i] += e[i] ?? 0
+      for (let i = 0; i < EMB_DIM; i++) meanEmbedding[i] /= catEmbeddings.length
+    }
+    const center = (v: number[]): number[] =>
+      v.length === EMB_DIM ? v.map((x, i) => x - meanEmbedding[i]) : v
+    const centeredUserEmbeddings = userEmbeddings.map(center)
+
     // ── 4. Score every DB track against the user's track ──────────────────
     type ScoredTrack = {
       label_id: string
@@ -259,14 +279,11 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
 
     const scoredTracks: ScoredTrack[] = (dbTracks ?? []).map((dbTrack) => {
       const dbEmbedding = parseEmbedding(dbTrack.audio_embedding)
-      // MAX cosine su tutte le finestre sliding-window → "drop contro drop".
-      // NON mischiamo con trackFeatureSimilarity: quella confronta feature medie
-      // del full track (6 min incluso intro) con feature del preview di 30s (solo drop),
-      // due contesti diversi → introduce rumore che penalizza la traccia corretta.
-      // Tutte le feature stilistiche (MFCC, centroid, sub, mid, onset) sono già
-      // codificate nell'embedding → il cosine cattura tutto ciò che serve.
+      // Media top-K finestre su embedding MEAN-CENTERED (≈ Pearson): "drop vs
+      // drop" ma dopo aver tolto la "traccia media" del catalogo → la traccia
+      // esatta resta vicina a 1.0, le tracce diverse scendono davvero.
       const score = dbEmbedding.length > 0
-        ? windowMatchScore(userEmbeddings, dbEmbedding)
+        ? windowMatchScore(centeredUserEmbeddings, center(dbEmbedding))
         : 0
 
       return {
