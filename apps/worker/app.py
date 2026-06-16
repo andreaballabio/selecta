@@ -343,6 +343,10 @@ def _diag_kwargs(tag: str, kw: Dict[str, Any]) -> None:
 #    catalogo (deep e hand-crafted vivono in spazi diversi).
 
 EFFNET_MODEL_PATH = os.getenv("EFFNET_MODEL_PATH", "discogs-effnet-bs64-1.pb")
+# Se il file non c'è, lo Space lo scarica da solo da qui (~18MB, una volta).
+EFFNET_MODEL_URL  = os.getenv(
+    "EFFNET_MODEL_URL",
+    "https://essentia.upf.edu/models/feature-extractors/discogs-effnet/discogs-effnet-bs64-1.pb")
 EFFNET_OUTPUT     = os.getenv("EFFNET_OUTPUT", "PartitionedCall:1")  # nodo embeddings
 _DEEP_OUT_DIM = 64
 _RP_SEED = 20260616          # FROZEN: cambiarlo invalida tutti i vettori salvati
@@ -372,15 +376,19 @@ def _get_effnet():
     _effnet_tried = True
     try:
         if not os.path.exists(EFFNET_MODEL_PATH):
-            logger.warning(
-                f"EffNet model assente ({EFFNET_MODEL_PATH}) → embedding v6 hand-crafted")
-            return None
+            if not EFFNET_MODEL_URL:
+                logger.warning(f"EffNet assente e nessun URL → v6 hand-crafted")
+                return None
+            import urllib.request
+            logger.info(f"Scarico EffNet (~18MB, una volta) da {EFFNET_MODEL_URL} ...")
+            urllib.request.urlretrieve(EFFNET_MODEL_URL, EFFNET_MODEL_PATH)
+            logger.info(f"EffNet scaricato ({os.path.getsize(EFFNET_MODEL_PATH)} bytes)")
         from essentia.standard import TensorflowPredictEffnetDiscogs
         _effnet_model = TensorflowPredictEffnetDiscogs(
             graphFilename=EFFNET_MODEL_PATH, output=EFFNET_OUTPUT)
         logger.info("EffNet-Discogs caricato → DEEP embedding mode")
     except Exception as e:
-        logger.error(f"Caricamento EffNet fallito ({e}) → embedding v6 hand-crafted")
+        logger.error(f"EffNet non disponibile ({e}) → embedding v6 hand-crafted")
         _effnet_model = None
     return _effnet_model
 
