@@ -13,22 +13,22 @@ const TOP_K_PER_LABEL     = 10
  * Il ranking dipende SOLO dal cosine grezzo: questi due valori cambiano
  * unicamente la % MOSTRATA, mai l'ordine delle label.
  *
- * Con l'embedding v6 (firma timbrica + discriminatori di stile) i cosine tra
- * tracce dello stesso genere si distribuiscono tipicamente ~[0.78, 1.0]:
- *   - traccia ESATTA nel catalogo   → ~0.97-1.0
- *   - match di stile molto forte     → ~0.90-0.96
- *   - stesso genere, traccia diversa → ~0.80-0.90
- * COSINE_FLOOR ↦ 0% , COSINE_CEIL ↦ 100%. Calibrare leggendo i log [match]
- * (distribuzione score) dopo la prima analisi reale.
+ * OSSERVATO sul catalogo reale (tutto techno): i cosine restano MOLTO alti
+ * anche fra tracce diverse → serve un FLOOR alto per "aprire" il range.
+ * Stime post-aggregazione top-K (da rifinire coi log [match] score distribution):
+ *   - traccia ESATTA nel catalogo   → ~0.99-1.0
+ *   - match di stile forte           → ~0.96-0.99
+ *   - stesso genere, traccia diversa → ~0.90-0.96
+ * COSINE_FLOOR ↦ 0% , COSINE_CEIL ↦ 100%.
  */
-const COSINE_FLOOR = 0.72
-const COSINE_CEIL  = 0.99
+const COSINE_FLOOR = 0.90
+const COSINE_CEIL  = 0.995
 
 /** Soglia "buon match" per badge/conteggi — NON influenza il ranking. */
 const GOOD_MATCH_THRESHOLD = 0.90
-/** Soglie di contesto (cosine grezzo embedding v6) — solo per i badge. */
-const EXACT_MATCH_COSINE  = 0.96   // traccia quasi identica nel catalogo
-const STRONG_MATCH_COSINE = 0.90   // match forte ma su poche tracce
+/** Soglie di contesto (cosine grezzo, post-aggregazione top-K) — solo badge. */
+const EXACT_MATCH_COSINE  = 0.985  // traccia quasi identica nel catalogo
+const STRONG_MATCH_COSINE = 0.95   // match forte ma su poche tracce
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -62,13 +62,26 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return normA && normB ? dot / (normA * normB) : 0
 }
 
-/** Sliding window: usa il MAX di similarità coseno su tutte le finestre
- *  dell'utente contro l'embedding del catalogo.
- *  Risponde a "esiste almeno una sezione di 30s della tua traccia
- *  che suona come questa traccia del catalogo?" */
-function maxCosineSimilarity(userEmbeddings: number[][], catalogEmbedding: number[]): number {
+/** Sliding window: aggrega la similarità coseno fra le finestre da 30s della
+ *  traccia utente e l'embedding (preview ~30s) del catalogo.
+ *
+ *  NON usiamo il MAX puro: con ~70 finestre, per QUALSIASI traccia del catalogo
+ *  esiste una finestra che combacia per caso → tutto si gonfia a ~1.0 (tutte le
+ *  label al 100%). La traccia ESATTA invece combacia su PIÙ finestre consecutive
+ *  (lo stesso drop ricade in più finestre sovrapposte da 30s/stride 5s). Quindi
+ *  usiamo la MEDIA delle migliori K finestre: la traccia esatta resta ~1.0,
+ *  mentre una somiglianza fortuita su UNA sola finestra viene diluita → il
+ *  distacco fra "stesso pezzo" e "stesso genere" aumenta. */
+const TOP_K_WINDOWS = 5
+function windowMatchScore(userEmbeddings: number[][], catalogEmbedding: number[]): number {
   if (userEmbeddings.length === 0) return 0
-  return Math.max(...userEmbeddings.map(e => cosineSimilarity(e, catalogEmbedding)))
+  const sims = userEmbeddings
+    .map(e => cosineSimilarity(e, catalogEmbedding))
+    .sort((a, b) => b - a)
+  const k = Math.min(TOP_K_WINDOWS, sims.length)
+  let s = 0
+  for (let i = 0; i < k; i++) s += sims[i]
+  return s / k
 }
 
 /**
@@ -253,7 +266,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       // Tutte le feature stilistiche (MFCC, centroid, sub, mid, onset) sono già
       // codificate nell'embedding → il cosine cattura tutto ciò che serve.
       const score = dbEmbedding.length > 0
-        ? maxCosineSimilarity(userEmbeddings, dbEmbedding)
+        ? windowMatchScore(userEmbeddings, dbEmbedding)
         : 0
 
       return {
