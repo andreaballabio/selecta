@@ -7,14 +7,39 @@ const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-wor
 // ─── Tuning parameters ───────────────────────────────────────────────────────
 const MIN_LABEL_TRACKS    = 3
 const TOP_K_PER_LABEL     = 10
+
 /**
- * Soglia per contare una traccia come "buon match" (badge / contesto).
- * NON influenza il ranking — usata solo per i badge informativi.
- * Calibrata su rawCosine diretto: 0.90 separa "davvero simile"
- * da "stesso genere ma diversa".
+ * Mappatura ASSOLUTA cosine → percentuale (NON relativa al set di risultati).
+ * Il ranking dipende SOLO dal cosine grezzo: questi due valori cambiano
+ * unicamente la % MOSTRATA, mai l'ordine delle label.
+ *
+ * Con l'embedding v6 (firma timbrica + discriminatori di stile) i cosine tra
+ * tracce dello stesso genere si distribuiscono tipicamente ~[0.78, 1.0]:
+ *   - traccia ESATTA nel catalogo   → ~0.97-1.0
+ *   - match di stile molto forte     → ~0.90-0.96
+ *   - stesso genere, traccia diversa → ~0.80-0.90
+ * COSINE_FLOOR ↦ 0% , COSINE_CEIL ↦ 100%. Calibrare leggendo i log [match]
+ * (distribuzione score) dopo la prima analisi reale.
  */
+const COSINE_FLOOR = 0.72
+const COSINE_CEIL  = 0.99
+
+/** Soglia "buon match" per badge/conteggi — NON influenza il ranking. */
 const GOOD_MATCH_THRESHOLD = 0.90
+/** Soglie di contesto (cosine grezzo embedding v6) — solo per i badge. */
+const EXACT_MATCH_COSINE  = 0.96   // traccia quasi identica nel catalogo
+const STRONG_MATCH_COSINE = 0.90   // match forte ma su poche tracce
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Forza del match in [0,1] da cosine grezzo — mappatura assoluta e monotona.
+ * "Apre" i cosine schiacciati in alto, tipici di un catalogo omogeneo (tutto
+ * techno), in un range visibile SENZA normalizzazione relativa fra label.
+ */
+function matchStrength(cosine: number): number {
+  const t = (cosine - COSINE_FLOOR) / (COSINE_CEIL - COSINE_FLOOR)
+  return Math.max(0, Math.min(1, t))
+}
 
 function parseEmbedding(raw: unknown): number[] {
   if (typeof raw === 'string') {
@@ -294,36 +319,27 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const topK = sorted.slice(0, TOP_K_PER_LABEL)
 
       // ── Score ─────────────────────────────────────────────────────────────
+      // Segnale primario = MIGLIOR match singolo: una label con UNA traccia
+      // quasi identica deve vincere, qualunque sia la dimensione del catalogo.
+      // Il cosine grezzo determina il ranking; matchStrength() lo converte in
+      // percentuale assoluta per il display.
 
       const bestTrack = sorted[0]
-      const bestScore = bestTrack?.score ?? 0
+      const bestCosine = bestTrack?.score ?? 0   // cosine grezzo [~0.7, 1.0]
 
-      // Media del topK (usata come tiebreaker e per badge, NON come componente
-      // primaria — altrimenti label con molte tracce mediocri battono quella
-      // con UNA traccia identica).
+      // Media del topK (tiebreaker + badge, NON componente primaria).
       const topKScores = topK.map(t => t.score)
       const topKMean = topKScores.reduce((s, v) => s + v, 0) / topKScores.length
 
-      // Punteggio = cubo di bestScore  (+ piccoli bonus per tiebreaker)
-      //
-      // Il cubo amplifica le differenze nel range stretto [0.88, 1.0]
-      // senza overflow, nessun moltiplicatore che fa esplodere tutto a 100%.
-      // Risultati tipici (stessa label):
-      //   0.99^3 = 0.970  ← traccia quasi identica
-      //   0.97^3 = 0.913  ← match molto forte
-      //   0.95^3 = 0.857  ← match buono
-      //   0.90^3 = 0.729  ← stessa vibe
-      //   0.85^3 = 0.614  ← generico
-      //
-      // Garantisce che UNA traccia a 0.97 batta SEMPRE label con molte
-      // tracce a 0.93, qualunque sia la dimensione del catalogo.
-      //
-      // + 5% topKMean  → tiebreaker: label con stile coerente su più tracce
-      // + 2% confidence → affidabilità del profilo label
+      // % mostrata = forza assoluta del miglior match.
+      // I tiebreaker (coerenza su più tracce, confidence del profilo) sono
+      // INFINITESIMI: rompono i pari-merito nell'ordinamento senza spostare la
+      // percentuale visibile (round a 2 cifre invariato).
+      const displayStrength = matchStrength(bestCosine)
       const finalScore =
-        Math.pow(bestScore, 3) +
-        topKMean * 0.05 +
-        (profile?.confidence_score ?? 0) * 0.02
+        displayStrength +
+        topKMean * 0.001 +
+        (profile?.confidence_score ?? 0) * 0.0005
 
       // Per i badge informativi (non influenzano il ranking)
       const goodMatchCount = tracks.filter(t => t.score >= GOOD_MATCH_THRESHOLD).length
@@ -331,11 +347,11 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const consistency = topKMean > 0 ? Math.max(0, 1 - stdTopK / topKMean) : 0
 
       // ── Contesto del match (mostrato all'utente) ─────────────────────────
-      // Soglie calibrate su rawCosine diretto (non riscalato).
+      // Soglie su cosine grezzo embedding v6 (vedi costanti in alto).
       const match_context: string[] = []
-      if (bestScore > 0.93)
+      if (bestCosine > EXACT_MATCH_COSINE)
         match_context.push('exact_match')       // traccia quasi identica trovata
-      else if (bestScore > 0.88 && goodMatchCount < 3)
+      else if (bestCosine > STRONG_MATCH_COSINE && goodMatchCount < 3)
         match_context.push('strong_isolated')   // match forte ma su poche tracce
       if (goodMatchCount >= 3 && consistency >= 0.65)
         match_context.push('consistent')        // stile coerente con il catalogo
@@ -361,7 +377,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         good_matches: goodMatchCount,
         best_track_title: bestTrack?.track_title ?? null,
         best_track_artist: bestTrack?.artist_name ?? null,
-        best_track_score: Math.round(bestScore * 100),
+        best_track_score: Math.round(displayStrength * 100),
         match_context,
         feedback: generateFeedback(f, refAvg),
       })
