@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
 
-app = FastAPI(title="Selecta Worker", version="6.0.0")
+app = FastAPI(title="Selecta Worker", version="7.0.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
@@ -332,6 +332,97 @@ def _diag_kwargs(tag: str, kw: Dict[str, Any]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Embedding NEURALE opzionale — Discogs-EffNet (alta risoluzione, scala)
+# ---------------------------------------------------------------------------
+# Se il file del modello è presente nello Space, l'embedding di MATCHING passa
+# dalla rete (1280-dim → proiezione deterministica a 64-dim, nessuna migrazione
+# DB). Altrimenti si usa l'embedding v6 fatto a mano. Le feature di DISPLAY
+# (BPM, sub, mid, groove…) restano sempre dal calcolo Essentia frame-level.
+#
+# ⚠️ Tutto-o-niente: quando aggiungi/togli il modello, RI-ANALIZZA l'intero
+#    catalogo (deep e hand-crafted vivono in spazi diversi).
+
+EFFNET_MODEL_PATH = os.getenv("EFFNET_MODEL_PATH", "discogs-effnet-bs64-1.pb")
+EFFNET_OUTPUT     = os.getenv("EFFNET_OUTPUT", "PartitionedCall:1")  # nodo embeddings
+_DEEP_OUT_DIM = 64
+_RP_SEED = 20260616          # FROZEN: cambiarlo invalida tutti i vettori salvati
+_rp_matrix = None
+_effnet_model = None
+_effnet_tried = False
+
+
+def _get_rp_matrix() -> np.ndarray:
+    """Matrice di proiezione casuale 1280→64 deterministica (Johnson-Lindenstrauss:
+    preserva ~ la similarità coseno, nessun addestramento, stesso spazio per
+    catalogo e utente)."""
+    global _rp_matrix
+    if _rp_matrix is None:
+        rng = np.random.default_rng(_RP_SEED)
+        m = rng.standard_normal((1280, _DEEP_OUT_DIM)).astype(np.float32)
+        m /= (np.linalg.norm(m, axis=0, keepdims=True) + 1e-9)
+        _rp_matrix = m
+    return _rp_matrix
+
+
+def _get_effnet():
+    """Carica una volta il modello EffNet-Discogs se presente; altrimenti None."""
+    global _effnet_model, _effnet_tried
+    if _effnet_tried:
+        return _effnet_model
+    _effnet_tried = True
+    try:
+        if not os.path.exists(EFFNET_MODEL_PATH):
+            logger.warning(
+                f"EffNet model assente ({EFFNET_MODEL_PATH}) → embedding v6 hand-crafted")
+            return None
+        from essentia.standard import TensorflowPredictEffnetDiscogs
+        _effnet_model = TensorflowPredictEffnetDiscogs(
+            graphFilename=EFFNET_MODEL_PATH, output=EFFNET_OUTPUT)
+        logger.info("EffNet-Discogs caricato → DEEP embedding mode")
+    except Exception as e:
+        logger.error(f"Caricamento EffNet fallito ({e}) → embedding v6 hand-crafted")
+        _effnet_model = None
+    return _effnet_model
+
+
+def _project64(vec1280) -> List[float]:
+    v = np.asarray(vec1280, dtype=np.float32).reshape(-1)
+    if v.shape[0] != 1280:
+        v = np.resize(v, 1280)
+    p = v @ _get_rp_matrix()
+    n = float(np.linalg.norm(p))
+    if n > 0:
+        p = p / n
+    return p.astype(np.float32).tolist()
+
+
+def _deep_whole(audio_16k: np.ndarray, model):
+    """EffNet sull'intero segmento → (n_patch, 1280); media patch → 64-dim."""
+    patches = np.asarray(model(audio_16k), dtype=np.float32)
+    if patches.ndim == 1:
+        patches = patches[None, :]
+    return _project64(patches.mean(axis=0)), patches
+
+
+def _deep_windows_from_patches(patches: np.ndarray, duration_sec: float,
+                               win_sec: float = 30.0) -> List[List[float]]:
+    """Raggruppa le patch EffNet in finestre da ~30s (una sola forward pass sul
+    full track) → una impronta 64-dim per finestra."""
+    n = patches.shape[0]
+    if n == 0:
+        return []
+    per_win = max(1, int(round(n * win_sec / max(duration_sec, 1e-6))))
+    out: List[List[float]] = []
+    i = 0
+    while i < n:
+        grp = patches[i:i + per_win]
+        if len(grp) > 0:
+            out.append(_project64(grp.mean(axis=0)))
+        i += per_win
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Analisi con Essentia
 # ---------------------------------------------------------------------------
 
@@ -433,45 +524,53 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
     sub_ratio_display    = whole_kwargs["sub_ratio"]
     mid_presence_display = whole_kwargs["mid_presence"]
 
-    if is_preview:
-        # CATALOGO: un embedding sull'intero preview (~30s) — STESSA funzione
-        # di una finestra utente da 30s → spazio comparabile.
-        embedding = build_embedding(**whole_kwargs)
-        _diag_kwargs("embed_preview", whole_kwargs)
-        tempo_stability = 0.5
-        sliding_embeddings_out = None
+    # ── Tempo stability (solo full track, feature di display) ────────────────
+    tempo_stability = 0.5
+    if not is_preview and bpm and bpm > 0:
+        beats = es.RhythmExtractor2013()(audio_mono)[1]
+        if len(beats) > 2:
+            intervals = np.diff(beats)
+            expected  = 60.0 / bpm
+            tempo_stability = 1.0 - min(float(np.std(intervals) / expected), 1.0)
+
+    # ── Embedding di MATCHING: neurale se disponibile, altrimenti v6 ──────────
+    model = _get_effnet()
+    if model is not None:
+        # DEEP: EffNet su audio 16kHz, UNA forward pass; finestre = gruppi di patch.
+        audio_16k = es.Resample(inputSampleRate=int(sample_rate),
+                                 outputSampleRate=16000)(audio_mono.astype(np.float32))
+        embedding, patches = _deep_whole(audio_16k, model)
+        if is_preview:
+            sliding_embeddings_out = None
+            logger.info(f"[deep] preview patches={patches.shape[0]}")
+        else:
+            sliding_embeddings_out = _deep_windows_from_patches(patches, duration)
+            logger.info(f"[deep] full patches={patches.shape[0]} "
+                        f"windows={len(sliding_embeddings_out)}")
     else:
-        # UTENTE full-track: embedding globale (fallback) + sliding windows.
+        # HAND-CRAFTED v6: stessa segment_kwargs per preview e finestre utente.
         embedding = build_embedding(**whole_kwargs)
-        _diag_kwargs("embed_full", whole_kwargs)
-
-        # Tempo stability
-        tempo_stability = 0.5
-        if bpm and bpm > 0:
-            beats = es.RhythmExtractor2013()(audio_mono)[1]
-            if len(beats) > 2:
-                intervals = np.diff(beats)
-                expected  = 60.0 / bpm
-                tempo_stability = 1.0 - min(float(np.std(intervals) / expected), 1.0)
-
-        # Sliding windows 30s / stride 5s — STESSA segment_kwargs del preview
-        fr_win  = int(30.0 * sample_rate / hop_size)
-        fr_step = max(1, int(5.0 * sample_rate / hop_size))
-        sliding_embeddings_out = []
-        f0 = 0
-        while f0 + fr_win <= n_fr:
-            f1 = f0 + fr_win
-            win_flux = flux_a[f0:max(f0, f1 - 1)]
-            win_kwargs = segment_kwargs(
-                energies_a[f0:f1], mfcc_a[f0:f1], band_a[f0:f1],
-                win_flux, zcrs_a[f0:f1], centroids_a[f0:f1],
-                sample_rate, 30.0, spectral_contrast_display,
-            )
-            sliding_embeddings_out.append(build_embedding(**win_kwargs))
-            if f0 == 0:
-                _diag_kwargs("embed_win0", win_kwargs)
-            f0 += fr_step
-        logger.info(f"Essentia sliding windows: {len(sliding_embeddings_out)}")
+        _diag_kwargs("embed_preview" if is_preview else "embed_full", whole_kwargs)
+        if is_preview:
+            sliding_embeddings_out = None
+        else:
+            fr_win  = int(30.0 * sample_rate / hop_size)
+            fr_step = max(1, int(5.0 * sample_rate / hop_size))
+            sliding_embeddings_out = []
+            f0 = 0
+            while f0 + fr_win <= n_fr:
+                f1 = f0 + fr_win
+                win_flux = flux_a[f0:max(f0, f1 - 1)]
+                win_kwargs = segment_kwargs(
+                    energies_a[f0:f1], mfcc_a[f0:f1], band_a[f0:f1],
+                    win_flux, zcrs_a[f0:f1], centroids_a[f0:f1],
+                    sample_rate, 30.0, spectral_contrast_display,
+                )
+                sliding_embeddings_out.append(build_embedding(**win_kwargs))
+                if f0 == 0:
+                    _diag_kwargs("embed_win0", win_kwargs)
+                f0 += fr_step
+            logger.info(f"Essentia sliding windows: {len(sliding_embeddings_out)}")
 
     return dict(
         bpm=bpm, key=key, scale=scale,
@@ -597,7 +696,7 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "6.0.0"}
+    return {"status": "healthy", "version": "7.0.0", "deep": _get_effnet() is not None}
 
 
 @app.post("/analyze", response_model=AnalysisResponse)
