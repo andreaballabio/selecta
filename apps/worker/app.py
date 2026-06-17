@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
 
-app = FastAPI(title="Selecta Worker", version="7.2.0")
+app = FastAPI(title="Selecta Worker", version="7.3.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
@@ -485,6 +485,60 @@ def _detect_bpm(audio_mono: np.ndarray, sample_rate: int) -> float:
         return float(es.RhythmExtractor2013()(audio_mono)[0])
 
 
+def _harmonic_ks_key(audio_mono: np.ndarray, sample_rate: int):
+    """Key indipendente: separa la parte ARMONICA (HPSS → toglie kick/drums che
+    inquinano la chroma, problema tipico dei demo) e applica Krumhansl-Schmuckler.
+    Ritorna (key, scale, confidenza)."""
+    import librosa
+    try:
+        y_h = librosa.effects.harmonic(audio_mono.astype(np.float32), margin=4.0)
+    except Exception:
+        y_h = audio_mono.astype(np.float32)
+    chroma = librosa.feature.chroma_cqt(y=y_h, sr=sample_rate)
+    cm = np.mean(chroma, axis=1)
+    if float(np.sum(cm)) <= 0:
+        return None, None, 0.0
+    cm = cm / np.sum(cm)
+    major = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+    minor = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+    keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+
+    def corrs(profile):
+        p = profile / np.sum(profile)
+        return [float(np.corrcoef(np.roll(p, i), cm)[0, 1]) for i in range(12)]
+
+    mc, nc = corrs(major), corrs(minor)
+    mi, ni = int(np.argmax(mc)), int(np.argmax(nc))
+    if mc[mi] >= nc[ni]:
+        return keys[mi], 'major', mc[mi]
+    return keys[ni], 'minor', nc[ni]
+
+
+def _detect_key(audio_mono: np.ndarray, sample_rate: int):
+    """Key robusta: Essentia 'edma' (ottimo sui master finiti) + Krumhansl-
+    Schmuckler sul segnale ARMONICO (toglie i drum, il problema dei demo).
+    Concordano → alta confidenza; in disaccordo → vince l'armonico (drum-cleaned)."""
+    import essentia.standard as es
+    try:
+        e_key, e_scale, _ = es.KeyExtractor(profileType='edma')(audio_mono)
+    except Exception:
+        e_key, e_scale = None, None
+    try:
+        h_key, h_scale, h_conf = _harmonic_ks_key(audio_mono, sample_rate)
+    except Exception:
+        h_key, h_scale, h_conf = None, None, 0.0
+
+    if e_key and h_key and e_key == h_key and e_scale == h_scale:
+        return e_key, e_scale
+    if h_key and h_conf >= 0.55:
+        logger.info(f"[key] edma={e_key} {e_scale} vs harmonic={h_key} {h_scale} "
+                    f"(conf {h_conf:.2f}) → harmonic")
+        return h_key, h_scale
+    if e_key:
+        return e_key, e_scale
+    return h_key, h_scale
+
+
 # ---------------------------------------------------------------------------
 # Analisi con Essentia
 # ---------------------------------------------------------------------------
@@ -498,13 +552,8 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
     hop_size   = 512
 
     if not is_preview:
-        bpm = _detect_bpm(audio_mono, sample_rate)   # TempoCNN neurale + fallback
-        # KEY — profilo 'edma' (Electronic Dance Music Analysis): il migliore di
-        # Essentia per techno/house.
-        try:
-            key, scale, _ = es.KeyExtractor(profileType='edma')(audio_mono)
-        except Exception:
-            key, scale, _ = es.KeyExtractor()(audio_mono)
+        bpm = _detect_bpm(audio_mono, sample_rate)         # TempoCNN neurale + fallback
+        key, scale = _detect_key(audio_mono, sample_rate)  # edma + KS su armonico
     else:
         bpm, key, scale = None, None, None
 
@@ -766,7 +815,7 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
 async def health_check():
     return {
         "status": "healthy",
-        "version": "7.2.0",
+        "version": "7.3.0",
         "deep": _get_effnet() is not None,
         "tempo_neural": _get_tempocnn() is not None,
     }
