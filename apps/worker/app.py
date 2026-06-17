@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
 
-app = FastAPI(title="Selecta Worker", version="7.0.0")
+app = FastAPI(title="Selecta Worker", version="7.1.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
@@ -443,8 +443,19 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
     hop_size   = 512
 
     if not is_preview:
-        bpm = float(es.RhythmExtractor2013()(audio_mono)[0])
-        key, scale, _ = es.KeyExtractor()(audio_mono)
+        # BPM — i detector generici di Essentia sbagliavano vs i tool dedicati
+        # (es. 118 invece di 128). PercivalBpmEstimator è più robusto sul beat
+        # costante della musica elettronica; fallback a RhythmExtractor2013.
+        try:
+            bpm = float(es.PercivalBpmEstimator()(audio_mono))
+        except Exception:
+            bpm = float(es.RhythmExtractor2013()(audio_mono)[0])
+        # KEY — profilo 'edma' (Electronic Dance Music Analysis): molto più
+        # accurato del profilo di default per techno/house.
+        try:
+            key, scale, _ = es.KeyExtractor(profileType='edma')(audio_mono)
+        except Exception:
+            key, scale, _ = es.KeyExtractor()(audio_mono)
     else:
         bpm, key, scale = None, None, None
 
@@ -704,7 +715,7 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "7.0.0", "deep": _get_effnet() is not None}
+    return {"status": "healthy", "version": "7.1.0", "deep": _get_effnet() is not None}
 
 
 @app.post("/analyze", response_model=AnalysisResponse)
