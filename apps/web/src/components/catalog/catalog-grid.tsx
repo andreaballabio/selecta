@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Play, Pause, Heart, Music } from 'lucide-react'
+import { Play, Pause, Heart, Bookmark, Music } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { bucketByKey } from '@/lib/sound-bucket'
 
@@ -18,52 +18,63 @@ export interface CatalogTrack {
   genre: string | null
   sound_bucket: string | null
   likes_count: number | null
+  saves_count?: number | null
+  play_count?: number | null
 }
 
 export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
   const [playingId, setPlayingId] = useState<string | null>(null)
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
-  const [counts, setCounts] = useState<Record<string, number>>(
-    () => Object.fromEntries(tracks.map((t) => [t.id, t.likes_count ?? 0])),
-  )
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [likes, setLikes] = useState<Record<string, number>>(() => Object.fromEntries(tracks.map((t) => [t.id, t.likes_count ?? 0])))
+  const [saves, setSaves] = useState<Record<string, number>>(() => Object.fromEntries(tracks.map((t) => [t.id, t.saves_count ?? 0])))
   const [authed, setAuthed] = useState(false)
+  const played = useRef<Set<string>>(new Set())
 
-  // Una sola query: i like dell'utente corrente (RLS consente i propri).
   useEffect(() => {
     const supabase = createClient()
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       setAuthed(true)
-      const { data } = await (supabase as any)
-        .from('track_likes')
-        .select('submission_id')
-        .eq('user_id', user.id)
-      if (data) setLikedIds(new Set(data.map((r: { submission_id: string }) => r.submission_id)))
+      const [{ data: l }, { data: s }] = await Promise.all([
+        (supabase as any).from('track_likes').select('submission_id').eq('user_id', user.id),
+        (supabase as any).from('track_saves').select('submission_id').eq('user_id', user.id),
+      ])
+      if (l) setLikedIds(new Set(l.map((r: { submission_id: string }) => r.submission_id)))
+      if (s) setSavedIds(new Set(s.map((r: { submission_id: string }) => r.submission_id)))
     })()
   }, [])
 
-  const toggleLike = async (id: string) => {
-    if (!authed) { window.location.href = '/auth/login'; return }
-    // Optimistic
-    const wasLiked = likedIds.has(id)
-    setLikedIds((prev) => {
-      const next = new Set(prev)
-      if (wasLiked) next.delete(id); else next.add(id)
-      return next
-    })
-    setCounts((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + (wasLiked ? -1 : 1) }))
+  const requireAuth = () => { if (!authed) { window.location.href = '/auth/login'; return false } return true }
+
+  const toggle = async (
+    id: string, kind: 'like' | 'save',
+    ids: Set<string>, setIds: (f: (p: Set<string>) => Set<string>) => void,
+    counts: Record<string, number>, setCounts: (f: (p: Record<string, number>) => Record<string, number>) => void,
+  ) => {
+    if (!requireAuth()) return
+    const was = ids.has(id)
+    setIds((prev) => { const n = new Set(prev); was ? n.delete(id) : n.add(id); return n })
+    setCounts((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + (was ? -1 : 1)) }))
     try {
-      const res = await fetch('/api/catalog/like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch(`/api/catalog/${kind}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ submission_id: id }),
       })
       const data = await res.json()
-      if (typeof data.likes_count === 'number') {
-        setCounts((prev) => ({ ...prev, [id]: data.likes_count }))
-      }
+      const c = kind === 'like' ? data.likes_count : data.saves_count
+      if (typeof c === 'number') setCounts((prev) => ({ ...prev, [id]: c }))
     } catch { /* il prossimo refresh riallinea */ }
+  }
+
+  const trackPlay = (id: string) => {
+    if (played.current.has(id)) return
+    played.current.add(id)
+    fetch('/api/catalog/play', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submission_id: id }),
+    }).catch(() => {})
   }
 
   if (tracks.length === 0) {
@@ -83,9 +94,18 @@ export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
           track={t}
           playing={playingId === t.id}
           liked={likedIds.has(t.id)}
-          likes={counts[t.id] ?? 0}
-          onPlayToggle={() => setPlayingId((cur) => (cur === t.id ? null : t.id))}
-          onLikeToggle={() => toggleLike(t.id)}
+          saved={savedIds.has(t.id)}
+          likes={likes[t.id] ?? 0}
+          saves={saves[t.id] ?? 0}
+          onPlayToggle={() => {
+            setPlayingId((cur) => {
+              const next = cur === t.id ? null : t.id
+              if (next) trackPlay(t.id)
+              return next
+            })
+          }}
+          onLike={() => toggle(t.id, 'like', likedIds, setLikedIds, likes, setLikes)}
+          onSave={() => toggle(t.id, 'save', savedIds, setSavedIds, saves, setSaves)}
           onEnded={() => setPlayingId(null)}
         />
       ))}
@@ -94,15 +114,11 @@ export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
 }
 
 function TrackCard({
-  track, playing, liked, likes, onPlayToggle, onLikeToggle, onEnded,
+  track, playing, liked, saved, likes, saves, onPlayToggle, onLike, onSave, onEnded,
 }: {
   track: CatalogTrack
-  playing: boolean
-  liked: boolean
-  likes: number
-  onPlayToggle: () => void
-  onLikeToggle: () => void
-  onEnded: () => void
+  playing: boolean; liked: boolean; saved: boolean; likes: number; saves: number
+  onPlayToggle: () => void; onLike: () => void; onSave: () => void; onEnded: () => void
 }) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const bucket = bucketByKey(track.sound_bucket)
@@ -131,9 +147,7 @@ function TrackCard({
         >
           {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-0.5" />}
         </button>
-        {track.file_url && (
-          <audio ref={audioRef} src={track.file_url} onEnded={onEnded} preload="none" />
-        )}
+        {track.file_url && <audio ref={audioRef} src={track.file_url} onEnded={onEnded} preload="none" />}
       </div>
 
       <div className="flex items-start justify-between gap-2">
@@ -143,16 +157,23 @@ function TrackCard({
           </Link>
           <p className="truncate text-sm text-zinc-500">{track.display_artist || 'Sconosciuto'}</p>
         </div>
-        <button onClick={onLikeToggle} className="flex shrink-0 items-center gap-1 text-sm text-zinc-400 hover:text-emerald-400" aria-label="Like">
-          <Heart className={`h-4 w-4 ${liked ? 'fill-emerald-500 text-emerald-500' : ''}`} />
-          {likes > 0 && <span>{likes}</span>}
-        </button>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600">
-        {bucket && <span className="rounded-full border border-zinc-800 px-2 py-0.5 text-emerald-400/80">{bucket.label}</span>}
-        {track.bpm != null && <span>{Math.round(track.bpm)} BPM</span>}
-        {track.key && <span>{track.key}{track.scale ? ' ' + track.scale : ''}</span>}
+      <div className="mt-2 flex items-center justify-between">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-600">
+          {bucket && <span className="rounded-full border border-zinc-800 px-2 py-0.5 text-emerald-400/80">{bucket.label}</span>}
+          {track.bpm != null && <span>{Math.round(track.bpm)} BPM</span>}
+        </div>
+        <div className="flex shrink-0 items-center gap-3 text-sm text-zinc-400">
+          <button onClick={onLike} className="flex items-center gap-1 hover:text-emerald-400" aria-label="Like">
+            <Heart className={`h-4 w-4 ${liked ? 'fill-emerald-500 text-emerald-500' : ''}`} />
+            {likes > 0 && <span className="text-xs">{likes}</span>}
+          </button>
+          <button onClick={onSave} className="flex items-center gap-1 hover:text-emerald-400" aria-label="Salva">
+            <Bookmark className={`h-4 w-4 ${saved ? 'fill-emerald-500 text-emerald-500' : ''}`} />
+            {saves > 0 && <span className="text-xs">{saves}</span>}
+          </button>
+        </div>
       </div>
     </div>
   )

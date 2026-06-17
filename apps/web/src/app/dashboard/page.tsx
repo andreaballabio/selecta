@@ -150,6 +150,20 @@ export default function DashboardPage() {
           </Link>
         </div>
 
+        {/* Link rapidi al lato social */}
+        <div className="mb-8 flex flex-wrap gap-2 text-sm">
+          {[
+            { href: '/catalog', label: 'Catalogo' },
+            { href: '/charts', label: 'Classifiche' },
+            { href: '/artists', label: 'Artisti' },
+            { href: '/saved', label: 'I miei salvati' },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="rounded-full border border-zinc-800 px-3.5 py-1.5 text-zinc-300 transition-colors hover:border-emerald-500/40 hover:text-white">
+              {l.label}
+            </Link>
+          ))}
+        </div>
+
         {/* Le tue analisi */}
         <div>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">Le tue analisi</h2>

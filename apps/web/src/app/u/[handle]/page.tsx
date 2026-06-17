@@ -2,8 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
-import { MapPin, Mail, ExternalLink, Sparkles } from 'lucide-react'
+import { MapPin, Mail, ExternalLink, Sparkles, Users } from 'lucide-react'
 import { deriveSoundDna } from '@/lib/sound-dna'
+import { FollowButton } from '@/components/social/follow-button'
+import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
 
 interface ArtistProfile {
   user_id: string
@@ -72,6 +74,22 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
     .limit(50)
   const dna = deriveSoundDna(subs as Parameters<typeof deriveSoundDna>[0])
 
+  // Follow: numero follower + se il visitatore (loggato) segue già questo artista.
+  const ssr = await createClient()
+  const { data: { user: viewer } } = await ssr.auth.getUser()
+  const [{ count: followersCount }, { data: followRow }, { data: trackRows }] = await Promise.all([
+    admin.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', p.user_id),
+    viewer
+      ? admin.from('follows').select('follower_id').eq('follower_id', viewer.id).eq('following_id', p.user_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    admin.from('user_submissions')
+      .select('id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count')
+      .eq('user_id', p.user_id).eq('published', true)
+      .order('published_at', { ascending: false }).limit(12),
+  ])
+  const isSelf = viewer?.id === p.user_id
+  const publishedTracks = (trackRows ?? []) as CatalogTrack[]
+
   const initials = (p.display_name || handle).trim().slice(0, 2).toUpperCase()
   const links = Object.entries(p.links ?? {}).filter(([, v]) => v)
 
@@ -97,16 +115,20 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
               {(p.genres ?? []).length > 0 && <span className="text-emerald-400">{p.genres.join(' · ')}</span>}
               {(p.bpm_range || dna?.bpmRange) && <span>{p.bpm_range || dna?.bpmRange} BPM</span>}
               {p.city && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{p.city}</span>}
+              <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{followersCount ?? 0} follower</span>
             </div>
           </div>
-          {p.contact_email && (
-            <a
-              href={`mailto:${p.contact_email}`}
-              className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-emerald-400 sm:mt-0 sm:self-center"
-            >
-              <Mail className="h-4 w-4" /> Contatta
-            </a>
-          )}
+          <div className="mt-4 flex items-center gap-2 sm:mt-0 sm:self-center">
+            <FollowButton targetUserId={p.user_id} initialFollowing={!!followRow} initialFollowers={followersCount ?? 0} isSelf={isSelf} compact />
+            {p.contact_email && (
+              <a
+                href={`mailto:${p.contact_email}`}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+              >
+                <Mail className="h-4 w-4" /> Contatta
+              </a>
+            )}
+          </div>
         </header>
 
         {/* Sound DNA — manuale + auto-derivato dalle analisi reali */}
@@ -138,6 +160,14 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
                 </div>
               </div>
             )}
+          </section>
+        )}
+
+        {/* Tracce pubblicate nel catalogo */}
+        {publishedTracks.length > 0 && (
+          <section className="mb-6">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">Tracce</p>
+            <CatalogGrid tracks={publishedTracks} />
           </section>
         )}
 
