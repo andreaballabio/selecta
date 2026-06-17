@@ -5,6 +5,7 @@ import { AudioUpload } from '@/components/upload/audio-upload'
 import { ReportPro } from '@/components/report/report-pro'
 import { ReferenceComparison } from '@/components/reference/reference-comparison'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
 import {
   Loader2,
   Sparkles,
@@ -12,6 +13,7 @@ import {
   CheckCircle,
   Music,
   RotateCcw,
+  IdCard,
 } from 'lucide-react'
 
 type PageStatus = 'idle' | 'analyzing' | 'done' | 'failed'
@@ -482,6 +484,17 @@ function ResultsView({
               </div>
             )
           })}
+        </div>
+
+        {/* Funnel: dall'analisi alla tua identità condivisibile */}
+        <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6 text-center">
+          <h3 className="text-lg font-semibold text-white">Trasforma il tuo sound in una Press Kit</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-400">
+            Una pagina condivisibile, auto-popolata dalle tue analisi, da mandare a locali, PR e label.
+          </p>
+          <Link href="/profile" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-black transition-colors hover:bg-emerald-400">
+            <IdCard className="h-4 w-4" /> Crea la tua Press Kit
+          </Link>
         </div>
 
         {submissionId && (

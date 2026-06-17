@@ -1,22 +1,34 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 
 /**
- * Header di navigazione globale del sito.
- * Prima non esisteva: le pagine si raggiungevano solo via link diretto.
- * Nascosto sull'area /admin (ha una sua UI separata).
+ * Header di navigazione globale.
+ * Mostra lo stato di login: "Dashboard" se loggato, "Accedi" se no.
+ * Nascosto su /admin e sulle press kit pubbliche /u/.
  */
 const NAV = [
   { href: '/match', label: 'Analizza' },
-  { href: '/profile', label: 'Press Kit' },
+  { href: '/#how-it-works', label: 'Come funziona' },
 ]
 
 export function SiteHeader() {
   const pathname = usePathname() ?? '/'
+  const [authed, setAuthed] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setAuthed(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   // Niente header globale nell'area admin né sulle press kit pubbliche /u/
   if (pathname.startsWith('/admin') || pathname.startsWith('/u/')) return null
@@ -39,22 +51,35 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-zinc-900 text-white'
-                    : 'text-zinc-400 hover:text-white'
+                  'hidden rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:block',
+                  active ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white'
                 )}
               >
                 {item.label}
               </Link>
             )
           })}
-          <Link
-            href="/match"
-            className="ml-2 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
-          >
-            Inizia
-          </Link>
+
+          {authed ? (
+            <Link
+              href="/dashboard"
+              className="ml-2 flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+            >
+              <LayoutDashboard className="h-4 w-4" /> Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/auth/login" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-300 hover:text-white">
+                Accedi
+              </Link>
+              <Link
+                href="/match"
+                className="ml-1 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+              >
+                Inizia
+              </Link>
+            </>
+          )}
         </nav>
       </div>
     </header>
