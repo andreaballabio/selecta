@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
  */
 const NAV = [
   { href: '/match', label: 'Analizza' },
-  { href: '/reference', label: 'Reference' },
+  { href: '/#how-it-works', label: 'Come funziona' },
 ]
 
 export function SiteHeader() {
