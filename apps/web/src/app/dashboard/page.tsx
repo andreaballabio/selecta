@@ -1,208 +1,201 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { AudioUpload } from '@/components/upload/audio-upload'
-import { createClient } from '@/lib/supabase/client'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Sparkles, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { deriveSoundDna } from '@/lib/sound-dna'
+import {
+  Loader2, Sparkles, BarChart3, IdCard, Music, LogOut, ArrowRight, ExternalLink,
+} from 'lucide-react'
+
+interface Submission {
+  id: string
+  title: string | null
+  created_at: string | null
+  analysis_status: string | null
+  bpm: number | null
+  key: string | null
+  scale: string | null
+  sub_ratio: number | null
+  mid_presence: number | null
+  spectral_centroid: number | null
+  onset_strength: number | null
+  match_results: { label_name: string; score: number }[] | null
+}
+
+interface Profile {
+  handle: string
+  display_name: string
+}
+
+/**
+ * Reclama le analisi fatte da anonimo (id salvati nel localStorage dalla pagina
+ * /match) collegandole all'utente appena loggato. Best-effort: in caso di errore
+ * la dashboard prosegue comunque.
+ */
+const PENDING_KEY = 'selecta:pending_submissions'
+async function claimPendingSubmissions() {
+  if (typeof window === 'undefined') return
+  let ids: string[] = []
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY)
+    ids = raw ? JSON.parse(raw) : []
+  } catch { return }
+  if (!Array.isArray(ids) || ids.length === 0) return
+  try {
+    await fetch('/api/match/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    window.localStorage.removeItem(PENDING_KEY)
+  } catch { /* riproveremo al prossimo caricamento */ }
+}
 
 export default function DashboardPage() {
-  const [uploadedFile, setUploadedFile] = useState<{ path: string; name: string; size: number } | null>(null)
-  const [trackTitle, setTrackTitle] = useState('')
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [tracks, setTracks] = useState<any[]>([])
   const router = useRouter()
   const supabase = createClient()
 
+  const [loading, setLoading] = useState(true)
+  const [email, setEmail] = useState('')
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [subs, setSubs] = useState<Submission[]>([])
+
   useEffect(() => {
-    loadUserTracks()
-  }, [])
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/auth/login'); return }
+      setEmail(user.email ?? '')
 
-  const loadUserTracks = async () => {
-    // TEMP: Bypass authentication for testing
-    setTracks([])
+      // Collega all'account le analisi fatte da anonimo in questo browser.
+      await claimPendingSubmissions()
+
+      const [{ data: prof }, { data: rows }] = await Promise.all([
+        (supabase as any).from('artist_profiles').select('handle, display_name').eq('user_id', user.id).maybeSingle(),
+        (supabase as any).from('user_submissions')
+          .select('id, title, created_at, analysis_status, bpm, key, scale, sub_ratio, mid_presence, spectral_centroid, onset_strength, match_results')
+          .eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+      ])
+      setProfile(prof ?? null)
+      setSubs(rows ?? [])
+      setLoading(false)
+    })()
+  }, [router, supabase])
+
+  const logout = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
   }
 
-  const handleUploadComplete = (path: string, name: string, size: number) => {
-    setUploadedFile({ path, name, size })
-    // Extract title from filename (remove extension)
-    const title = name.replace(/\.[^/.]+$/, '')
-    setTrackTitle(title)
-    setError(null)
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-zinc-500">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    )
   }
 
-  const handleAnalyze = async () => {
-    if (!uploadedFile || !trackTitle.trim()) {
-      setError('Inserisci un titolo per la traccia')
-      return
-    }
-
-    setIsAnalyzing(true)
-    setError(null)
-
-    try {
-      // TEMP: Bypass authentication check with valid UUID
-      const userId = '00000000-0000-0000-0000-000000000001'
-
-      // Create track record
-      const { data: track, error: trackError } = await (supabase as any)
-        .from('user_tracks')
-        .insert({
-          user_id: userId,
-          title: trackTitle,
-          storage_path: uploadedFile.path,
-          file_name: uploadedFile.name,
-          file_size_bytes: uploadedFile.size,
-          file_format: uploadedFile.name.split('.').pop()?.toLowerCase() as any,
-          analysis_status: 'pending',
-        })
-        .select()
-        .single()
-
-      if (trackError) throw trackError
-
-      // Trigger analysis
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ trackId: track.id }),
-      })
-
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || 'Analysis failed')
-      }
-
-      // Navigate to results page
-      router.push(`/dashboard/track/${track.id}`)
-
-    } catch (err: any) {
-      setError(err.message || 'Analysis failed')
-    } finally {
-      setIsAnalyzing(false)
-    }
-  }
+  const analyzed = subs.filter(s => s.analysis_status === 'analyzed')
+  const dna = deriveSoundDna(analyzed)
+  const firstName = (profile?.display_name || email.split('@')[0] || 'artista').split(' ')[0]
 
   return (
     <div className="min-h-screen bg-black">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         {/* Header */}
-        <div className="mb-12">
-          <h1 className="text-3xl font-bold text-white">Dashboard</h1>
-          <p className="mt-2 text-zinc-400">
-            Carica la tua traccia per ricevere un'analisi A&R completa
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Ciao, {firstName} 👋</h1>
+            <p className="mt-1 text-sm text-zinc-500">{email}</p>
+          </div>
+          <button onClick={logout} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 hover:text-white">
+            <LogOut className="h-4 w-4" /> Esci
+          </button>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-2">
-          {/* Upload Section */}
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6">
-              <h2 className="mb-4 text-lg font-semibold text-white">
-                Carica Traccia
-              </h2>
-              
-              <AudioUpload
-                onUploadComplete={handleUploadComplete}
-                onError={(err) => setError(err)}
-              />
-
-              {uploadedFile && (
-                <div className="mt-6 space-y-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-zinc-300">
-                      Titolo Traccia
-                    </label>
-                    <input
-                      type="text"
-                      value={trackTitle}
-                      onChange={(e) => setTrackTitle(e.target.value)}
-                      placeholder="Inserisci il titolo..."
-                      className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={isAnalyzing || !trackTitle.trim()}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 font-medium text-black transition-colors hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isAnalyzing ? (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        Analisi in corso...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-5 w-5" />
-                        Analizza con AI
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
-
-              {error && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-red-900/50 bg-red-950/30 p-4 text-red-400">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>{error}</span>
-                </div>
-              )}
+        {/* Sound DNA riassunto */}
+        {dna && dna.descriptors.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-5">
+            <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-500/80">
+              <Sparkles className="h-3.5 w-3.5" /> Il tuo Sound DNA
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {dna.descriptors.map(d => (
+                <span key={d} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-300">{d}</span>
+              ))}
+              {dna.bpmRange && <span className="text-sm text-zinc-500">· {dna.bpmRange} BPM</span>}
+              <span className="text-sm text-zinc-600">· da {dna.trackCount} {dna.trackCount === 1 ? 'analisi' : 'analisi'}</span>
             </div>
           </div>
+        )}
 
-          {/* Recent Tracks */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-6">
-            <h2 className="mb-4 text-lg font-semibold text-white">
-              Tracce Recenti
-            </h2>
+        {/* Azioni rapide */}
+        <div className="mb-8 grid gap-3 sm:grid-cols-3">
+          <Link href="/match" className="group rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 transition-colors hover:border-emerald-500/40">
+            <BarChart3 className="mb-3 h-6 w-6 text-emerald-400" />
+            <p className="font-semibold text-white">Analizza una traccia</p>
+            <p className="mt-0.5 text-sm text-zinc-500">Match con le label + Report PRO</p>
+          </Link>
+          <Link href={profile ? `/u/${profile.handle}` : '/profile'} className="group rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 transition-colors hover:border-emerald-500/40">
+            <IdCard className="mb-3 h-6 w-6 text-emerald-400" />
+            <p className="font-semibold text-white">{profile ? 'La tua Press Kit' : 'Crea la Press Kit'}</p>
+            <p className="mt-0.5 text-sm text-zinc-500">{profile ? `/u/${profile.handle}` : 'La tua pagina condivisibile'}</p>
+          </Link>
+          <Link href="/profile" className="group rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5 transition-colors hover:border-emerald-500/40">
+            <Sparkles className="mb-3 h-6 w-6 text-emerald-400" />
+            <p className="font-semibold text-white">Modifica profilo</p>
+            <p className="mt-0.5 text-sm text-zinc-500">Bio, link, foto, contatti</p>
+          </Link>
+        </div>
 
-            {tracks.length === 0 ? (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-                <p className="text-zinc-500">Nessuna traccia ancora caricata</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {tracks.map((track) => (
-                  <button
-                    key={track.id}
-                    onClick={() => router.push(`/dashboard/track/${track.id}`)}
-                    className="flex w-full items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-900"
-                  >
-                    <div>
-                      <p className="font-medium text-white">{track.title}</p>
-                      <p className="text-sm text-zinc-500">
-                        {new Date(track.created_at).toLocaleDateString('it-IT')}
+        {/* Le tue analisi */}
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">Le tue analisi</h2>
+          {subs.length === 0 ? (
+            <Link href="/match" className="flex items-center justify-between rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center transition-colors hover:border-zinc-700">
+              <span className="flex items-center gap-3 text-zinc-400"><Music className="h-5 w-5 text-zinc-600" /> Nessuna analisi ancora. Carica la tua prima traccia.</span>
+              <ArrowRight className="h-4 w-4 text-zinc-600" />
+            </Link>
+          ) : (
+            <div className="space-y-2">
+              {subs.map((s) => {
+                const top = s.match_results?.[0]
+                return (
+                  <div key={s.id} className="flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-white">{s.title || 'Senza titolo'}</p>
+                      <p className="text-xs text-zinc-500">
+                        {s.created_at ? new Date(s.created_at).toLocaleDateString('it-IT') : ''}
+                        {s.bpm ? ` · ${Math.round(s.bpm)} BPM` : ''}
+                        {s.key ? ` · ${s.key}${s.scale ? ' ' + s.scale : ''}` : ''}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {track.analysis_status === 'completed' ? (
-                        <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-500">
-                          Completato
-                        </span>
-                      ) : track.analysis_status === 'processing' ? (
-                        <span className="flex items-center gap-1 rounded-full bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-500">
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                          In corso
-                        </span>
-                      ) : track.analysis_status === 'failed' ? (
-                        <span className="rounded-full bg-red-500/10 px-3 py-1 text-xs font-medium text-red-500">
-                          Errore
-                        </span>
+                    <div className="shrink-0 text-right">
+                      {s.analysis_status === 'analyzed' && top ? (
+                        <>
+                          <p className="text-sm font-semibold text-emerald-400">{Math.min(100, Math.round(top.score * 100))}%</p>
+                          <p className="max-w-[160px] truncate text-xs text-zinc-500">{top.label_name}</p>
+                        </>
+                      ) : s.analysis_status === 'failed' ? (
+                        <span className="text-xs text-red-400">errore</span>
                       ) : (
-                        <span className="rounded-full bg-zinc-800 px-3 py-1 text-xs font-medium text-zinc-500">
-                          In attesa
-                        </span>
+                        <span className="flex items-center gap-1 text-xs text-zinc-500"><Loader2 className="h-3 w-3 animate-spin" /> in corso</span>
                       )}
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
+
+        {profile && (
+          <Link href={`/u/${profile.handle}`} target="_blank" className="mt-6 flex items-center justify-center gap-1.5 text-sm text-zinc-500 hover:text-white">
+            Vedi la tua press kit pubblica <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        )}
       </div>
     </div>
   )

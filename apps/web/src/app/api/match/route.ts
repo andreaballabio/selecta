@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createSsrClient } from '@/lib/supabase/server'
 
 const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
@@ -217,7 +218,7 @@ function generateFeedback(
 async function processSubmission(submissionId: string, fileUrl: string, trackStatus: string) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!
   )
 
   try {
@@ -483,7 +484,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     console.error('[match] processing error:', err)
     await createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!
     )
       .from('user_submissions')
       .update({ analysis_status: 'failed' })
@@ -505,8 +506,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!
   )
+
+  // Utente loggato (opzionale): lega l'analisi al suo account → la Press Kit si
+  // auto-popola col suo sound DNA. L'analisi anonima resta possibile (gancio gratis).
+  let userId: string | null = null
+  try {
+    const ssr = await createSsrClient()
+    const { data: { user } } = await ssr.auth.getUser()
+    userId = user?.id ?? null
+  } catch { /* anonimo */ }
 
   const { data: submission, error } = await supabase
     .from('user_submissions')
@@ -516,6 +526,7 @@ export async function POST(request: NextRequest) {
       artist: artist ?? null,
       track_status,
       analysis_status: 'analyzing',
+      user_id: userId,
     })
     .select('id')
     .single()

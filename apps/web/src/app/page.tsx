@@ -102,7 +102,7 @@ export default function HomePage() {
           </p>
           
           <Link
-            href="/dashboard"
+            href="/match"
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-8 py-4 font-semibold text-black transition-all hover:bg-emerald-400"
           >
             <Sparkles className="h-5 w-5" />

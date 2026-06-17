@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { MapPin, Mail, ExternalLink, Sparkles } from 'lucide-react'
+import { deriveSoundDna } from '@/lib/sound-dna'
 
 interface ArtistProfile {
+  user_id: string
   handle: string
   display_name: string
   tagline: string
@@ -54,6 +57,21 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
   const p = await getProfile(handle)
   if (!p) notFound()
 
+  // Sound DNA auto-derivato dalle analisi dell'utente. La press kit è PUBBLICA,
+  // ma user_submissions è protetta da RLS (lettura solo al proprietario), quindi
+  // leggiamo l'aggregato — non sensibile — con la service role lato server.
+  const admin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!,
+  )
+  const { data: subs } = await admin
+    .from('user_submissions')
+    .select('bpm, sub_ratio, mid_presence, spectral_centroid, onset_strength')
+    .eq('user_id', p.user_id)
+    .eq('analysis_status', 'analyzed')
+    .limit(50)
+  const dna = deriveSoundDna(subs as Parameters<typeof deriveSoundDna>[0])
+
   const initials = (p.display_name || handle).trim().slice(0, 2).toUpperCase()
   const links = Object.entries(p.links ?? {}).filter(([, v]) => v)
 
@@ -77,7 +95,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             {p.tagline && <p className="mt-1 text-lg text-zinc-300">{p.tagline}</p>}
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-zinc-500 sm:justify-start">
               {(p.genres ?? []).length > 0 && <span className="text-emerald-400">{p.genres.join(' · ')}</span>}
-              {p.bpm_range && <span>{p.bpm_range} BPM</span>}
+              {(p.bpm_range || dna?.bpmRange) && <span>{p.bpm_range || dna?.bpmRange} BPM</span>}
               {p.city && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{p.city}</span>}
             </div>
           </div>
@@ -91,19 +109,35 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
           )}
         </header>
 
-        {/* Sound DNA */}
-        {(p.sound_descriptors ?? []).length > 0 && (
+        {/* Sound DNA — manuale + auto-derivato dalle analisi reali */}
+        {((p.sound_descriptors ?? []).length > 0 || (dna && dna.descriptors.length > 0)) && (
           <section className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5">
             <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
               <Sparkles className="h-3.5 w-3.5 text-emerald-400" /> Il suono
             </p>
-            <div className="flex flex-wrap gap-2">
-              {p.sound_descriptors.map((d) => (
-                <span key={d} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-300">
-                  {d}
-                </span>
-              ))}
-            </div>
+            {(p.sound_descriptors ?? []).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {p.sound_descriptors.map((d) => (
+                  <span key={d} className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm text-emerald-300">
+                    {d}
+                  </span>
+                ))}
+              </div>
+            )}
+            {dna && dna.descriptors.length > 0 && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs text-zinc-600">
+                  Analizzato da Selecta su {dna.trackCount} {dna.trackCount === 1 ? 'traccia' : 'tracce'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {dna.descriptors.map((d) => (
+                    <span key={d} className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-sm text-zinc-300">
+                      {d}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         )}
 
