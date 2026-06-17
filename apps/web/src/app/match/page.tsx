@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { AudioUpload } from '@/components/upload/audio-upload'
 import { ReportPro } from '@/components/report/report-pro'
 import { ReferenceComparison } from '@/components/reference/reference-comparison'
+import { PublishToCatalog } from '@/components/catalog/publish-to-catalog'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import {
@@ -170,7 +171,7 @@ export default function MatchPage() {
   }
 
   if (pageStatus === 'done') {
-    return <ResultsView results={results} features={trackFeatures} submissionId={submissionId} onReset={handleReset} />
+    return <ResultsView results={results} features={trackFeatures} submissionId={submissionId} title={title} artist={artist} onReset={handleReset} />
   }
 
   return (
@@ -300,11 +301,15 @@ function ResultsView({
   results,
   features,
   submissionId,
+  title,
+  artist,
   onReset,
 }: {
   results: MatchResult[]
   features: TrackFeatures | null
   submissionId: string | null
+  title?: string
+  artist?: string
   onReset: () => void
 }) {
   const formatDuration = (s: number | null) => {
@@ -501,6 +506,13 @@ function ResultsView({
             )
           })}
         </div>
+
+        {/* Pubblica nel catalogo (Fase 0 — vetrina curata) */}
+        {submissionId && (
+          <div className="mt-8">
+            <PublishToCatalog submissionId={submissionId} defaultTitle={title} defaultArtist={artist} />
+          </div>
+        )}
 
         {/* Funnel: dall'analisi alla tua identità condivisibile */}
         <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6 text-center">

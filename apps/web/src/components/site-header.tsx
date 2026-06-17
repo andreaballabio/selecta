@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase/client'
  */
 const NAV = [
   { href: '/match', label: 'Analizza' },
+  { href: '/catalog', label: 'Catalogo' },
   { href: '/#how-it-works', label: 'Come funziona' },
 ]
 
