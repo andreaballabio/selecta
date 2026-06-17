@@ -29,6 +29,30 @@ interface Profile {
   display_name: string
 }
 
+/**
+ * Reclama le analisi fatte da anonimo (id salvati nel localStorage dalla pagina
+ * /match) collegandole all'utente appena loggato. Best-effort: in caso di errore
+ * la dashboard prosegue comunque.
+ */
+const PENDING_KEY = 'selecta:pending_submissions'
+async function claimPendingSubmissions() {
+  if (typeof window === 'undefined') return
+  let ids: string[] = []
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY)
+    ids = raw ? JSON.parse(raw) : []
+  } catch { return }
+  if (!Array.isArray(ids) || ids.length === 0) return
+  try {
+    await fetch('/api/match/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+    })
+    window.localStorage.removeItem(PENDING_KEY)
+  } catch { /* riproveremo al prossimo caricamento */ }
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -43,6 +67,9 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/login'); return }
       setEmail(user.email ?? '')
+
+      // Collega all'account le analisi fatte da anonimo in questo browser.
+      await claimPendingSubmissions()
 
       const [{ data: prof }, { data: rows }] = await Promise.all([
         (supabase as any).from('artist_profiles').select('handle, display_name').eq('user_id', user.id).maybeSingle(),

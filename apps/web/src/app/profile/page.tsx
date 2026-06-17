@@ -15,6 +15,7 @@ export default function ProfilePage() {
   const router = useRouter()
   const supabase = createClient()
 
+  const [host, setHost] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,6 +35,7 @@ export default function ProfilePage() {
   const [links, setLinks] = useState<Record<string, string>>({})
 
   useEffect(() => {
+    if (typeof window !== 'undefined') setHost(window.location.host)
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
@@ -140,7 +142,7 @@ export default function ProfilePage() {
             <div>
               <label className={label}>Handle (URL)</label>
               <input className={input} value={handle} onChange={e => setHandle(e.target.value)} placeholder="marco-rossi" />
-              <p className="mt-1 text-xs text-zinc-600">selecta-eta.vercel.app/u/{slugify(handle) || '...'}</p>
+              <p className="mt-1 text-xs text-zinc-600">{host || 'selecta'}/u/{slugify(handle) || '...'}</p>
             </div>
           </div>
 

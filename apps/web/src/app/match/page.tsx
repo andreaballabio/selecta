@@ -18,6 +18,21 @@ import {
 
 type PageStatus = 'idle' | 'analyzing' | 'done' | 'failed'
 
+/**
+ * Memorizza l'id dell'analisi (anche se fatta da anonimo) nel localStorage, così
+ * dopo un eventuale login la Dashboard può "reclamarla" e collegarla all'account.
+ */
+const PENDING_KEY = 'selecta:pending_submissions'
+function rememberPendingSubmission(id: string) {
+  if (typeof window === 'undefined' || !id) return
+  try {
+    const raw = window.localStorage.getItem(PENDING_KEY)
+    const ids: string[] = raw ? JSON.parse(raw) : []
+    if (!ids.includes(id)) ids.push(id)
+    window.localStorage.setItem(PENDING_KEY, JSON.stringify(ids.slice(-50)))
+  } catch { /* localStorage non disponibile */ }
+}
+
 interface MatchResult {
   label_id: string
   label_name: string
@@ -108,6 +123,7 @@ export default function MatchPage() {
 
       const { submission_id } = await res.json()
       setSubmissionId(submission_id)
+      rememberPendingSubmission(submission_id)
       setProgress(20)
 
       pollRef.current = setInterval(async () => {

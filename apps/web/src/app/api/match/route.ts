@@ -218,7 +218,7 @@ function generateFeedback(
 async function processSubmission(submissionId: string, fileUrl: string, trackStatus: string) {
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!
   )
 
   try {
@@ -484,7 +484,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
     console.error('[match] processing error:', err)
     await createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!
     )
       .from('user_submissions')
       .update({ analysis_status: 'failed' })
@@ -506,7 +506,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!
   )
 
   // Utente loggato (opzionale): lega l'analisi al suo account → la Press Kit si

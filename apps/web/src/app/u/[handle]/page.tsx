@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { MapPin, Mail, ExternalLink, Sparkles } from 'lucide-react'
@@ -56,15 +57,20 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
   const p = await getProfile(handle)
   if (!p) notFound()
 
-  // Sound DNA auto-derivato dalle analisi dell'utente (se loggato quando le ha fatte)
-  const supabase = await createClient()
-  const { data: subs } = await (supabase as any)
+  // Sound DNA auto-derivato dalle analisi dell'utente. La press kit è PUBBLICA,
+  // ma user_submissions è protetta da RLS (lettura solo al proprietario), quindi
+  // leggiamo l'aggregato — non sensibile — con la service role lato server.
+  const admin = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY)!,
+  )
+  const { data: subs } = await admin
     .from('user_submissions')
     .select('bpm, sub_ratio, mid_presence, spectral_centroid, onset_strength')
     .eq('user_id', p.user_id)
     .eq('analysis_status', 'analyzed')
     .limit(50)
-  const dna = deriveSoundDna(subs)
+  const dna = deriveSoundDna(subs as Parameters<typeof deriveSoundDna>[0])
 
   const initials = (p.display_name || handle).trim().slice(0, 2).toUpperCase()
   const links = Object.entries(p.links ?? {}).filter(([, v]) => v)
