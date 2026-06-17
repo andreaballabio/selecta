@@ -1,16 +1,25 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
+import { PlayerProvider } from "@/components/player/player-context";
+import { PlayerBar } from "@/components/player/player-bar";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-space-grotesk",
+});
+
 export const metadata: Metadata = {
-  title: "Selecta - AI A&R for Tech House Producers",
-  description: "Scopri quale label firmerà la tua track. Analisi AI del tuo sound e matching con le migliori etichette tech house.",
+  title: "Selecta — A&R AI e catalogo Tech House",
+  description:
+    "Analizza il tuo sound, scopri le label compatibili e pubblica la tua traccia nel catalogo Tech House curato per come suona.",
 };
 
 export default function RootLayout({
@@ -19,10 +28,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-black font-sans">
-        <SiteHeader />
-        {children}
+    <html lang="it" className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col font-sans">
+        <PlayerProvider>
+          <SiteHeader />
+          {children}
+          <PlayerBar />
+        </PlayerProvider>
       </body>
     </html>
   );

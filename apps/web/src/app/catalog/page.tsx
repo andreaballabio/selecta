@@ -38,7 +38,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Prom
             <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
             <span className="text-xs font-medium text-emerald-400">Catalogo</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">Tech House, organizzata per come suona</h1>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">Tech House, organizzata per come suona</h1>
           <p className="mt-2 max-w-2xl text-zinc-400">
             Tracce pubblicate dai producer e raggruppate dall'AI per sound. Ascolta, scopri quello che gira, metti like.
           </p>

@@ -109,7 +109,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             )}
           </div>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">{p.display_name || handle}</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{p.display_name || handle}</h1>
             {p.tagline && <p className="mt-1 text-lg text-zinc-300">{p.tagline}</p>}
             <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-sm text-zinc-500 sm:justify-start">
               {(p.genres ?? []).length > 0 && <span className="text-emerald-400">{p.genres.join(' · ')}</span>}

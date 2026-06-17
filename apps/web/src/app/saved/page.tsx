@@ -40,7 +40,7 @@ export default async function SavedPage() {
           <ArrowLeft className="h-4 w-4" /> Dashboard
         </Link>
         <header className="mb-8">
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
+          <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-tight text-white">
             <Bookmark className="h-6 w-6 text-emerald-400" /> I miei salvati
           </h1>
           <p className="mt-1 text-sm text-zinc-500">Le tracce che hai messo in crate dal catalogo.</p>

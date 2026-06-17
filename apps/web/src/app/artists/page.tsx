@@ -98,7 +98,7 @@ export default async function ArtistsPage() {
             <Users className="h-3.5 w-3.5 text-emerald-400" />
             <span className="text-xs font-medium text-emerald-400">Artisti</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">Chi fa Tech House qui</h1>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">Chi fa Tech House qui</h1>
           <p className="mt-2 text-zinc-400">Scopri i producer e — se hai analizzato le tue tracce — trova chi suona come te.</p>
         </header>
 

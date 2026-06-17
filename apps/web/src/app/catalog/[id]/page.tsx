@@ -88,7 +88,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
             <CatalogGrid tracks={[main]} />
           </div>
           <div className="flex flex-col justify-center">
-            <h1 className="text-3xl font-bold text-white">{main.display_title || 'Senza titolo'}</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{main.display_title || 'Senza titolo'}</h1>
             <p className="mt-1 text-lg text-zinc-400">{main.display_artist || 'Sconosciuto'}</p>
 
             <div className="mt-4 flex flex-wrap gap-2 text-sm">

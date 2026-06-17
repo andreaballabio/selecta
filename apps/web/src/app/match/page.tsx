@@ -182,7 +182,7 @@ export default function MatchPage() {
             <Sparkles className="h-4 w-4 text-emerald-500" />
             <span className="text-sm font-medium text-emerald-400">AI Matching</span>
           </div>
-          <h1 className="text-3xl font-bold text-white">Trova la tua label</h1>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-white">Trova la tua label</h1>
           <p className="mt-2 text-zinc-400">
             Carica la tua demo e scopri le label più compatibili col tuo sound
           </p>

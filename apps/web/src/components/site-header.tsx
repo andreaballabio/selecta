@@ -3,15 +3,10 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Sparkles, LayoutDashboard } from 'lucide-react'
+import { LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
-/**
- * Header di navigazione globale.
- * Mostra lo stato di login: "Dashboard" se loggato, "Accedi" se no.
- * Nascosto su /admin e sulle press kit pubbliche /u/.
- */
 const NAV = [
   { href: '/match', label: 'Analizza' },
   { href: '/catalog', label: 'Catalogo' },
@@ -22,27 +17,35 @@ const NAV = [
 export function SiteHeader() {
   const pathname = usePathname() ?? '/'
   const [authed, setAuthed] = useState<boolean | null>(null)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => setAuthed(!!data.user))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setAuthed(!!session)
-    })
-    return () => subscription.unsubscribe()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setAuthed(!!session))
+    const onScroll = () => setScrolled(window.scrollY > 8)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => { subscription.unsubscribe(); window.removeEventListener('scroll', onScroll) }
   }, [])
 
-  // Niente header globale nell'area admin né sulle press kit pubbliche /u/
   if (pathname.startsWith('/admin') || pathname.startsWith('/u/')) return null
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-900/80 bg-black/70 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500">
-            <Sparkles className="h-4 w-4 text-black" />
+    <header className={cn(
+      'sticky top-0 z-40 border-b transition-colors duration-300',
+      scrolled ? 'border-zinc-800/80 bg-black/70 backdrop-blur-xl' : 'border-transparent bg-transparent',
+    )}>
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="group flex items-center gap-2.5">
+          <span className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-emerald-500">
+            <span className="flex items-end gap-0.5">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="eq-bar w-[3px] rounded-full bg-black" style={{ height: 12, animationDelay: `${i * 0.15}s` }} />
+              ))}
+            </span>
           </span>
-          <span className="text-[15px] font-bold tracking-tight text-white">Selecta</span>
+          <span className="font-display text-[17px] font-bold tracking-tight text-white">Selecta</span>
         </Link>
 
         <nav className="flex items-center gap-1">
@@ -53,11 +56,12 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'hidden rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:block',
-                  active ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-white'
+                  'relative hidden rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:block',
+                  active ? 'text-white' : 'text-zinc-400 hover:text-white',
                 )}
               >
                 {item.label}
+                {active && <span className="absolute inset-x-3 -bottom-px h-px bg-emerald-400" />}
               </Link>
             )
           })}

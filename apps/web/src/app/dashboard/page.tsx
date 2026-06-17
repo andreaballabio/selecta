@@ -107,7 +107,7 @@ export default function DashboardPage() {
         {/* Header */}
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Ciao, {firstName} 👋</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-white">Ciao, {firstName} 👋</h1>
             <p className="mt-1 text-sm text-zinc-500">{email}</p>
           </div>
           <button onClick={logout} className="flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-400 hover:text-white">
