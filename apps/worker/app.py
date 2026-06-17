@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
 
-app = FastAPI(title="Selecta Worker", version="7.1.0")
+app = FastAPI(title="Selecta Worker", version="7.2.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
@@ -431,6 +431,61 @@ def _deep_windows_from_patches(patches: np.ndarray, duration_sec: float,
 
 
 # ---------------------------------------------------------------------------
+# BPM NEURALE — TempoCNN (deeptemp). Molto più robusto dei detector classici
+# sui segnali "difficili" (demo non finiti, mix non ottimizzati, livelli bassi):
+# è il motivo per cui i tool dedicati azzeccano il BPM dove Essentia classico
+# sbaglia. Auto-download del modello, fallback ai metodi classici se assente.
+# ---------------------------------------------------------------------------
+TEMPOCNN_MODEL_PATH = os.getenv("TEMPOCNN_MODEL_PATH", "deeptemp-k16-3.pb")
+TEMPOCNN_MODEL_URL  = os.getenv(
+    "TEMPOCNN_MODEL_URL",
+    "https://essentia.upf.edu/models/tempo/tempocnn/deeptemp-k16-3.pb")
+_tempocnn_model = None
+_tempocnn_tried = False
+
+
+def _get_tempocnn():
+    global _tempocnn_model, _tempocnn_tried
+    if _tempocnn_tried:
+        return _tempocnn_model
+    _tempocnn_tried = True
+    try:
+        if not os.path.exists(TEMPOCNN_MODEL_PATH):
+            if not TEMPOCNN_MODEL_URL:
+                return None
+            import urllib.request
+            logger.info(f"Scarico TempoCNN (una volta) da {TEMPOCNN_MODEL_URL} ...")
+            urllib.request.urlretrieve(TEMPOCNN_MODEL_URL, TEMPOCNN_MODEL_PATH)
+            logger.info(f"TempoCNN scaricato ({os.path.getsize(TEMPOCNN_MODEL_PATH)} bytes)")
+        from essentia.standard import TempoCNN
+        _tempocnn_model = TempoCNN(graphFilename=TEMPOCNN_MODEL_PATH)
+        logger.info("TempoCNN caricato → BPM neurale")
+    except Exception as e:
+        logger.error(f"TempoCNN non disponibile ({e}) → BPM classico")
+        _tempocnn_model = None
+    return _tempocnn_model
+
+
+def _detect_bpm(audio_mono: np.ndarray, sample_rate: int) -> float:
+    """BPM: prima TempoCNN (neurale, audio a 11025 Hz), poi fallback classici."""
+    import essentia.standard as es
+    tcnn = _get_tempocnn()
+    if tcnn is not None:
+        try:
+            audio_11k = es.Resample(inputSampleRate=int(sample_rate),
+                                    outputSampleRate=11025)(audio_mono.astype(np.float32))
+            global_bpm, _, _ = tcnn(audio_11k)
+            logger.info(f"[tempo] TempoCNN bpm={float(global_bpm):.2f}")
+            return float(global_bpm)
+        except Exception as e:
+            logger.error(f"TempoCNN inferenza fallita ({e}) → classico")
+    try:
+        return float(es.PercivalBpmEstimator()(audio_mono))
+    except Exception:
+        return float(es.RhythmExtractor2013()(audio_mono)[0])
+
+
+# ---------------------------------------------------------------------------
 # Analisi con Essentia
 # ---------------------------------------------------------------------------
 
@@ -443,15 +498,9 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
     hop_size   = 512
 
     if not is_preview:
-        # BPM — i detector generici di Essentia sbagliavano vs i tool dedicati
-        # (es. 118 invece di 128). PercivalBpmEstimator è più robusto sul beat
-        # costante della musica elettronica; fallback a RhythmExtractor2013.
-        try:
-            bpm = float(es.PercivalBpmEstimator()(audio_mono))
-        except Exception:
-            bpm = float(es.RhythmExtractor2013()(audio_mono)[0])
-        # KEY — profilo 'edma' (Electronic Dance Music Analysis): molto più
-        # accurato del profilo di default per techno/house.
+        bpm = _detect_bpm(audio_mono, sample_rate)   # TempoCNN neurale + fallback
+        # KEY — profilo 'edma' (Electronic Dance Music Analysis): il migliore di
+        # Essentia per techno/house.
         try:
             key, scale, _ = es.KeyExtractor(profileType='edma')(audio_mono)
         except Exception:
@@ -715,7 +764,12 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "version": "7.1.0", "deep": _get_effnet() is not None}
+    return {
+        "status": "healthy",
+        "version": "7.2.0",
+        "deep": _get_effnet() is not None,
+        "tempo_neural": _get_tempocnn() is not None,
+    }
 
 
 @app.post("/analyze", response_model=AnalysisResponse)
