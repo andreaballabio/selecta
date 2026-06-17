@@ -12,14 +12,14 @@ import { cn } from '@/lib/utils'
  */
 const NAV = [
   { href: '/match', label: 'Analizza' },
-  { href: '/#how-it-works', label: 'Come funziona' },
+  { href: '/profile', label: 'Press Kit' },
 ]
 
 export function SiteHeader() {
   const pathname = usePathname() ?? '/'
 
-  // Niente header globale nell'area admin
-  if (pathname.startsWith('/admin')) return null
+  // Niente header globale nell'area admin né sulle press kit pubbliche /u/
+  if (pathname.startsWith('/admin') || pathname.startsWith('/u/')) return null
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-900/80 bg-black/70 backdrop-blur">
