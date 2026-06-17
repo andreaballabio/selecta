@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { AudioUpload } from '@/components/upload/audio-upload'
 import { ReportPro } from '@/components/report/report-pro'
+import { ReferenceComparison } from '@/components/reference/reference-comparison'
 import { createClient } from '@/lib/supabase/client'
 import {
   Loader2,
@@ -28,6 +29,7 @@ interface MatchResult {
   best_track_score: number
   match_context: string[]
   feedback: string[]
+  ref_features?: Record<string, number>
 }
 
 interface TrackFeatures {
@@ -360,6 +362,17 @@ function ResultsView({
         {features && (
           <div className="mb-6">
             <ReportPro features={features} />
+          </div>
+        )}
+
+        {/* Reference Matching — confronto col miglior match */}
+        {features && results[0]?.ref_features && (
+          <div className="mb-6">
+            <ReferenceComparison
+              user={features as unknown as Record<string, number | null>}
+              labelAvg={results[0].ref_features}
+              labelName={results[0].label_name}
+            />
           </div>
         )}
 

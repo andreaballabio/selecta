@@ -374,6 +374,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       best_track_score: number
       match_context: string[]
       feedback: string[]
+      ref_features: Record<string, number>
     }[] = []
 
     for (const [labelId, tracks] of byLabel.entries()) {
@@ -448,6 +449,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         best_track_score: Math.round(displayStrength * 100),
         match_context,
         feedback: generateFeedback(f, refAvg),
+        ref_features: refAvg,
       })
     }
 
