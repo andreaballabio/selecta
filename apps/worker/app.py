@@ -12,7 +12,7 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
 
-app = FastAPI(title="Selecta Worker", version="7.3.0")
+app = FastAPI(title="Selecta Worker", version="7.4.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
@@ -514,10 +514,55 @@ def _harmonic_ks_key(audio_mono: np.ndarray, sample_rate: int):
     return keys[ni], 'minor', nc[ni]
 
 
-def _detect_key(audio_mono: np.ndarray, sample_rate: int):
-    """Key robusta: Essentia 'edma' (ottimo sui master finiti) + Krumhansl-
-    Schmuckler sul segnale ARMONICO (toglie i drum, il problema dei demo).
-    Concordano → alta confidenza; in disaccordo → vince l'armonico (drum-cleaned)."""
+# Key NEURALE — madmom (CNN, modello incluso nel pacchetto, nessun download).
+# OPZIONALE: se madmom NON è installato → fallback ai metodi chroma sotto.
+# Quindi questo file NON cambia comportamento finché non aggiungi madmom ai
+# requirements del Space. Se assente o in errore, niente si rompe.
+_madmom_proc = None
+_madmom_tried = False
+
+
+def _get_madmom_proc():
+    global _madmom_proc, _madmom_tried
+    if _madmom_tried:
+        return _madmom_proc
+    _madmom_tried = True
+    try:
+        from madmom.features.key import CNNKeyRecognitionProcessor
+        _madmom_proc = CNNKeyRecognitionProcessor()
+        logger.info("madmom CNN key caricato → key neurale")
+    except Exception as e:
+        logger.warning(f"madmom non disponibile ({e}) → key edma+KS (fallback)")
+        _madmom_proc = None
+    return _madmom_proc
+
+
+def _madmom_key(audio_path):
+    """Key neurale via madmom. Ritorna (key, scale) o (None, None)."""
+    proc = _get_madmom_proc()
+    if proc is None or not audio_path:
+        return None, None
+    try:
+        from madmom.features.key import key_prediction_to_label
+        label = str(key_prediction_to_label(proc(audio_path))).strip()  # es. "d minor"
+        parts = label.split()
+        if len(parts) < 2:
+            return None, None
+        note = parts[0][0].upper() + parts[0][1:]   # "c#"→"C#", "d"→"D"
+        return note, parts[1].lower()
+    except Exception as e:
+        logger.error(f"madmom key inferenza fallita ({e})")
+        return None, None
+
+
+def _detect_key(audio_mono: np.ndarray, sample_rate: int, audio_path=None):
+    """Key: 1) madmom neurale (se installato → il più accurato, come i tool
+    dedicati); 2) fallback Essentia 'edma' + Krumhansl-Schmuckler sul segnale
+    ARMONICO (drum-cleaned)."""
+    m_key, m_scale = _madmom_key(audio_path)
+    if m_key:
+        logger.info(f"[key] madmom → {m_key} {m_scale}")
+        return m_key, m_scale
     import essentia.standard as es
     try:
         e_key, e_scale, _ = es.KeyExtractor(profileType='edma')(audio_mono)
@@ -544,7 +589,7 @@ def _detect_key(audio_mono: np.ndarray, sample_rate: int):
 # ---------------------------------------------------------------------------
 
 def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
-                           sample_rate: int, is_preview: bool):
+                           sample_rate: int, is_preview: bool, audio_path=None):
     import essentia.standard as es
 
     duration = len(audio_mono) / sample_rate
@@ -552,8 +597,8 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
     hop_size   = 512
 
     if not is_preview:
-        bpm = _detect_bpm(audio_mono, sample_rate)         # TempoCNN neurale + fallback
-        key, scale = _detect_key(audio_mono, sample_rate)  # edma + KS su armonico
+        bpm = _detect_bpm(audio_mono, sample_rate)                     # TempoCNN + fallback
+        key, scale = _detect_key(audio_mono, sample_rate, audio_path)  # madmom → edma+KS
     else:
         bpm, key, scale = None, None, None
 
@@ -815,9 +860,10 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
 async def health_check():
     return {
         "status": "healthy",
-        "version": "7.3.0",
+        "version": "7.4.0",
         "deep": _get_effnet() is not None,
         "tempo_neural": _get_tempocnn() is not None,
+        "key_neural": _get_madmom_proc() is not None,
     }
 
 
@@ -844,7 +890,7 @@ async def analyze_track(request: AnalysisRequest):
             loader = es.AudioLoader(filename=tmp_path)
             audio_stereo, sample_rate, _, _, _, _ = loader()
             audio_mono = np.mean(audio_stereo, axis=1)
-            feat = analyze_with_essentia(audio_mono, audio_stereo, sample_rate, request.is_preview)
+            feat = analyze_with_essentia(audio_mono, audio_stereo, sample_rate, request.is_preview, tmp_path)
         except ImportError:
             logger.warning("Essentia not available, falling back to Librosa")
             import librosa
