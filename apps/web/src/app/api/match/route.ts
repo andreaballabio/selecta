@@ -1,6 +1,7 @@
 import { after } from 'next/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createSsrClient } from '@/lib/supabase/server'
 
 const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
@@ -508,6 +509,15 @@ export async function POST(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Utente loggato (opzionale): lega l'analisi al suo account → la Press Kit si
+  // auto-popola col suo sound DNA. L'analisi anonima resta possibile (gancio gratis).
+  let userId: string | null = null
+  try {
+    const ssr = await createSsrClient()
+    const { data: { user } } = await ssr.auth.getUser()
+    userId = user?.id ?? null
+  } catch { /* anonimo */ }
+
   const { data: submission, error } = await supabase
     .from('user_submissions')
     .insert({
@@ -516,6 +526,7 @@ export async function POST(request: NextRequest) {
       artist: artist ?? null,
       track_status,
       analysis_status: 'analyzing',
+      user_id: userId,
     })
     .select('id')
     .single()
