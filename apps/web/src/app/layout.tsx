@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SiteHeader } from "@/components/site-header";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -19,7 +20,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-black font-sans">{children}</body>
+      <body className="min-h-full flex flex-col bg-black font-sans">
+        <SiteHeader />
+        {children}
+      </body>
     </html>
   );
 }

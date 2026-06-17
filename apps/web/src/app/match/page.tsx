@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { AudioUpload } from '@/components/upload/audio-upload'
+import { ReportPro } from '@/components/report/report-pro'
 import { createClient } from '@/lib/supabase/client'
 import {
   Loader2,
@@ -35,10 +36,15 @@ interface TrackFeatures {
   scale: string | null
   lufs: number | null
   duration: number | null
+  energy: number | null
   onset_strength: number | null
   sub_ratio: number | null
   mid_presence: number | null
   spectral_contrast: number | null
+  spectral_centroid: number | null
+  spectral_rolloff: number | null
+  zero_crossing_rate: number | null
+  tempo_stability: number | null
 }
 
 export default function MatchPage() {
@@ -347,6 +353,13 @@ function ResultsView({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Report PRO — analisi tecnica del proprio master */}
+        {features && (
+          <div className="mb-6">
+            <ReportPro features={features} />
           </div>
         )}
 

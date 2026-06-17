@@ -29,7 +29,7 @@ export default function HomePage() {
 
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
-              href="/dashboard"
+              href="/match"
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-8 py-4 font-semibold text-black transition-all hover:bg-emerald-400"
             >
               <Zap className="h-5 w-5" />
