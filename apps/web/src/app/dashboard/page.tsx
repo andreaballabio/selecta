@@ -293,6 +293,8 @@ export default function DashboardPage() {
                 : <Link href="/profile" className="text-sm text-accent hover:underline">Crea</Link>} />
             <Row label="Community" value={`Segui ${followingCount} ${followingCount === 1 ? 'artista' : 'artisti'}`}
               action={<Link href="/artists" className="flex items-center gap-1 text-sm text-muted hover:text-text"><Users className="h-4 w-4" /> Artisti</Link>} />
+            <Row label="Abbonamento" value="DJ Pool, Producer Pro, Label (demo)" action={<Link href="/pricing" className="text-sm text-accent hover:underline">Gestisci</Link>} />
+            <Row label="Download" value="La tua cronologia" action={<Link href="/downloads" className="text-sm text-muted hover:text-text">Apri</Link>} />
             <Row label="Preferenze" value="Notifiche e genere preferito" badge="presto" />
           </div>
         </div>

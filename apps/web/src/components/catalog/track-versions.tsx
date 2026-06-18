@@ -5,6 +5,7 @@ import { Play, Pause, Layers, Plus, Trash2, Loader2 } from 'lucide-react'
 import { AudioUpload } from '@/components/upload/audio-upload'
 import { createClient } from '@/lib/supabase/client'
 import { usePlayer } from '@/components/player/player-context'
+import { DownloadButton } from './download-button'
 
 export interface TrackVersion { id: string; label: string; file_url: string }
 
@@ -58,6 +59,7 @@ export function TrackVersions({
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 translate-x-0.5" />}
                 </button>
                 <span className="flex-1 text-sm font-medium text-text">{v.label}</span>
+                <DownloadButton submissionId={submissionId} versionId={v.id} label={v.label} small />
                 {isOwner && <button onClick={() => remove(v.id)} className="text-faint hover:text-red-400" aria-label="Rimuovi"><Trash2 className="h-4 w-4" /></button>}
               </div>
             )

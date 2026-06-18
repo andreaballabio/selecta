@@ -5,6 +5,7 @@ import { Bookmark, ArrowLeft } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
+import { CrateDownload } from '@/components/catalog/crate-download'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,11 +40,14 @@ export default async function SavedPage() {
         <Link href="/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
           <ArrowLeft className="h-4 w-4" /> Dashboard
         </Link>
-        <header className="mb-8">
-          <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-tight text-text">
-            <Bookmark className="h-6 w-6 text-accent" /> I miei salvati
-          </h1>
-          <p className="mt-1 text-sm text-muted">Le tracce che hai messo in crate dal catalogo.</p>
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-tight text-text">
+              <Bookmark className="h-6 w-6 text-accent" /> I miei salvati
+            </h1>
+            <p className="mt-1 text-sm text-muted">Le tracce che hai messo in crate dal catalogo.</p>
+          </div>
+          {tracks.length > 0 && <CrateDownload trackIds={tracks.map((t) => t.id)} />}
         </header>
 
         {tracks.length === 0 ? (

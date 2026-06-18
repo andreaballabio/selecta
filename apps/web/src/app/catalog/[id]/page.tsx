@@ -14,6 +14,7 @@ import { AddToPlaylist } from '@/components/playlist/add-to-playlist'
 import { RepostButton } from '@/components/catalog/repost-button'
 import { TrackOwnerControls } from '@/components/catalog/track-owner-controls'
 import { TrackVersions, type TrackVersion } from '@/components/catalog/track-versions'
+import { DownloadButton } from '@/components/catalog/download-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,6 +128,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <RepostButton submissionId={id} initialCount={(main as { reposts_count?: number }).reposts_count ?? 0} />
               <AddToPlaylist submissionId={id} />
+              <DownloadButton submissionId={id} />
               {main.buy_url && (
                 <a href={main.buy_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm text-text hover:border-faint">
                   <ExternalLink className="h-4 w-4" /> Ascolta / Compra
