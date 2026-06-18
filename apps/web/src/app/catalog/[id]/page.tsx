@@ -7,8 +7,9 @@ import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { bucketByKey } from '@/lib/sound-bucket'
 import { keyLabel } from '@/lib/camelot'
 import { parseEmbedding, cosine } from '@/lib/embedding'
-import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
+import { CatalogGrid, toPlayerTrack, type CatalogTrack } from '@/components/catalog/catalog-grid'
 import { CommentsSection, type CommentItem } from '@/components/catalog/comments-section'
+import { Waveform } from '@/components/player/waveform'
 
 export const dynamic = 'force-dynamic'
 
@@ -118,6 +119,10 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
               </p>
             )}
           </div>
+        </div>
+
+        <div className="mt-8 rounded-2xl border border-line bg-surface/40 p-4">
+          <Waveform track={toPlayerTrack(main)} />
         </div>
 
         {similar.length > 0 && (

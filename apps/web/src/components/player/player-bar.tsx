@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, ListMusic, X } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Repeat1, ListMusic, X, Volume2, VolumeX, Radio } from 'lucide-react'
 import { usePlayer } from './player-context'
 
 const fmt = (s: number) => {
@@ -15,6 +15,7 @@ export function PlayerBar() {
   const p = usePlayer()
   const barRef = useRef<HTMLDivElement | null>(null)
   const [queueOpen, setQueueOpen] = useState(false)
+  const lastVol = useRef(1)
 
   useEffect(() => {
     document.body.style.paddingBottom = p.current ? '5.75rem' : ''
@@ -31,6 +32,7 @@ export function PlayerBar() {
     const r = el.getBoundingClientRect()
     p.seek(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)))
   }
+  const toggleMute = () => { if (p.volume > 0) { lastVol.current = p.volume; p.setVolume(0) } else p.setVolume(lastVol.current || 1) }
 
   return (
     <>
@@ -38,7 +40,7 @@ export function PlayerBar() {
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-line bg-surface/95 backdrop-blur-xl">
         <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto] items-center gap-3 px-4 py-2.5 sm:grid-cols-[1fr_auto_1fr] sm:px-6">
-          {/* sx: traccia */}
+          {/* sx */}
           <div className="flex min-w-0 items-center gap-3">
             <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-2">
               {c.cover_url ? (
@@ -52,12 +54,10 @@ export function PlayerBar() {
             </div>
           </div>
 
-          {/* centro: controlli + progress */}
+          {/* centro */}
           <div className="flex flex-col items-center gap-1.5">
             <div className="flex items-center gap-2 sm:gap-4">
-              <button onClick={p.toggleShuffle} aria-label="Casuale" className={`hidden sm:block ${p.shuffle ? 'text-accent' : 'text-muted hover:text-text'}`}>
-                <Shuffle className="h-4 w-4" />
-              </button>
+              <button onClick={p.toggleShuffle} aria-label="Casuale" className={`hidden sm:block ${p.shuffle ? 'text-accent' : 'text-muted hover:text-text'}`}><Shuffle className="h-4 w-4" /></button>
               <button onClick={p.prev} aria-label="Precedente" className="text-muted hover:text-text"><SkipBack className="h-5 w-5" /></button>
               <button onClick={p.togglePlay} aria-label={p.playing ? 'Pausa' : 'Play'} className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-accent-ink transition-transform hover:scale-105">
                 {p.playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-0.5" />}
@@ -78,15 +78,17 @@ export function PlayerBar() {
             </div>
           </div>
 
-          {/* dx: coda */}
+          {/* dx: autoplay, volume, coda */}
           <div className="hidden items-center justify-end gap-3 sm:flex">
-            <button onClick={() => setQueueOpen((v) => !v)} aria-label="Coda" className={queueOpen ? 'text-accent' : 'text-muted hover:text-text'}>
-              <ListMusic className="h-5 w-5" />
-            </button>
+            <button onClick={p.toggleAutoplay} aria-label="Autoplay" title="Autoplay: continua con tracce simili" className={p.autoplay ? 'text-accent' : 'text-muted hover:text-text'}><Radio className="h-[18px] w-[18px]" /></button>
+            <div className="flex items-center gap-1.5">
+              <button onClick={toggleMute} aria-label="Volume" className="text-muted hover:text-text">{p.volume === 0 ? <VolumeX className="h-[18px] w-[18px]" /> : <Volume2 className="h-[18px] w-[18px]" />}</button>
+              <input type="range" min={0} max={1} step={0.02} value={p.volume} onChange={(e) => p.setVolume(Number(e.target.value))} className="h-1 w-20 accent-[var(--accent)]" aria-label="Volume" />
+            </div>
+            <button onClick={() => setQueueOpen((v) => !v)} aria-label="Coda" className={queueOpen ? 'text-accent' : 'text-muted hover:text-text'}><ListMusic className="h-5 w-5" /></button>
           </div>
         </div>
 
-        {/* progress sottile su mobile */}
         <div onClick={onSeek} className="h-0.5 w-full cursor-pointer bg-line sm:hidden">
           <div className="h-full bg-accent" style={{ width: `${p.progress * 100}%` }} />
         </div>
@@ -98,10 +100,14 @@ export function PlayerBar() {
 function QueuePanel({ onClose }: { onClose: () => void }) {
   const p = usePlayer()
   return (
-    <div className="fixed bottom-[5.75rem] right-3 z-50 w-[22rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+    <div className="fixed bottom-[5.75rem] right-3 z-50 w-[23rem] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <p className="font-display text-sm font-bold text-text">In coda</p>
-        <button onClick={onClose} aria-label="Chiudi" className="text-muted hover:text-text"><X className="h-4 w-4" /></button>
+        <div className="flex items-center gap-3">
+          <button onClick={p.toggleAutoplay} className={`flex items-center gap-1 text-xs ${p.autoplay ? 'text-accent' : 'text-muted hover:text-text'}`}><Radio className="h-3.5 w-3.5" /> Autoplay</button>
+          {p.upNext.length > 0 && <button onClick={p.clearUpNext} className="text-xs text-muted hover:text-text">Svuota</button>}
+          <button onClick={onClose} aria-label="Chiudi" className="text-muted hover:text-text"><X className="h-4 w-4" /></button>
+        </div>
       </div>
       <div className="max-h-[55vh] overflow-y-auto p-2">
         {p.current && (
@@ -114,30 +120,33 @@ function QueuePanel({ onClose }: { onClose: () => void }) {
           <>
             <p className="px-2 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">Successive</p>
             {p.upNext.map((t, i) => (
-              <Row key={`${t.id}-${i}`} track={t} onClick={() => p.toggle(t)} />
+              <Row key={`${t.id}-${i}`} track={t} onClick={() => p.toggle(t)} onRemove={() => p.removeAt(p.pos + 1 + i)} />
             ))}
           </>
         ) : (
-          <p className="px-2 py-4 text-center text-sm text-muted">Niente altro in coda.</p>
+          <p className="px-2 py-4 text-center text-sm text-muted">{p.autoplay ? 'A fine coda parte l’autoplay con tracce simili.' : 'Niente altro in coda.'}</p>
         )}
       </div>
     </div>
   )
 }
 
-function Row({ track, active, onClick }: { track: { id: string; title: string | null; artist: string | null; cover_url: string | null }; active?: boolean; onClick: () => void }) {
+function Row({ track, active, onClick, onRemove }: { track: { id: string; title: string | null; artist: string | null; cover_url: string | null }; active?: boolean; onClick: () => void; onRemove?: () => void }) {
   return (
-    <button onClick={onClick} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-2">
-      <div className="h-9 w-9 shrink-0 overflow-hidden rounded bg-surface-2">
-        {track.cover_url
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={track.cover_url} alt="" className="h-full w-full object-cover" />
-          : <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-faint">{(track.title || '?').slice(0, 2).toUpperCase()}</div>}
-      </div>
-      <div className="min-w-0">
-        <p className={`truncate text-sm ${active ? 'font-semibold text-accent' : 'text-text'}`}>{track.title || 'Senza titolo'}</p>
-        <p className="truncate text-xs text-muted">{track.artist || 'Sconosciuto'}</p>
-      </div>
-    </button>
+    <div className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2">
+      <button onClick={onClick} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+        <div className="h-9 w-9 shrink-0 overflow-hidden rounded bg-surface-2">
+          {track.cover_url
+            // eslint-disable-next-line @next/next/no-img-element
+            ? <img src={track.cover_url} alt="" className="h-full w-full object-cover" />
+            : <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-faint">{(track.title || '?').slice(0, 2).toUpperCase()}</div>}
+        </div>
+        <div className="min-w-0">
+          <p className={`truncate text-sm ${active ? 'font-semibold text-accent' : 'text-text'}`}>{track.title || 'Senza titolo'}</p>
+          <p className="truncate text-xs text-muted">{track.artist || 'Sconosciuto'}</p>
+        </div>
+      </button>
+      {onRemove && <button onClick={onRemove} aria-label="Rimuovi" className="shrink-0 text-faint opacity-0 transition-opacity hover:text-text group-hover:opacity-100"><X className="h-4 w-4" /></button>}
+    </div>
   )
 }
