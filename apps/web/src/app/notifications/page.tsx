@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { Heart, MessageCircle, Repeat2, UserPlus, LogIn, Bell } from 'lucide-react'
+import { Heart, MessageCircle, Repeat2, UserPlus, LogIn, Bell, MessageSquare } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/app/app-shell'
@@ -11,10 +11,11 @@ export const metadata: Metadata = { title: 'Notifiche — Selecta' }
 
 interface Notif { id: string; actor_id: string | null; type: string; submission_id: string | null; created_at: string; read_at: string | null }
 
-const VERB: Record<string, string> = { like: 'ha messo like a', comment: 'ha commentato', repost: 'ha repostato', follow: 'ha iniziato a seguirti' }
+const VERB: Record<string, string> = { like: 'ha messo like a', comment: 'ha commentato', repost: 'ha repostato', follow: 'ha iniziato a seguirti', message: 'ti ha scritto' }
 const ICON: Record<string, React.ReactNode> = {
   like: <Heart className="h-4 w-4 text-accent" />, comment: <MessageCircle className="h-4 w-4 text-accent" />,
   repost: <Repeat2 className="h-4 w-4 text-accent" />, follow: <UserPlus className="h-4 w-4 text-accent" />,
+  message: <MessageSquare className="h-4 w-4 text-accent" />,
 }
 
 function timeAgo(iso: string): string {
@@ -67,7 +68,7 @@ export default async function NotificationsPage() {
             const actor = n.actor_id ? actorMap.get(n.actor_id) : null
             const name = actor?.display_name || (actor?.handle ? `@${actor.handle}` : 'Qualcuno')
             const trackTitle = n.submission_id ? subMap.get(n.submission_id) : null
-            const href = n.type === 'follow' ? (actor?.handle ? `/u/${actor.handle}` : '#') : n.submission_id ? `/catalog/${n.submission_id}` : '#'
+            const href = n.type === 'follow' ? (actor?.handle ? `/u/${actor.handle}` : '#') : n.type === 'message' ? (n.actor_id ? `/messages/${n.actor_id}` : '#') : n.submission_id ? `/catalog/${n.submission_id}` : '#'
             return (
               <Link key={n.id} href={href} className={`flex items-center gap-3 border-b border-line px-4 py-3 last:border-0 hover:bg-surface/60 ${n.read_at ? '' : 'bg-accent/[0.03]'}`}>
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-2">{ICON[n.type]}</span>

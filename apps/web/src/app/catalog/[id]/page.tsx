@@ -65,7 +65,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
   const [{ data: saveRows }, { data: likeRows }, { data: commentRows }] = await Promise.all([
     admin.from('track_saves').select('user_id').eq('submission_id', id).limit(12),
     admin.from('track_likes').select('user_id').eq('submission_id', id).limit(12),
-    admin.from('track_comments').select('id, body, created_at, user_id').eq('submission_id', id).order('created_at', { ascending: false }).limit(50),
+    admin.from('track_comments').select('id, body, created_at, user_id, position_sec').eq('submission_id', id).order('created_at', { ascending: false }).limit(50),
   ])
 
   const handleMap = await resolveHandles(admin, [
@@ -75,10 +75,11 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
   ])
 
   const savers = ((saveRows ?? []) as { user_id: string }[]).map((r) => handleMap.get(r.user_id)).filter((x): x is { handle: string | null; name: string | null } => !!x && !!x.handle)
-  const comments: CommentItem[] = ((commentRows ?? []) as { id: string; body: string; created_at: string | null; user_id: string }[]).map((c) => {
+  const comments: CommentItem[] = ((commentRows ?? []) as { id: string; body: string; created_at: string | null; user_id: string; position_sec: number | null }[]).map((c) => {
     const a = handleMap.get(c.user_id)
-    return { id: c.id, body: c.body, created_at: c.created_at, user_id: c.user_id, author_handle: a?.handle ?? null, author_name: a?.name ?? null }
+    return { id: c.id, body: c.body, created_at: c.created_at, user_id: c.user_id, author_handle: a?.handle ?? null, author_name: a?.name ?? null, position_sec: c.position_sec }
   })
+  const waveComments = comments.filter((c) => c.position_sec != null).map((c) => ({ pos: c.position_sec as number, body: c.body, author: c.author_name ?? c.author_handle }))
 
   return (
     <div className="min-h-screen bg-bg">
@@ -129,7 +130,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
         </div>
 
         <div className="mt-8 rounded-2xl border border-line bg-surface/40 p-4">
-          <Waveform track={toPlayerTrack(main)} />
+          <Waveform track={toPlayerTrack(main)} comments={waveComments} />
         </div>
 
         {similar.length > 0 && (

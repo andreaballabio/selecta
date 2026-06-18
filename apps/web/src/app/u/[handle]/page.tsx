@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import type { Metadata } from 'next'
-import { MapPin, Mail, ExternalLink, Sparkles, Users } from 'lucide-react'
+import { MapPin, Mail, ExternalLink, Sparkles, Users, MessageSquare } from 'lucide-react'
 import { deriveSoundDna } from '@/lib/sound-dna'
 import { FollowButton } from '@/components/social/follow-button'
 import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
@@ -120,6 +121,14 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
           </div>
           <div className="mt-4 flex items-center gap-2 sm:mt-0 sm:self-center">
             <FollowButton targetUserId={p.user_id} initialFollowing={!!followRow} initialFollowers={followersCount ?? 0} isSelf={isSelf} compact />
+            {!isSelf && (
+              <Link
+                href={`/messages/${p.user_id}`}
+                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-4 py-2 text-sm font-semibold text-zinc-200 transition-colors hover:text-white"
+              >
+                <MessageSquare className="h-4 w-4" /> Messaggio
+              </Link>
+            )}
             {p.contact_email && (
               <a
                 href={`mailto:${p.contact_email}`}

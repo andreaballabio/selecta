@@ -9,11 +9,12 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await ssr.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  let submissionId = '', body = ''
+  let submissionId = '', body = '', positionSec: number | null = null
   try {
     const json = await request.json()
     submissionId = typeof json.submission_id === 'string' ? json.submission_id : ''
     body = typeof json.body === 'string' ? json.body.trim() : ''
+    if (typeof json.position_sec === 'number' && isFinite(json.position_sec) && json.position_sec >= 0) positionSec = Math.round(json.position_sec)
   } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
 
   if (!submissionId) return NextResponse.json({ error: 'submission_id required' }, { status: 400 })
@@ -22,8 +23,8 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient()
   const { data: comment, error } = await supabase
     .from('track_comments')
-    .insert({ submission_id: submissionId, user_id: user.id, body })
-    .select('id, body, created_at')
+    .insert({ submission_id: submissionId, user_id: user.id, body, position_sec: positionSec })
+    .select('id, body, created_at, position_sec')
     .single()
   if (error || !comment) return NextResponse.json({ error: 'Commento fallito' }, { status: 500 })
 
