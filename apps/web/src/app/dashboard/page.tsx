@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { deriveSoundDna } from '@/lib/sound-dna'
+import { AppShell } from '@/components/app/app-shell'
 import {
   Loader2, Sparkles, BarChart3, IdCard, Music, LogOut, ArrowRight, ExternalLink,
   Play, Heart, Bookmark, Radio, Users, Settings, Pencil,
@@ -110,8 +111,7 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="min-h-screen">
-      <div className="mx-auto max-w-4xl px-4 py-10 sm:px-8">
+    <AppShell>
         {/* ── Header profilo ── */}
         <div className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -265,8 +265,7 @@ export default function DashboardPage() {
             <Row label="Preferenze" value="Notifiche e genere preferito" badge="presto" />
           </div>
         </div>
-      </div>
-    </div>
+      </AppShell>
   )
 }
 

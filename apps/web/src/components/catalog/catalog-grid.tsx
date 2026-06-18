@@ -5,7 +5,15 @@ import Link from 'next/link'
 import { Play, Pause, Heart, Bookmark, Music } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { bucketByKey } from '@/lib/sound-bucket'
-import { usePlayer } from '@/components/player/player-context'
+import { usePlayer, type PlayerTrack } from '@/components/player/player-context'
+
+export function toPlayerTrack(t: CatalogTrack): PlayerTrack {
+  return {
+    id: t.id, title: t.display_title, artist: t.display_artist,
+    cover_url: t.cover_url, file_url: t.file_url,
+    bucketLabel: bucketByKey(t.sound_bucket)?.label ?? null,
+  }
+}
 
 export interface CatalogTrack {
   id: string
@@ -76,12 +84,16 @@ export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
     )
   }
 
+  const playerList = tracks.map(toPlayerTrack)
+
   return (
     <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-      {tracks.map((t) => (
+      {tracks.map((t, i) => (
         <TrackCard
           key={t.id}
           track={t}
+          list={playerList}
+          index={i}
           liked={likedIds.has(t.id)}
           saved={savedIds.has(t.id)}
           likes={likes[t.id] ?? 0}
@@ -95,9 +107,10 @@ export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
 }
 
 function TrackCard({
-  track, liked, saved, likes, saves, onLike, onSave,
+  track, list, index, liked, saved, likes, saves, onLike, onSave,
 }: {
   track: CatalogTrack
+  list: PlayerTrack[]; index: number
   liked: boolean; saved: boolean; likes: number; saves: number
   onLike: () => void; onSave: () => void
 }) {
@@ -107,14 +120,7 @@ function TrackCard({
   const isCurrent = player.current?.id === track.id
   const isPlaying = isCurrent && player.playing
 
-  const play = () => player.toggle({
-    id: track.id,
-    title: track.display_title,
-    artist: track.display_artist,
-    cover_url: track.cover_url,
-    file_url: track.file_url,
-    bucketLabel: bucket?.label ?? null,
-  })
+  const play = () => { if (isCurrent) player.togglePlay(); else player.playQueue(list, index) }
 
   return (
     <div className="group rounded-2xl border border-line bg-surface/50 p-2.5 transition-all duration-300 hover:border-faint hover:bg-surface-2/60">

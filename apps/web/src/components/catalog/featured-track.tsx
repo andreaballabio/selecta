@@ -13,10 +13,13 @@ export function FeaturedTrack({ track }: { track: CatalogTrack }) {
   const isCurrent = player.current?.id === track.id
   const isPlaying = isCurrent && player.playing
 
-  const play = () => player.toggle({
-    id: track.id, title: track.display_title, artist: track.display_artist,
-    cover_url: track.cover_url, file_url: track.file_url, bucketLabel: bucket?.label ?? null,
-  })
+  const play = () => {
+    if (isCurrent) { player.togglePlay(); return }
+    player.playQueue([{
+      id: track.id, title: track.display_title, artist: track.display_artist,
+      cover_url: track.cover_url, file_url: track.file_url, bucketLabel: bucket?.label ?? null,
+    }], 0)
+  }
 
   return (
     <div className="relative overflow-hidden rounded-[2rem] border border-line bg-surface/50">
