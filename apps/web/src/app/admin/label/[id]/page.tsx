@@ -272,7 +272,7 @@ export default function LabelDetailPage() {
 
   const getStatusColor = (status: LabelDNA['dnaStatus']) => {
     switch (status) {
-      case 'excellent': return 'text-emerald-400 border-emerald-500 bg-emerald-900/20'
+      case 'excellent': return 'text-accent border-accent bg-surface-2'
       case 'ready': return 'text-blue-400 border-blue-500 bg-blue-900/20'
       case 'building': return 'text-yellow-400 border-yellow-500 bg-yellow-900/20'
       case 'incomplete': return 'text-red-400 border-red-500 bg-red-900/20'
@@ -920,20 +920,20 @@ export default function LabelDetailPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-black p-8 text-white">Caricamento...</div>
+    return <div className="min-h-screen bg-bg p-8 text-text">Caricamento...</div>
   }
 
   if (!label || !dna) {
-    return <div className="min-h-screen bg-black p-8 text-white">Label non trovata</div>
+    return <div className="min-h-screen bg-bg p-8 text-text">Label non trovata</div>
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className="min-h-screen bg-bg p-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8">
-          <a href="/admin/labels" className="text-sm text-zinc-500 hover:text-white">← Torna alle label</a>
-          <h1 className="mt-2 text-2xl font-bold text-white">{label.name}</h1>
-          <p className="text-zinc-500">{label.primary_genre} • {dna.totalTracks} tracce • {dna.uniqueArtists} artisti</p>
+          <a href="/admin/labels" className="text-sm text-muted hover:text-text">← Torna alle label</a>
+          <h1 className="mt-2 text-2xl font-bold text-text">{label.name}</h1>
+          <p className="text-muted">{label.primary_genre} • {dna.totalTracks} tracce • {dna.uniqueArtists} artisti</p>
         </div>
 
         {/* DNA Status Card */}
@@ -954,7 +954,7 @@ export default function LabelDetailPage() {
             </div>
           </div>
           
-          <div className="mt-4 h-2 rounded-full bg-black/30">
+          <div className="mt-4 h-2 rounded-full bg-bg/30">
             <div 
               className="h-2 rounded-full bg-current transition-all"
               style={{ width: `${dna.dnaProgress}%` }}
@@ -964,58 +964,58 @@ export default function LabelDetailPage() {
 
         {/* Stats Grid */}
         <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="rounded-lg bg-zinc-900/50 p-4 text-center">
-            <p className="text-2xl font-bold text-white">{dna.totalTracks}</p>
-            <p className="text-xs text-zinc-500">Tracce Totali</p>
+          <div className="rounded-lg bg-surface-2/50 p-4 text-center">
+            <p className="text-2xl font-bold text-text">{dna.totalTracks}</p>
+            <p className="text-xs text-muted">Tracce Totali</p>
           </div>
           
-          <div className="rounded-lg bg-emerald-900/20 p-4 text-center">
-            <p className="text-2xl font-bold text-emerald-400">{dna.matchedTracks}</p>
-            <p className="text-xs text-zinc-500">✓ Match Perfetti</p>
+          <div className="rounded-lg bg-surface-2 p-4 text-center">
+            <p className="text-2xl font-bold text-accent">{dna.matchedTracks}</p>
+            <p className="text-xs text-muted">✓ Match Perfetti</p>
           </div>
           
           <div className="rounded-lg bg-yellow-900/20 p-4 text-center">
             <p className="text-2xl font-bold text-yellow-400">{dna.needsReviewTracks}</p>
-            <p className="text-xs text-zinc-500">⚠️ Da Verificare</p>
+            <p className="text-xs text-muted">⚠️ Da Verificare</p>
           </div>
           
           <div className="rounded-lg bg-red-900/20 p-4 text-center">
             <p className="text-2xl font-bold text-red-400">{dna.failedTracks}</p>
-            <p className="text-xs text-zinc-500">✗ Non Trovati</p>
+            <p className="text-xs text-muted">✗ Non Trovati</p>
           </div>
         </div>
 
         {/* Quality Metrics */}
         <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <p className="text-sm text-zinc-500">Copertura Dati</p>
+          <div className="rounded-lg border border-line bg-surface-2/50 p-4">
+            <p className="text-sm text-muted">Copertura Dati</p>
             <div className="mt-2 flex items-end justify-between">
-              <p className="text-3xl font-bold text-white">{dna.coverageScore}%</p>
-              <p className="text-xs text-zinc-500">{dna.matchedTracks}/{dna.totalTracks} tracce</p>
+              <p className="text-3xl font-bold text-text">{dna.coverageScore}%</p>
+              <p className="text-xs text-muted">{dna.matchedTracks}/{dna.totalTracks} tracce</p>
             </div>
-            <div className="mt-2 h-2 rounded-full bg-zinc-800">
-              <div className="h-2 rounded-full bg-emerald-500" style={{ width: `${dna.coverageScore}%` }} />
+            <div className="mt-2 h-2 rounded-full bg-surface-2">
+              <div className="h-2 rounded-full bg-accent" style={{ width: `${dna.coverageScore}%` }} />
             </div>
           </div>
           
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <p className="text-sm text-zinc-500">Qualità Matching</p>
+          <div className="rounded-lg border border-line bg-surface-2/50 p-4">
+            <p className="text-sm text-muted">Qualità Matching</p>
             <div className="mt-2 flex items-end justify-between">
-              <p className="text-3xl font-bold text-white">{dna.qualityScore}%</p>
-              <p className="text-xs text-zinc-500">Confidence media</p>
+              <p className="text-3xl font-bold text-text">{dna.qualityScore}%</p>
+              <p className="text-xs text-muted">Confidence media</p>
             </div>
-            <div className="mt-2 h-2 rounded-full bg-zinc-800">
+            <div className="mt-2 h-2 rounded-full bg-surface-2">
               <div className="h-2 rounded-full bg-blue-500" style={{ width: `${dna.qualityScore}%` }} />
             </div>
           </div>
           
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <p className="text-sm text-zinc-500">Audio Disponibile</p>
+          <div className="rounded-lg border border-line bg-surface-2/50 p-4">
+            <p className="text-sm text-muted">Audio Disponibile</p>
             <div className="mt-2 flex items-end justify-between">
-              <p className="text-3xl font-bold text-white">{dna.hasPreview}</p>
-              <p className="text-xs text-zinc-500">Preview Spotify</p>
+              <p className="text-3xl font-bold text-text">{dna.hasPreview}</p>
+              <p className="text-xs text-muted">Preview Spotify</p>
             </div>
-            <div className="mt-2 h-2 rounded-full bg-zinc-800">
+            <div className="mt-2 h-2 rounded-full bg-surface-2">
               <div 
                 className="h-2 rounded-full bg-purple-500" 
                 style={{ width: `${dna.totalTracks > 0 ? (dna.hasPreview / dna.totalTracks) * 100 : 0}%` }} 
@@ -1025,13 +1025,13 @@ export default function LabelDetailPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-4 border-b border-zinc-800">
+        <div className="mb-6 flex gap-4 border-b border-line">
           <button
             onClick={() => setActiveTab('dna')}
             className={`pb-3 text-sm font-medium ${
               activeTab === 'dna' 
-                ? 'border-b-2 border-emerald-500 text-emerald-400' 
-                : 'text-zinc-500 hover:text-white'
+                ? 'border-b-2 border-accent text-accent' 
+                : 'text-muted hover:text-text'
             }`}
           >
             🧬 DNA Label
@@ -1040,8 +1040,8 @@ export default function LabelDetailPage() {
             onClick={() => setActiveTab('tracks')}
             className={`pb-3 text-sm font-medium ${
               activeTab === 'tracks' 
-                ? 'border-b-2 border-emerald-500 text-emerald-400' 
-                : 'text-zinc-500 hover:text-white'
+                ? 'border-b-2 border-accent text-accent' 
+                : 'text-muted hover:text-text'
             }`}
           >
             📋 Lista Tracce ({dna.totalTracks})
@@ -1050,8 +1050,8 @@ export default function LabelDetailPage() {
             onClick={() => setActiveTab('verify')}
             className={`pb-3 text-sm font-medium ${
               activeTab === 'verify' 
-                ? 'border-b-2 border-emerald-500 text-emerald-400' 
-                : 'text-zinc-500 hover:text-white'
+                ? 'border-b-2 border-accent text-accent' 
+                : 'text-muted hover:text-text'
             }`}
           >
             ⚠️ Da Verificare ({dna.needsReviewTracks})
@@ -1063,8 +1063,8 @@ export default function LabelDetailPage() {
             }}
             className={`pb-3 text-sm font-medium ${
               activeTab === 'tinder' 
-                ? 'border-b-2 border-emerald-500 text-emerald-400' 
-                : 'text-zinc-500 hover:text-white'
+                ? 'border-b-2 border-accent text-accent' 
+                : 'text-muted hover:text-text'
             }`}
           >
             🎯 Verifica Match
@@ -1073,8 +1073,8 @@ export default function LabelDetailPage() {
             onClick={() => setActiveTab('add')}
             className={`pb-3 text-sm font-medium ${
               activeTab === 'add' 
-                ? 'border-b-2 border-emerald-500 text-emerald-400' 
-                : 'text-zinc-500 hover:text-white'
+                ? 'border-b-2 border-accent text-accent' 
+                : 'text-muted hover:text-text'
             }`}
           >
             ➕ Aggiungi Tracce
@@ -1083,100 +1083,100 @@ export default function LabelDetailPage() {
 
         {/* Tab Content */}
         {activeTab === 'dna' && (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-            <h2 className="mb-4 font-semibold text-white">Analisi DNA Label</h2>
+          <div className="rounded-lg border border-line bg-surface-2/50 p-6">
+            <h2 className="mb-4 font-semibold text-text">Analisi DNA Label</h2>
             
             <div className="space-y-4">
-              <div className="flex justify-between border-b border-zinc-800 pb-2">
-                <span className="text-zinc-400">Stato Profilo</span>
-                <span className={dna.dnaStatus === 'excellent' ? 'text-emerald-400' : dna.dnaStatus === 'ready' ? 'text-blue-400' : 'text-yellow-400'}>
+              <div className="flex justify-between border-b border-line pb-2">
+                <span className="text-muted">Stato Profilo</span>
+                <span className={dna.dnaStatus === 'excellent' ? 'text-accent' : dna.dnaStatus === 'ready' ? 'text-blue-400' : 'text-yellow-400'}>
                   {getStatusLabel(dna.dnaStatus)}
                 </span>
               </div>
               
-              <div className="flex justify-between border-b border-zinc-800 pb-2">
-                <span className="text-zinc-400">Tracce Analizzate</span>
-                <span className="text-white">{dna.analyzedTracks} / {dna.totalTracks}</span>
+              <div className="flex justify-between border-b border-line pb-2">
+                <span className="text-muted">Tracce Analizzate</span>
+                <span className="text-text">{dna.analyzedTracks} / {dna.totalTracks}</span>
               </div>
               
-              <div className="flex justify-between border-b border-zinc-800 pb-2">
-                <span className="text-zinc-400">Artisti Unici</span>
-                <span className="text-white">{dna.uniqueArtists}</span>
+              <div className="flex justify-between border-b border-line pb-2">
+                <span className="text-muted">Artisti Unici</span>
+                <span className="text-text">{dna.uniqueArtists}</span>
               </div>
               
-              <div className="flex justify-between border-b border-zinc-800 pb-2">
-                <span className="text-zinc-400">Confidence Media</span>
-                <span className={dna.averageConfidence >= 0.8 ? 'text-emerald-400' : dna.averageConfidence >= 0.6 ? 'text-yellow-400' : 'text-red-400'}>
+              <div className="flex justify-between border-b border-line pb-2">
+                <span className="text-muted">Confidence Media</span>
+                <span className={dna.averageConfidence >= 0.8 ? 'text-accent' : dna.averageConfidence >= 0.6 ? 'text-yellow-400' : 'text-red-400'}>
                   {(dna.averageConfidence * 100).toFixed(0)}%
                 </span>
               </div>
               
-              <div className="flex justify-between border-b border-zinc-800 pb-2">
-                <span className="text-zinc-400">Preview Audio</span>
-                <span className="text-white">{dna.hasPreview} / {dna.totalTracks}</span>
+              <div className="flex justify-between border-b border-line pb-2">
+                <span className="text-muted">Preview Audio</span>
+                <span className="text-text">{dna.hasPreview} / {dna.totalTracks}</span>
               </div>
               
               {/* Statistiche Avanzate per Matching */}
-              <div className="mt-6 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-                <h3 className="mb-3 font-medium text-white">📊 Statistiche per Matching</h3>
+              <div className="mt-6 rounded-lg border border-line bg-surface p-4">
+                <h3 className="mb-3 font-medium text-text">📊 Statistiche per Matching</h3>
                 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded bg-zinc-900 p-3">
-                    <p className="text-xs text-zinc-500">Tracce con Preview</p>
-                    <p className="text-xl font-bold text-emerald-400">
+                  <div className="rounded bg-surface-2 p-3">
+                    <p className="text-xs text-muted">Tracce con Preview</p>
+                    <p className="text-xl font-bold text-accent">
                       {dna.totalTracks > 0 ? Math.round((dna.hasPreview / dna.totalTracks) * 100) : 0}%
                     </p>
                   </div>
                   
-                  <div className="rounded bg-zinc-900 p-3">
-                    <p className="text-xs text-zinc-500">Match Perfetti</p>
+                  <div className="rounded bg-surface-2 p-3">
+                    <p className="text-xs text-muted">Match Perfetti</p>
                     <p className="text-xl font-bold text-blue-400">
                       {dna.totalTracks > 0 ? Math.round((dna.matchedTracks / dna.totalTracks) * 100) : 0}%
                     </p>
                   </div>
                   
-                  <div className="rounded bg-zinc-900 p-3">
-                    <p className="text-xs text-zinc-500">Da Verificare</p>
+                  <div className="rounded bg-surface-2 p-3">
+                    <p className="text-xs text-muted">Da Verificare</p>
                     <p className="text-xl font-bold text-yellow-400">{dna.needsReviewTracks}</p>
                   </div>
                   
-                  <div className="rounded bg-zinc-900 p-3">
-                    <p className="text-xs text-zinc-500">Non Trovati</p>
+                  <div className="rounded bg-surface-2 p-3">
+                    <p className="text-xs text-muted">Non Trovati</p>
                     <p className="text-xl font-bold text-red-400">{dna.failedTracks}</p>
                   </div>
                 </div>
                 
-                <div className="mt-4 border-t border-zinc-800 pt-4">
-                  <h4 className="mb-2 text-sm font-medium text-white">Qualità del Dataset</h4>
+                <div className="mt-4 border-t border-line pt-4">
+                  <h4 className="mb-2 text-sm font-medium text-text">Qualità del Dataset</h4>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-zinc-400">Copertura Spotify</span>
-                      <span className={dna.coverageScore >= 70 ? 'text-emerald-400' : 'text-yellow-400'}>
+                      <span className="text-muted">Copertura Spotify</span>
+                      <span className={dna.coverageScore >= 70 ? 'text-accent' : 'text-yellow-400'}>
                         {dna.coverageScore}%
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-zinc-800">
-                      <div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${dna.coverageScore}%` }} />
+                    <div className="h-1.5 rounded-full bg-surface-2">
+                      <div className="h-1.5 rounded-full bg-accent" style={{ width: `${dna.coverageScore}%` }} />
                     </div>
                     
                     <div className="flex items-center justify-between text-sm">
-                      <span className="text-zinc-400">Affidabilità Media</span>
-                      <span className={dna.qualityScore >= 70 ? 'text-emerald-400' : 'text-yellow-400'}>
+                      <span className="text-muted">Affidabilità Media</span>
+                      <span className={dna.qualityScore >= 70 ? 'text-accent' : 'text-yellow-400'}>
                         {dna.qualityScore}%
                       </span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-zinc-800">
+                    <div className="h-1.5 rounded-full bg-surface-2">
                       <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${dna.qualityScore}%` }} />
                     </div>
                   </div>
                 </div>
               </div>
               
-              <div className="mt-6 rounded-lg bg-zinc-950 p-4">
-                <p className="text-sm text-zinc-400">
-                  <strong className="text-white">Cosa significa:</strong>
+              <div className="mt-6 rounded-lg bg-surface p-4">
+                <p className="text-sm text-muted">
+                  <strong className="text-text">Cosa significa:</strong>
                 </p>
-                <ul className="mt-2 space-y-1 text-sm text-zinc-500">
+                <ul className="mt-2 space-y-1 text-sm text-muted">
                   <li>• <strong>Copertura Dati:</strong> Percentuale di tracce con match Spotify trovato</li>
                   <li>• <strong>Qualità Matching:</strong> Affidabilità media delle corrispondenze trovate</li>
                   <li>• <strong>DNA Pronto:</strong> Il profilo è sufficiente per matching con tracce utente</li>
@@ -1184,17 +1184,17 @@ export default function LabelDetailPage() {
               </div>
 
               {/* ── PROFILO AUDIO IN TEMPO REALE ── */}
-              <div className="mt-6 rounded-lg border border-zinc-700 bg-zinc-950 p-4">
+              <div className="mt-6 rounded-lg border border-faint bg-surface p-4">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="font-semibold text-white">🎛️ Profilo Audio Label</h3>
+                  <h3 className="font-semibold text-text">🎛️ Profilo Audio Label</h3>
                   {labelProfile ? (
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-muted">
                         Aggiornato: {new Date(labelProfile.updated_at).toLocaleString('it-IT')}
                       </span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                         labelProfile.confidence_score >= 0.6
-                          ? 'bg-emerald-900/50 text-emerald-400'
+                          ? 'bg-surface-2 text-accent'
                           : labelProfile.confidence_score >= 0.3
                           ? 'bg-yellow-900/50 text-yellow-400'
                           : 'bg-red-900/50 text-red-400'
@@ -1207,7 +1207,7 @@ export default function LabelDetailPage() {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-xs text-zinc-600">Nessun profilo ancora — avvia l&apos;analisi audio</span>
+                    <span className="text-xs text-faint">Nessun profilo ancora — avvia l&apos;analisi audio</span>
                   )}
                 </div>
 
@@ -1215,19 +1215,19 @@ export default function LabelDetailPage() {
                   <div className="space-y-5">
                     {/* Confidence + tracce */}
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-lg bg-zinc-900 p-3">
-                        <p className="mb-1 text-xs text-zinc-500">Tracce nel profilo</p>
-                        <p className="text-2xl font-bold text-white">{labelProfile.analyzed_tracks_count}</p>
-                        <p className="text-xs text-zinc-600">min. 3 per il matching, 20 per profilo solido</p>
+                      <div className="rounded-lg bg-surface-2 p-3">
+                        <p className="mb-1 text-xs text-muted">Tracce nel profilo</p>
+                        <p className="text-2xl font-bold text-text">{labelProfile.analyzed_tracks_count}</p>
+                        <p className="text-xs text-faint">min. 3 per il matching, 20 per profilo solido</p>
                       </div>
-                      <div className="rounded-lg bg-zinc-900 p-3">
-                        <p className="mb-1 text-xs text-zinc-500">Confidence Score</p>
-                        <p className="text-2xl font-bold text-emerald-400">
+                      <div className="rounded-lg bg-surface-2 p-3">
+                        <p className="mb-1 text-xs text-muted">Confidence Score</p>
+                        <p className="text-2xl font-bold text-accent">
                           {Math.round(labelProfile.confidence_score * 100)}%
                         </p>
-                        <div className="mt-1 h-1.5 rounded-full bg-zinc-800">
+                        <div className="mt-1 h-1.5 rounded-full bg-surface-2">
                           <div
-                            className="h-1.5 rounded-full bg-emerald-500 transition-all"
+                            className="h-1.5 rounded-full bg-accent transition-all"
                             style={{ width: `${labelProfile.confidence_score * 100}%` }}
                           />
                         </div>
@@ -1236,7 +1236,7 @@ export default function LabelDetailPage() {
 
                     {/* Loudness & Energia */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Loudness & Energia</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Loudness & Energia</p>
                       <div className="grid grid-cols-2 gap-3">
                         <FeatureStat label="LUFS medio" value={labelProfile.avg_lufs} unit="dB" decimals={1} />
                         <FeatureStat label="Energia" value={labelProfile.avg_energy} unit="" decimals={3} />
@@ -1245,7 +1245,7 @@ export default function LabelDetailPage() {
 
                     {/* Timbro */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Timbro</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Timbro</p>
                       <div className="grid grid-cols-2 gap-3">
                         <FeatureStat label="Centroide spettrale" value={labelProfile.avg_spectral_centroid} unit="Hz" decimals={0} />
                         <FeatureStat label="Rolloff spettrale" value={labelProfile.avg_spectral_rolloff} unit="Hz" decimals={0} />
@@ -1254,7 +1254,7 @@ export default function LabelDetailPage() {
 
                     {/* Groove & Ritmo */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Groove & Ritmo</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Groove & Ritmo</p>
                       <div className="grid grid-cols-2 gap-3">
                         <FeatureBar label="Aggressività groove" value={labelProfile.avg_onset_strength} />
                         <FeatureBar label="Stabilità tempo" value={labelProfile.avg_tempo_stability} />
@@ -1263,7 +1263,7 @@ export default function LabelDetailPage() {
 
                     {/* Bilanciamento frequenze */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">Bilanciamento frequenze</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Bilanciamento frequenze</p>
                       <div className="grid grid-cols-3 gap-3">
                         <FeatureBar label="Sub / Bassi" value={labelProfile.avg_sub_ratio} />
                         <FeatureBar label="Mid presence" value={labelProfile.avg_mid_presence} />
@@ -1273,28 +1273,28 @@ export default function LabelDetailPage() {
 
                     {/* Consistenza stilistica (std dev) */}
                     <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                        Consistenza stilistica <span className="normal-case font-normal text-zinc-600">(deviazione standard — più basso = più coerente)</span>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">
+                        Consistenza stilistica <span className="normal-case font-normal text-faint">(deviazione standard — più basso = più coerente)</span>
                       </p>
                       <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-lg bg-zinc-900 p-3">
-                          <p className="text-xs text-zinc-500">Sub ratio</p>
-                          <p className="font-mono text-sm text-white">±{labelProfile.std_sub_ratio?.toFixed(3) ?? '—'}</p>
+                        <div className="rounded-lg bg-surface-2 p-3">
+                          <p className="text-xs text-muted">Sub ratio</p>
+                          <p className="font-mono text-sm text-text">±{labelProfile.std_sub_ratio?.toFixed(3) ?? '—'}</p>
                         </div>
-                        <div className="rounded-lg bg-zinc-900 p-3">
-                          <p className="text-xs text-zinc-500">Onset strength</p>
-                          <p className="font-mono text-sm text-white">±{labelProfile.std_onset_strength?.toFixed(3) ?? '—'}</p>
+                        <div className="rounded-lg bg-surface-2 p-3">
+                          <p className="text-xs text-muted">Onset strength</p>
+                          <p className="font-mono text-sm text-text">±{labelProfile.std_onset_strength?.toFixed(3) ?? '—'}</p>
                         </div>
-                        <div className="rounded-lg bg-zinc-900 p-3">
-                          <p className="text-xs text-zinc-500">Centroide spettrale</p>
-                          <p className="font-mono text-sm text-white">±{labelProfile.std_spectral_centroid?.toFixed(0) ?? '—'} Hz</p>
+                        <div className="rounded-lg bg-surface-2 p-3">
+                          <p className="text-xs text-muted">Centroide spettrale</p>
+                          <p className="font-mono text-sm text-text">±{labelProfile.std_spectral_centroid?.toFixed(0) ?? '—'} Hz</p>
                         </div>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-zinc-800 p-6 text-center">
-                    <p className="text-sm text-zinc-600">
+                  <div className="rounded-lg border border-dashed border-line p-6 text-center">
+                    <p className="text-sm text-faint">
                       Il profilo audio viene generato automaticamente dopo ogni analisi.<br />
                       Avvia l&apos;analisi audio dalla tab &quot;Lista Tracce&quot;.
                     </p>
@@ -1308,13 +1308,13 @@ export default function LabelDetailPage() {
         {activeTab === 'tracks' && (
           <div>
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-white">Lista Tracce</h2>
+              <h2 className="font-semibold text-text">Lista Tracce</h2>
               
               {!processing ? (
                 <div className="flex items-center gap-3">
                   {/* Contatori */}
-                  <div className="flex items-center gap-2 text-sm text-zinc-400">
-                    <span className="text-emerald-400">✓ {dna.hasAudioAnalysis} analizzate</span>
+                  <div className="flex items-center gap-2 text-sm text-muted">
+                    <span className="text-accent">✓ {dna.hasAudioAnalysis} analizzate</span>
                     <span>|</span>
                     <span className="text-yellow-400">
                       ⏳ {tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length} da analizzare
@@ -1344,7 +1344,7 @@ export default function LabelDetailPage() {
                   <button
                     onClick={startAudioAnalysis}
                     disabled={tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length === 0}
-                    className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-500 disabled:opacity-50"
+                    className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-text hover:bg-purple-500 disabled:opacity-50"
                   >
                     🔬 Avvia Analisi Audio
                   </button>
@@ -1361,8 +1361,8 @@ export default function LabelDetailPage() {
               ) : (
                 <div className="flex items-center gap-3">
                   {/* Countdown */}
-                  <div className="flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2">
-                    <span className="text-sm text-zinc-400">Prossima traccia:</span>
+                  <div className="flex items-center gap-2 rounded-lg border border-faint bg-surface-2 px-3 py-2">
+                    <span className="text-sm text-muted">Prossima traccia:</span>
                     <span className="text-lg font-bold text-purple-400">
                       {isPaused ? '⏸️ PAUSA' : `${countdown}s`}
                     </span>
@@ -1373,8 +1373,8 @@ export default function LabelDetailPage() {
                     onClick={togglePause}
                     className={`rounded-lg px-3 py-2 text-sm font-semibold ${
                       isPaused 
-                        ? 'bg-emerald-600 text-white hover:bg-emerald-500' 
-                        : 'bg-yellow-600 text-white hover:bg-yellow-500'
+                        ? 'bg-accent text-text hover:bg-accent' 
+                        : 'bg-yellow-600 text-text hover:bg-yellow-500'
                     }`}
                   >
                     {isPaused ? '▶️ Riprendi' : '⏸️ Pausa'}
@@ -1383,7 +1383,7 @@ export default function LabelDetailPage() {
                   {/* Pulsante Stop */}
                   <button
                     onClick={stopProcessing}
-                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-500"
+                    className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-text hover:bg-red-500"
                   >
                     ⏹️ Stop
                   </button>
@@ -1393,8 +1393,8 @@ export default function LabelDetailPage() {
             
             {/* Info durante processing */}
             {processing && (
-              <div className="mb-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-3">
-                <p className="text-sm text-zinc-400">
+              <div className="mb-4 rounded-lg border border-line bg-surface-2/50 p-3">
+                <p className="text-sm text-muted">
                   {isPaused ? (
                     '⏸️ Analisi audio in pausa. Clicca "Riprendi" per continuare.'
                   ) : (
@@ -1409,31 +1409,31 @@ export default function LabelDetailPage() {
               </div>
             )}
             
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
+            <div className="rounded-lg border border-line bg-surface-2/50">
               <div className="max-h-[60vh] overflow-auto">
                 <table className="w-full">
-                  <thead className="sticky top-0 bg-zinc-900">
-                    <tr className="border-b border-zinc-800">
-                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Artista</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Titolo</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Stato</th>
-                      <th className="px-4 py-3 text-left text-sm font-medium text-zinc-400">Analisi</th>
+                  <thead className="sticky top-0 bg-surface-2">
+                    <tr className="border-b border-line">
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted">Artista</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted">Titolo</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted">Stato</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium text-muted">Analisi</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800">
+                  <tbody className="divide-y divide-line">
                     {tracks.map((track) => (
                       <tr 
                         key={track.id} 
-                        className="cursor-pointer hover:bg-zinc-800/50"
+                        className="cursor-pointer hover:bg-surface-2/50"
                         onClick={() => openTrackModal(track)}
                       >
-                        <td className="px-4 py-3 text-sm text-white">{track.artist_name || '-'}</td>
-                        <td className="px-4 py-3 text-sm text-white">{track.track_title}</td>
+                        <td className="px-4 py-3 text-sm text-text">{track.artist_name || '-'}</td>
+                        <td className="px-4 py-3 text-sm text-text">{track.track_title}</td>
                         <td className="px-4 py-3">
-                          {track.status === 'matched' && <span className="rounded bg-emerald-900/50 px-2 py-1 text-xs text-emerald-400">✓ Match</span>}
+                          {track.status === 'matched' && <span className="rounded bg-surface-2 px-2 py-1 text-xs text-accent">✓ Match</span>}
                           {track.status === 'needs_review' && <span className="rounded bg-yellow-900/50 px-2 py-1 text-xs text-yellow-400">⚠ Verifica</span>}
                           {track.status === 'failed' && <span className="rounded bg-red-900/50 px-2 py-1 text-xs text-red-400">✗ Non trovato</span>}
-                          {track.status === 'pending' && <span className="rounded bg-zinc-700 px-2 py-1 text-xs text-zinc-400">⏳ In attesa</span>}
+                          {track.status === 'pending' && <span className="rounded bg-surface-2 px-2 py-1 text-xs text-muted">⏳ In attesa</span>}
                         </td>
                         <td className="px-4 py-3">
                           {track.analysis_status === 'analyzed' && (
@@ -1469,9 +1469,9 @@ export default function LabelDetailPage() {
                             </div>
                           )}
                           {track.analysis_status === 'analyzing' && <span className="text-xs text-yellow-400">🔬 Analizzando...</span>}
-                          {(track.analysis_status === 'pending' || !track.analysis_status) && track.status === 'matched' && <span className="text-xs text-zinc-500">⏳ In attesa</span>}
+                          {(track.analysis_status === 'pending' || !track.analysis_status) && track.status === 'matched' && <span className="text-xs text-muted">⏳ In attesa</span>}
                           {track.analysis_status === 'failed' && <span className="text-xs text-red-400">✗ Errore</span>}
-                          {(track.status !== 'matched' || !track.spotify_preview_url) && <span className="text-xs text-zinc-600">-</span>}
+                          {(track.status !== 'matched' || !track.spotify_preview_url) && <span className="text-xs text-faint">-</span>}
                         </td>
                       </tr>
                     ))}
@@ -1484,11 +1484,11 @@ export default function LabelDetailPage() {
 
         {activeTab === 'verify' && (
           <div>
-            <h2 className="mb-4 font-semibold text-white">Tracce da Verificare</h2>
+            <h2 className="mb-4 font-semibold text-text">Tracce da Verificare</h2>
             
             {tracks.filter(t => t.status === 'needs_review').length === 0 ? (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-                <p className="text-zinc-500">🎉 Nessuna traccia da verificare!</p>
+              <div className="rounded-lg border border-line bg-surface-2/50 p-8 text-center">
+                <p className="text-muted">🎉 Nessuna traccia da verificare!</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1497,19 +1497,19 @@ export default function LabelDetailPage() {
                   .map((track) => (
                     <div 
                       key={track.id} 
-                      className="cursor-pointer rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 hover:border-zinc-700"
+                      className="cursor-pointer rounded-lg border border-line bg-surface-2/50 p-4 hover:border-faint"
                       onClick={() => openTrackModal(track)}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-white">{track.artist_name} - {track.track_title}</p>
-                          <p className="text-sm text-zinc-500">Confidence: {(track.spotify_match_confidence || 0) * 100}%</p>
+                          <p className="font-medium text-text">{track.artist_name} - {track.track_title}</p>
+                          <p className="text-sm text-muted">Confidence: {(track.spotify_match_confidence || 0) * 100}%</p>
                         </div>
                         
                         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => verifyTrack(track.id, true)}
-                            className="rounded bg-emerald-900/50 px-3 py-1 text-sm text-emerald-400 hover:bg-emerald-900"
+                            className="rounded bg-surface-2 px-3 py-1 text-sm text-accent hover:bg-surface-2"
                           >
                             ✓ Conferma
                           </button>
@@ -1529,17 +1529,17 @@ export default function LabelDetailPage() {
         )}
 
         {activeTab === 'add' && (
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-            <h2 className="mb-4 font-semibold text-white">Aggiungi Tracce</h2>
+          <div className="rounded-lg border border-line bg-surface-2/50 p-6">
+            <h2 className="mb-4 font-semibold text-text">Aggiungi Tracce</h2>
             
-            <p className="mb-4 text-sm text-zinc-400">
+            <p className="mb-4 text-sm text-muted">
               Incolla la lista tracce da Beatport/Traxsource
             </p>
             
             <textarea
               value={rawText}
               onChange={(e) => setRawText(e.target.value)}
-              className="mb-4 h-48 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white font-mono text-sm"
+              className="mb-4 h-48 w-full rounded-lg border border-line bg-surface px-4 py-3 text-text font-mono text-sm"
               placeholder="Adam Beyer - Your Mind&#10;Cut The Noise Original Mix Fer BR&#10;..."
             />
             
@@ -1547,13 +1547,13 @@ export default function LabelDetailPage() {
               <button
                 onClick={parseText}
                 disabled={!rawText.trim()}
-                className="rounded-lg bg-zinc-700 px-4 py-2 text-white hover:bg-zinc-600 disabled:opacity-50"
+                className="rounded-lg bg-surface-2 px-4 py-2 text-text hover:bg-surface-2 disabled:opacity-50"
               >
                 🔍 Analizza Testo
               </button>
               
               {parsedCount > 0 && (
-                <p className="text-sm text-emerald-400">
+                <p className="text-sm text-accent">
                   {parsedCount} tracce riconosciute
                 </p>
               )}
@@ -1563,7 +1563,7 @@ export default function LabelDetailPage() {
               <button
                 onClick={addTracks}
                 disabled={processing}
-                className="mt-4 rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-black hover:bg-emerald-400 disabled:opacity-50"
+                className="mt-4 rounded-lg bg-accent px-6 py-3 font-semibold text-accent-ink hover:bg-accent disabled:opacity-50"
               >
                 {processing ? 'Aggiungendo...' : `Aggiungi ${parsedCount} Tracce`}
               </button>
@@ -1576,14 +1576,14 @@ export default function LabelDetailPage() {
           <div>
             {verifying ? (
               <div className="flex h-64 items-center justify-center">
-                <p className="text-zinc-400">Caricamento tracce...</p>
+                <p className="text-muted">Caricamento tracce...</p>
               </div>
             ) : pendingTracks.length === 0 ? (
-              <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-8 text-center">
-                <p className="text-zinc-400">Nessuna traccia da verificare!</p>
+              <div className="rounded-lg border border-line bg-surface-2/50 p-8 text-center">
+                <p className="text-muted">Nessuna traccia da verificare!</p>
                 <button
                   onClick={() => setActiveTab('tracks')}
-                  className="mt-4 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black hover:bg-emerald-400"
+                  className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent"
                 >
                   Torna alle tracce
                 </button>
@@ -1591,19 +1591,19 @@ export default function LabelDetailPage() {
             ) : (
               <div>
                 {/* Progresso */}
-                <div className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                <div className="mb-6 rounded-lg border border-line bg-surface-2/50 p-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-zinc-400">Traccia {currentTrackIndex + 1} di {pendingTracks.length}</p>
-                      <div className="mt-2 h-2 w-48 rounded-full bg-zinc-800">
+                      <p className="text-sm text-muted">Traccia {currentTrackIndex + 1} di {pendingTracks.length}</p>
+                      <div className="mt-2 h-2 w-48 rounded-full bg-surface-2">
                         <div 
-                          className="h-2 rounded-full bg-emerald-500 transition-all" 
+                          className="h-2 rounded-full bg-accent transition-all" 
                           style={{ width: `${((currentTrackIndex + 1) / pendingTracks.length) * 100}%` }} 
                         />
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-emerald-400">✓ {verifiedCount} confermate</p>
+                      <p className="text-sm text-accent">✓ {verifiedCount} confermate</p>
                       <p className="text-sm text-red-400">✗ {rejectedCount} rifiutate</p>
                     </div>
                   </div>
@@ -1615,17 +1615,17 @@ export default function LabelDetailPage() {
                   if (!currentTrack) return null
                   
                   return (
-                    <div className="rounded-lg border border-zinc-700 bg-zinc-900 p-6">
+                    <div className="rounded-lg border border-faint bg-surface-2 p-6">
                       {/* Titolo Originale */}
                       <div className="mb-6 text-center">
-                        <p className="text-sm text-zinc-500">Traccia da verificare:</p>
-                        <h3 className="mt-2 text-2xl font-bold text-white">{currentTrack.artist_name}</h3>
-                        <p className="text-xl text-zinc-300">{currentTrack.track_title}</p>
+                        <p className="text-sm text-muted">Traccia da verificare:</p>
+                        <h3 className="mt-2 text-2xl font-bold text-text">{currentTrack.artist_name}</h3>
+                        <p className="text-xl text-text">{currentTrack.track_title}</p>
                       </div>
 
                       {/* Match Proposti */}
                       <div className="mb-6">
-                        <p className="mb-3 text-center text-sm text-zinc-400">
+                        <p className="mb-3 text-center text-sm text-muted">
                           {currentTrack.proposed_matches?.length > 0 
                             ? 'Scegli il match corretto (Deezer = arancione, Spotify = verde):' 
                             : 'Nessun match trovato automaticamente'}
@@ -1637,34 +1637,34 @@ export default function LabelDetailPage() {
                               key={match.id}
                               className={`flex items-center gap-4 rounded-lg border p-4 ${
                                 idx === 0 
-                                  ? 'border-emerald-500/50 bg-emerald-950/20' 
-                                  : 'border-zinc-700 bg-zinc-800/50'
+                                  ? 'border-accent/50 bg-surface-2' 
+                                  : 'border-faint bg-surface-2/50'
                               } ${!match.preview_url ? 'opacity-60' : ''}`}
                             >
                               {match.image ? (
                                 <img src={match.image} alt="" className="h-16 w-16 rounded object-cover" />
                               ) : (
-                                <div className="flex h-16 w-16 items-center justify-center rounded bg-zinc-700 text-2xl">
+                                <div className="flex h-16 w-16 items-center justify-center rounded bg-surface-2 text-2xl">
                                   🎵
                                 </div>
                               )}
                               
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <p className="truncate font-bold text-white">{match.name}</p>
+                                  <p className="truncate font-bold text-text">{match.name}</p>
                                   {match.source === 'deezer' && (
-                                    <span className="rounded bg-orange-600 px-1.5 py-0.5 text-xs text-white">Deezer</span>
+                                    <span className="rounded bg-orange-600 px-1.5 py-0.5 text-xs text-text">Deezer</span>
                                   )}
                                   {match.source === 'spotify' && (
-                                    <span className="rounded bg-emerald-600 px-1.5 py-0.5 text-xs text-white">Spotify</span>
+                                    <span className="rounded bg-accent px-1.5 py-0.5 text-xs text-text">Spotify</span>
                                   )}
                                   {!match.preview_url && (
                                     <span className="rounded bg-red-900/50 px-1.5 py-0.5 text-xs text-red-400">No Preview</span>
                                   )}
                                 </div>
-                                <p className="truncate text-zinc-400">{match.artist}</p>
-                                <p className="truncate text-sm text-zinc-500">{match.album}</p>
-                                <div className="mt-1 flex gap-3 text-xs text-zinc-500">
+                                <p className="truncate text-muted">{match.artist}</p>
+                                <p className="truncate text-sm text-muted">{match.album}</p>
+                                <div className="mt-1 flex gap-3 text-xs text-muted">
                                   <span>⏱ {match.duration_formatted}</span>
                                   <span>♥ {match.rank || match.popularity}/100</span>
                                   {match.explicit && <span className="text-red-400">🔞 Explicit</span>}
@@ -1674,9 +1674,9 @@ export default function LabelDetailPage() {
                               <div className="flex flex-col gap-2">
                                 <button
                                   onClick={() => confirmCurrentMatch(match)}
-                                  className={`rounded px-4 py-2 text-sm font-semibold text-white ${
+                                  className={`rounded px-4 py-2 text-sm font-semibold text-text ${
                                     match.preview_url 
-                                      ? 'bg-emerald-600 hover:bg-emerald-500' 
+                                      ? 'bg-accent hover:bg-accent' 
                                       : 'bg-yellow-600 hover:bg-yellow-500'
                                   }`}
                                 >
@@ -1686,7 +1686,7 @@ export default function LabelDetailPage() {
                                   href={match.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="rounded bg-zinc-700 px-4 py-1 text-center text-xs text-zinc-300 hover:bg-zinc-600"
+                                  className="rounded bg-surface-2 px-4 py-1 text-center text-xs text-text hover:bg-surface-2"
                                 >
                                   Apri {match.source === 'deezer' ? 'Deezer' : 'Spotify'}
                                 </a>
@@ -1700,14 +1700,14 @@ export default function LabelDetailPage() {
                       <div className="flex flex-wrap items-center justify-center gap-3">
                         <button
                           onClick={rejectCurrentMatch}
-                          className="rounded-lg bg-red-600 px-6 py-3 font-semibold text-white hover:bg-red-500"
+                          className="rounded-lg bg-red-600 px-6 py-3 font-semibold text-text hover:bg-red-500"
                         >
                           ✗ Nessuno è corretto
                         </button>
                         
                         <button
                           onClick={skipCurrentTrack}
-                          className="rounded-lg bg-zinc-700 px-6 py-3 font-semibold text-white hover:bg-zinc-600"
+                          className="rounded-lg bg-surface-2 px-6 py-3 font-semibold text-text hover:bg-surface-2"
                         >
                           Salta per ora
                         </button>
@@ -1715,7 +1715,7 @@ export default function LabelDetailPage() {
                         {currentTrackIndex > 0 && (
                           <button
                             onClick={prevTrack}
-                            className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-500"
+                            className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-text hover:bg-blue-500"
                           >
                             ← Precedente
                           </button>
@@ -1723,8 +1723,8 @@ export default function LabelDetailPage() {
                       </div>
 
                       {/* Cerca Alternativa */}
-                      <div className="mt-6 border-t border-zinc-800 pt-4">
-                        <p className="mb-2 text-sm text-zinc-500">Cerca un altro match:</p>
+                      <div className="mt-6 border-t border-line pt-4">
+                        <p className="mb-2 text-sm text-muted">Cerca un altro match:</p>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -1734,7 +1734,7 @@ export default function LabelDetailPage() {
                                 searchAlternative((e.target as HTMLInputElement).value)
                               }
                             }}
-                            className="flex-1 rounded border border-zinc-700 bg-zinc-800 px-3 py-2 text-white"
+                            className="flex-1 rounded border border-faint bg-surface-2 px-3 py-2 text-text"
                             placeholder="Artista - Titolo"
                           />
                           <button
@@ -1743,7 +1743,7 @@ export default function LabelDetailPage() {
                               searchAlternative(input?.value || '')
                             }}
                             disabled={searching}
-                            className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-500 disabled:opacity-50"
+                            className="rounded bg-blue-600 px-4 py-2 text-text hover:bg-blue-500 disabled:opacity-50"
                           >
                             {searching ? '...' : 'Cerca'}
                           </button>
@@ -1759,14 +1759,14 @@ export default function LabelDetailPage() {
 
         {/* Modal Dettagli Traccia */}
         {showTrackModal && modalTrack && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-            <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg border border-zinc-700 bg-zinc-900">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/80 p-4">
+            <div className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-lg border border-faint bg-surface-2">
               {/* Header */}
-              <div className="sticky top-0 flex items-center justify-between border-b border-zinc-800 bg-zinc-900 p-4">
-                <h3 className="text-lg font-bold text-white">Dettagli Traccia</h3>
+              <div className="sticky top-0 flex items-center justify-between border-b border-line bg-surface-2 p-4">
+                <h3 className="text-lg font-bold text-text">Dettagli Traccia</h3>
                 <button
                   onClick={closeTrackModal}
-                  className="rounded p-1 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                  className="rounded p-1 text-muted hover:bg-surface-2 hover:text-text"
                 >
                   ✕
                 </button>
@@ -1775,28 +1775,28 @@ export default function LabelDetailPage() {
               <div className="p-6">
                 {/* Confronto titoli */}
                 <div className="mb-6 grid grid-cols-2 gap-4">
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-                    <p className="mb-2 text-xs uppercase text-zinc-500">Originale (inserito)</p>
-                    <p className="font-medium text-white">{modalTrack.artist_name}</p>
-                    <p className="text-zinc-400">{modalTrack.track_title}</p>
+                  <div className="rounded-lg border border-line bg-surface p-4">
+                    <p className="mb-2 text-xs uppercase text-muted">Originale (inserito)</p>
+                    <p className="font-medium text-text">{modalTrack.artist_name}</p>
+                    <p className="text-muted">{modalTrack.track_title}</p>
                   </div>
                   
-                  <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-4">
-                    <p className="mb-2 text-xs uppercase text-zinc-500">Spotify Match</p>
+                  <div className="rounded-lg border border-line bg-surface p-4">
+                    <p className="mb-2 text-xs uppercase text-muted">Spotify Match</p>
                     {modalTrack.spotify_track_id ? (
                       <>
-                        <p className="font-medium text-white">{modalTrack.spotify_artist_name}</p>
-                        <p className="text-zinc-400">{modalTrack.spotify_track_name}</p>
+                        <p className="font-medium text-text">{modalTrack.spotify_artist_name}</p>
+                        <p className="text-muted">{modalTrack.spotify_track_name}</p>
                       </>
                     ) : (
-                      <p className="text-zinc-500">Nessun match trovato</p>
+                      <p className="text-muted">Nessun match trovato</p>
                     )}
                   </div>
                 </div>
 
                 {/* Dettagli Spotify */}
                 {modalTrack.spotify_track_id && (
-                  <div className="mb-6 rounded-lg border border-zinc-800 bg-zinc-950 p-4">
+                  <div className="mb-6 rounded-lg border border-line bg-surface p-4">
                     <div className="flex gap-4">
                       {modalTrack.spotify_album_image && (
                         <img
@@ -1806,14 +1806,14 @@ export default function LabelDetailPage() {
                         />
                       )}
                       <div className="flex-1">
-                        <p className="text-sm text-zinc-500">Album</p>
-                        <p className="text-white">{modalTrack.spotify_album_name}</p>
+                        <p className="text-sm text-muted">Album</p>
+                        <p className="text-text">{modalTrack.spotify_album_name}</p>
                         
                         <div className="mt-2 flex gap-4 text-sm">
-                          <span className="text-zinc-400">
+                          <span className="text-muted">
                             Durata: {formatDuration(modalTrack.spotify_duration_ms)}
                           </span>
-                          <span className="text-zinc-400">
+                          <span className="text-muted">
                             Confidence: {Math.round((modalTrack.spotify_match_confidence || 0) * 100)}%
                           </span>
                         </div>
@@ -1823,7 +1823,7 @@ export default function LabelDetailPage() {
                             href={modalTrack.spotify_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-2 inline-flex items-center gap-2 rounded bg-emerald-500 px-3 py-1.5 text-sm font-medium text-black hover:bg-emerald-400"
+                            className="mt-2 inline-flex items-center gap-2 rounded bg-accent px-3 py-1.5 text-sm font-medium text-accent-ink hover:bg-accent"
                           >
                             🎵 Apri su Spotify
                           </a>
@@ -1837,7 +1837,7 @@ export default function LabelDetailPage() {
                 <div className="mb-6 flex flex-wrap gap-3">
                   <button
                     onClick={() => setShowSearchPanel(!showSearchPanel)}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-white hover:bg-blue-500"
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-text hover:bg-blue-500"
                   >
                     🔍 Cerca Alternativa
                   </button>
@@ -1849,7 +1849,7 @@ export default function LabelDetailPage() {
                           verifyTrack(modalTrack.id, true)
                           closeTrackModal()
                         }}
-                        className="rounded-lg bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500"
+                        className="rounded-lg bg-accent px-4 py-2 text-text hover:bg-accent"
                       >
                         ✓ Conferma Match
                       </button>
@@ -1858,7 +1858,7 @@ export default function LabelDetailPage() {
                           verifyTrack(modalTrack.id, false)
                           closeTrackModal()
                         }}
-                        className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-500"
+                        className="rounded-lg bg-red-600 px-4 py-2 text-text hover:bg-red-500"
                       >
                         ✗ Rifiuta
                       </button>
@@ -1868,7 +1868,7 @@ export default function LabelDetailPage() {
                   {/* Azioni sempre disponibili */}
                   <button
                     onClick={() => resetTrack(modalTrack.id)}
-                    className="rounded-lg bg-yellow-600 px-4 py-2 text-white hover:bg-yellow-500"
+                    className="rounded-lg bg-yellow-600 px-4 py-2 text-text hover:bg-yellow-500"
                     title="Resetta per nuova analisi"
                   >
                     🔄 Rianalizza
@@ -1876,7 +1876,7 @@ export default function LabelDetailPage() {
                   
                   <button
                     onClick={() => deleteTrack(modalTrack.id)}
-                    className="rounded-lg bg-zinc-700 px-4 py-2 text-white hover:bg-red-600"
+                    className="rounded-lg bg-surface-2 px-4 py-2 text-text hover:bg-red-600"
                     title="Elimina traccia"
                   >
                     🗑️ Elimina
@@ -1885,8 +1885,8 @@ export default function LabelDetailPage() {
 
                 {/* Pannello ricerca */}
                 {showSearchPanel && (
-                  <div className="rounded-lg border border-zinc-700 bg-zinc-950 p-4">
-                    <h4 className="mb-3 font-medium text-white">Cerca su Spotify</h4>
+                  <div className="rounded-lg border border-faint bg-surface p-4">
+                    <h4 className="mb-3 font-medium text-text">Cerca su Spotify</h4>
                     
                     <div className="mb-4 flex gap-2">
                       <input
@@ -1894,13 +1894,13 @@ export default function LabelDetailPage() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && searchSpotify()}
-                        className="flex-1 rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white"
+                        className="flex-1 rounded border border-faint bg-surface-2 px-3 py-2 text-text"
                         placeholder="Artista - Titolo"
                       />
                       <button
                         onClick={searchSpotify}
                         disabled={searching || searchQuery.length < 3}
-                        className="rounded bg-emerald-600 px-4 py-2 text-white hover:bg-emerald-500 disabled:opacity-50"
+                        className="rounded bg-accent px-4 py-2 text-text hover:bg-accent disabled:opacity-50"
                       >
                         {searching ? '...' : 'Cerca'}
                       </button>
@@ -1909,34 +1909,34 @@ export default function LabelDetailPage() {
                     {/* Risultati ricerca */}
                     {searchResults.length > 0 && (
                       <div className="space-y-2">
-                        <p className="text-sm text-zinc-500">{searchResults.length} risultati:</p>
+                        <p className="text-sm text-muted">{searchResults.length} risultati:</p>
                         {searchResults.map((track) => (
                           <div
                             key={track.id}
-                            className="flex items-center gap-3 rounded border border-zinc-800 bg-zinc-900 p-3 hover:border-zinc-600"
+                            className="flex items-center gap-3 rounded border border-line bg-surface-2 p-3 hover:border-faint"
                           >
                             {track.image ? (
                               <img src={track.image} alt="" className="h-12 w-12 rounded object-cover" />
                             ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded bg-zinc-800 text-zinc-600">
+                              <div className="flex h-12 w-12 items-center justify-center rounded bg-surface-2 text-faint">
                                 🎵
                               </div>
                             )}
                             
                             <div className="flex-1 min-w-0">
-                              <p className="truncate font-medium text-white">{track.name}</p>
-                              <p className="truncate text-sm text-zinc-400">{track.artist}</p>
-                              <p className="truncate text-xs text-zinc-500">{track.album}</p>
+                              <p className="truncate font-medium text-text">{track.name}</p>
+                              <p className="truncate text-sm text-muted">{track.artist}</p>
+                              <p className="truncate text-xs text-muted">{track.album}</p>
                             </div>
                             
-                            <div className="text-right text-sm text-zinc-500">
+                            <div className="text-right text-sm text-muted">
                               <p>{track.duration_formatted}</p>
                               <p>♥ {track.popularity}</p>
                             </div>
                             
                             <button
                               onClick={() => updateManualMatch(track)}
-                              className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-500"
+                              className="rounded bg-blue-600 px-3 py-1.5 text-sm text-text hover:bg-blue-500"
                             >
                               Usa questo
                             </button>
@@ -1948,7 +1948,7 @@ export default function LabelDetailPage() {
                     {/* Match suggeriti (se presenti) */}
                     {modalTrack.suggested_matches && modalTrack.suggested_matches.length > 0 && !searchResults.length && (
                       <div className="mt-4 space-y-2">
-                        <p className="text-sm text-zinc-500">Match suggeriti dal sistema:</p>
+                        <p className="text-sm text-muted">Match suggeriti dal sistema:</p>
                         {modalTrack.suggested_matches.map((track: any, idx: number) => (
                           <div
                             key={track.id || idx}
@@ -1957,19 +1957,19 @@ export default function LabelDetailPage() {
                             {track.image ? (
                               <img src={track.image} alt="" className="h-12 w-12 rounded object-cover" />
                             ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded bg-zinc-800 text-zinc-600">
+                              <div className="flex h-12 w-12 items-center justify-center rounded bg-surface-2 text-faint">
                                 🎵
                               </div>
                             )}
                             
                             <div className="flex-1 min-w-0">
-                              <p className="truncate font-medium text-white">{track.name}</p>
-                              <p className="truncate text-sm text-zinc-400">{track.artist}</p>
+                              <p className="truncate font-medium text-text">{track.name}</p>
+                              <p className="truncate text-sm text-muted">{track.artist}</p>
                             </div>
                             
                             <button
                               onClick={() => updateManualMatch(track as SpotifyTrack)}
-                              className="rounded bg-yellow-600 px-3 py-1.5 text-sm text-white hover:bg-yellow-500"
+                              className="rounded bg-yellow-600 px-3 py-1.5 text-sm text-text hover:bg-yellow-500"
                             >
                               Usa questo
                             </button>
@@ -2001,9 +2001,9 @@ function FeatureStat({
   decimals: number
 }) {
   return (
-    <div className="rounded-lg bg-zinc-900 p-3">
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="mt-0.5 font-mono text-lg font-semibold text-white">
+    <div className="rounded-lg bg-surface-2 p-3">
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-0.5 font-mono text-lg font-semibold text-text">
         {value != null ? `${value.toFixed(decimals)}${unit ? ' ' + unit : ''}` : '—'}
       </p>
     </div>
@@ -2015,20 +2015,20 @@ function FeatureBar({ label, value }: { label: string; value: number | null }) {
   const pct = value != null ? Math.min(Math.max(value, 0), 1) * 100 : null
   const color =
     pct == null
-      ? 'bg-zinc-700'
+      ? 'bg-surface-2'
       : pct >= 66
-      ? 'bg-emerald-500'
+      ? 'bg-accent'
       : pct >= 33
       ? 'bg-yellow-500'
       : 'bg-blue-500'
 
   return (
-    <div className="rounded-lg bg-zinc-900 p-3">
+    <div className="rounded-lg bg-surface-2 p-3">
       <div className="mb-1 flex items-center justify-between">
-        <p className="text-xs text-zinc-500">{label}</p>
-        <p className="font-mono text-xs text-white">{pct != null ? `${pct.toFixed(0)}%` : '—'}</p>
+        <p className="text-xs text-muted">{label}</p>
+        <p className="font-mono text-xs text-text">{pct != null ? `${pct.toFixed(0)}%` : '—'}</p>
       </div>
-      <div className="h-1.5 rounded-full bg-zinc-800">
+      <div className="h-1.5 rounded-full bg-surface-2">
         <div
           className={`h-1.5 rounded-full transition-all ${color}`}
           style={{ width: `${pct ?? 0}%` }}

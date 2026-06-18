@@ -75,17 +75,17 @@ export default function AdminLabelsPage() {
   }
 
   if (loading) {
-    return <div className="min-h-screen bg-black p-8 text-white">Caricamento...</div>
+    return <div className="min-h-screen bg-bg p-8 text-text">Caricamento...</div>
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className="min-h-screen bg-bg p-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">Gestione Label</h1>
+          <h1 className="text-2xl font-bold text-text">Gestione Label</h1>
           <a
             href="/admin/create-label"
-            className="rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-black hover:bg-emerald-400"
+            className="rounded-lg bg-accent px-4 py-2 font-semibold text-accent-ink hover:bg-accent"
           >
             + Crea Label
           </a>
@@ -100,23 +100,23 @@ export default function AdminLabelsPage() {
         <div className="grid gap-6">
           {/* Lista Label */}
           <div className="lg:col-span-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-              <div className="border-b border-zinc-800 p-4">
-                <h2 className="font-semibold text-white">Label ({labels.length})</h2>
+            <div className="rounded-lg border border-line bg-surface-2/50">
+              <div className="border-b border-line p-4">
+                <h2 className="font-semibold text-text">Label ({labels.length})</h2>
               </div>
               
-              <div className="divide-y divide-zinc-800">
+              <div className="divide-y divide-line">
                 {labels.map((label) => (
                   <div
                     key={label.id}
-                    className="flex cursor-pointer items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-colors hover:border-emerald-500/50"
+                    className="flex cursor-pointer items-center justify-between rounded-lg border border-line bg-surface-2/50 p-4 transition-colors hover:border-accent/50"
                   >
                     <a 
                       href={`/admin/label/${label.id}`}
                       className="flex-1"
                     >
-                      <h3 className="font-medium text-white">{label.name}</h3>
-                      <p className="text-sm text-zinc-500">
+                      <h3 className="font-medium text-text">{label.name}</h3>
+                      <p className="text-sm text-muted">
                         {label.primary_genre} • {label.cataloged_tracks} tracce
                       </p>
                     </a>
@@ -126,7 +126,7 @@ export default function AdminLabelsPage() {
                           e.stopPropagation()
                           reprocessLabel(label.id)
                         }}
-                        className="rounded bg-zinc-700 px-3 py-1 text-xs text-white hover:bg-zinc-600"
+                        className="rounded bg-surface-2 px-3 py-1 text-xs text-text hover:bg-surface-2"
                       >
                         Riprocessa
                       </button>

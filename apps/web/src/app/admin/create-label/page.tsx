@@ -46,11 +46,11 @@ export default function CreateLabelPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-8">
+    <div className="min-h-screen bg-bg p-8">
       <div className="mx-auto max-w-lg">
         <div className="mb-8">
-          <a href="/admin/labels" className="text-sm text-zinc-500 hover:text-white">← Torna alle label</a>
-          <h1 className="mt-2 text-2xl font-bold text-white">Crea Nuova Label</h1>
+          <a href="/admin/labels" className="text-sm text-muted hover:text-text">← Torna alle label</a>
+          <h1 className="mt-2 text-2xl font-bold text-text">Crea Nuova Label</h1>
         </div>
 
         {message && (
@@ -61,36 +61,36 @@ export default function CreateLabelPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="mb-2 block text-sm text-zinc-400">Nome Label *</label>
+            <label className="mb-2 block text-sm text-muted">Nome Label *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-text placeholder-faint focus:border-accent focus:outline-none"
               placeholder="es. Drumcode"
               required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm text-zinc-400">Slug (URL) *</label>
+            <label className="mb-2 block text-sm text-muted">Slug (URL) *</label>
             <input
               type="text"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-text placeholder-faint focus:border-accent focus:outline-none"
               placeholder="drumcode"
               required
             />
-            <p className="mt-1 text-xs text-zinc-600">Usato nell'URL: /label/drumcode</p>
+            <p className="mt-1 text-xs text-faint">Usato nell'URL: /label/drumcode</p>
           </div>
 
           <div>
-            <label className="mb-2 block text-sm text-zinc-400">Genere Principale</label>
+            <label className="mb-2 block text-sm text-muted">Genere Principale</label>
             <select
               value={genre}
               onChange={(e) => setGenre(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-950 px-4 py-3 text-white focus:border-emerald-500 focus:outline-none"
+              className="w-full rounded-lg border border-line bg-surface px-4 py-3 text-text focus:border-accent focus:outline-none"
             >
               <option value="tech house">Tech House</option>
               <option value="techno">Techno</option>
@@ -104,7 +104,7 @@ export default function CreateLabelPage() {
           <button
             type="submit"
             disabled={loading || !name || !slug}
-            className="w-full rounded-lg bg-emerald-500 px-4 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50"
+            className="w-full rounded-lg bg-accent px-4 py-3 font-semibold text-accent-ink transition-colors hover:bg-accent disabled:opacity-50"
           >
             {loading ? 'Creando...' : 'Crea Label'}
           </button>

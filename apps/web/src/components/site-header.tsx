@@ -7,6 +7,7 @@ import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { NotifBell } from '@/components/notifications/notif-bell'
+import { AdminLink } from '@/components/admin/admin-link'
 
 const NAV = [
   { href: '/match', label: 'Analizza' },
@@ -69,6 +70,7 @@ export function SiteHeader() {
 
           {authed ? (
             <>
+              <AdminLink variant="icon" />
               <NotifBell />
               <Link
                 href="/dashboard"

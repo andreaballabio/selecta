@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { deriveSoundDna } from '@/lib/sound-dna'
 import { AppShell } from '@/components/app/app-shell'
+import { AdminLink } from '@/components/admin/admin-link'
 import {
   Loader2, Sparkles, BarChart3, IdCard, Music, LogOut, ArrowRight, ExternalLink,
   Play, Heart, Bookmark, Radio, Users, Settings, Pencil, ListMusic, Plus,
@@ -142,6 +143,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <AdminLink variant="button" />
             <Link href="/profile" className="flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm font-medium text-text hover:border-faint">
               <Pencil className="h-4 w-4" /> Profilo
             </Link>
