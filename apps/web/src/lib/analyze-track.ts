@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildLabelProfile } from '@/lib/label-profile'
+import { dz } from '@/lib/deezer'
 
 const WORKER_URL = process.env.HF_WORKER_URL || process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
@@ -31,13 +32,12 @@ async function refreshPreviewUrl(supabase: SupabaseClient, track: Record<string,
 
   if (track.audio_source === 'deezer') {
     try {
-      const res = await fetch(`https://api.deezer.com/track/${trackId}`, { headers: { Accept: 'application/json' } })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.preview && !data.error) {
-          await supabase.from('label_ingestion_queue').update({ audio_preview_url: data.preview, analysis_error: null }).eq('id', track.id)
-          return data.preview as string
-        }
+      // dz() = retry+backoff sugli errori quota → un picco di chiamate non fa
+      // fallire l'analisi, riprova invece di marcare la traccia come failed.
+      const data = await dz(`track/${trackId}`)
+      if (data?.preview && !data.error) {
+        await supabase.from('label_ingestion_queue').update({ audio_preview_url: data.preview, analysis_error: null }).eq('id', track.id)
+        return data.preview as string
       }
     } catch (e) {
       console.error('[refresh] Deezer error:', e)
