@@ -51,7 +51,7 @@ export default function ImportPage() {
           } else if (msg.type === 'result') {
             const ts: DzTrack[] = msg.tracks ?? []
             setTracks(ts)
-            setSel(new Set(ts.filter((t) => !t.already && t.preview_url).map((t) => t.deezer_id))) // preseleziona le nuove
+            setSel(new Set(ts.filter((t) => !t.already).map((t) => t.deezer_id))) // preseleziona tutte le nuove
           }
         }
       }
@@ -71,6 +71,10 @@ export default function ImportPage() {
   }
 
   const newCount = tracks.filter((t) => !t.already).length
+  const alreadyCount = tracks.filter((t) => t.already).length
+  const noAudioCount = tracks.filter((t) => !t.already && !t.preview_url).length
+  const selectableCount = tracks.filter((t) => !t.already).length // ora importabili anche senza preview (refresh in analisi)
+  const selectAllNew = () => setSel(new Set(tracks.filter((t) => !t.already).map((t) => t.deezer_id)))
 
   if (step === 'tracks' && label) {
     return (
@@ -79,7 +83,11 @@ export default function ImportPage() {
         <div className="mb-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-bold text-text">{label.name}</h1>
-            <p className="mt-1 text-sm text-muted">{tracks.length} tracce su Deezer · {newCount} nuove · ultima uscita {label.latest || '—'}</p>
+            <p className="mt-1 text-sm text-muted">
+              {tracks.length} su Deezer · <span className="text-text">{newCount} nuove</span>
+              {alreadyCount > 0 && <> · {alreadyCount} già presenti</>}
+              {noAudioCount > 0 && <> · {noAudioCount} senza audio</>}
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <input value={genre} onChange={(e) => setGenre(e.target.value)} placeholder="Genere" className="w-32 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-text focus:border-accent focus:outline-none" />
@@ -88,6 +96,29 @@ export default function ImportPage() {
             </button>
           </div>
         </div>
+
+        {/* Spiegazione quando non c'è niente da selezionare */}
+        {!loading && tracks.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-2/50 px-4 py-3 text-sm">
+            {selectableCount === 0 ? (
+              <span className="text-muted">
+                {alreadyCount === tracks.length
+                  ? '✓ Questa label è già tutta in catalogo — tutte le tracce risultano già presenti. Cerca un\'altra label.'
+                  : 'Nessuna traccia nuova da importare per questa label.'}
+              </span>
+            ) : (
+              <span className="text-muted">
+                <span className="font-medium text-text">{sel.size}</span> selezionate su {selectableCount} importabili
+                {alreadyCount > 0 && <> · {alreadyCount} già presenti escluse</>}
+              </span>
+            )}
+            {selectableCount > 0 && (
+              <button onClick={selectAllNew} className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-text hover:border-accent">
+                Seleziona tutte le {selectableCount} nuove
+              </button>
+            )}
+          </div>
+        )}
 
         {loading ? (
           <div className="py-16 text-center">
@@ -108,7 +139,7 @@ export default function ImportPage() {
           <div className="overflow-hidden rounded-2xl border border-line">
             {tracks.map((t) => (
               <label key={t.deezer_id} className={`flex cursor-pointer items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 ${t.already ? 'opacity-50' : 'hover:bg-surface/60'}`}>
-                <input type="checkbox" checked={sel.has(t.deezer_id)} disabled={t.already || !t.preview_url} onChange={() => toggle(t.deezer_id)} className="h-4 w-4 accent-[var(--accent)]" />
+                <input type="checkbox" checked={sel.has(t.deezer_id)} disabled={t.already} onChange={() => toggle(t.deezer_id)} className="h-4 w-4 accent-[var(--accent)]" />
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded bg-surface-2">{t.cover
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={t.cover} alt="" className="h-full w-full object-cover" /> : <Disc className="m-2 h-5 w-5 text-faint" />}</div>
