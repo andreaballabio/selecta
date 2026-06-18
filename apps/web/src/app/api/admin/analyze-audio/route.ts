@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { buildLabelProfile } from '@/lib/label-profile'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -422,13 +423,11 @@ async function analyzeSingleTrack(trackId: string) {
       throw new Error(`Errore salvataggio: ${updateError.message}`)
     }
     
-    // Aggiorna il profilo della label in background
+    // Ricostruisci il profilo della label — chiamata DIRETTA in-process (niente
+    // HTTP verso sé stessi: prima falliva per NEXT_PUBLIC_APP_URL mancante + gate
+    // admin del proxy → i profili non venivano mai creati).
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/admin/update-label-profile`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ label_id: track.label_id })
-      })
+      await buildLabelProfile(supabase, track.label_id)
     } catch (profileError) {
       // Non blocchiamo l'analisi se il profilo fallisce
       console.error('Failed to update label profile:', profileError)
