@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
+import { notify } from '@/lib/notify'
 
 /** Aggiunge un commento a una traccia del catalogo. Richiede login. */
 export async function POST(request: NextRequest) {
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
     .select('id', { count: 'exact', head: true })
     .eq('submission_id', submissionId)
   await supabase.from('user_submissions').update({ comments_count: count ?? 0 }).eq('id', submissionId)
+
+  const { data: owner } = await supabase.from('user_submissions').select('user_id').eq('id', submissionId).maybeSingle()
+  await notify(supabase, { recipient: (owner as { user_id?: string } | null)?.user_id, actor: user.id, type: 'comment', submissionId })
 
   // Autore (per mostrarlo subito lato client)
   const { data: prof } = await supabase

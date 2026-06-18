@@ -11,10 +11,11 @@ import { CatalogGrid, toPlayerTrack, type CatalogTrack } from '@/components/cata
 import { CommentsSection, type CommentItem } from '@/components/catalog/comments-section'
 import { Waveform } from '@/components/player/waveform'
 import { AddToPlaylist } from '@/components/playlist/add-to-playlist'
+import { RepostButton } from '@/components/catalog/repost-button'
 
 export const dynamic = 'force-dynamic'
 
-const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count'
+const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count, reposts_count'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
@@ -107,7 +108,10 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
               <span className="flex items-center gap-1.5"><Bookmark className="h-4 w-4" />{main.saves_count ?? 0} salvataggi</span>
             </div>
 
-            <div className="mt-4"><AddToPlaylist submissionId={id} /></div>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <RepostButton submissionId={id} initialCount={(main as { reposts_count?: number }).reposts_count ?? 0} />
+              <AddToPlaylist submissionId={id} />
+            </div>
 
             {savers.length > 0 && (
               <p className="mt-4 text-sm text-muted">

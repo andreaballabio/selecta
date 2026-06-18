@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { NotifBell } from '@/components/notifications/notif-bell'
 
 const NAV = [
   { href: '/match', label: 'Analizza' },
@@ -67,12 +68,15 @@ export function SiteHeader() {
           })}
 
           {authed ? (
-            <Link
-              href="/dashboard"
-              className="ml-2 flex items-center gap-2 rounded-full bg-surface-2 px-3.5 py-2 text-sm font-semibold text-text ring-1 ring-line transition-colors hover:ring-faint"
-            >
-              <User className="h-4 w-4" /> <span className="hidden sm:inline">Account</span>
-            </Link>
+            <>
+              <NotifBell />
+              <Link
+                href="/dashboard"
+                className="ml-1 flex items-center gap-2 rounded-full bg-surface-2 px-3.5 py-2 text-sm font-semibold text-text ring-1 ring-line transition-colors hover:ring-faint"
+              >
+                <User className="h-4 w-4" /> <span className="hidden sm:inline">Account</span>
+              </Link>
+            </>
           ) : (
             <>
               <Link href="/auth/login" className="hidden rounded-lg px-3.5 py-2 text-sm font-medium text-muted hover:text-text sm:block">

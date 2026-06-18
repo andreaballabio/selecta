@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
+import { notify } from '@/lib/notify'
 
 /** Toggle del follow di un artista. Richiede login. Non ci si segue da soli. */
 export async function POST(request: NextRequest) {
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId })
     if (error) return NextResponse.json({ error: 'Follow failed' }, { status: 500 })
     following = true
+    await notify(supabase, { recipient: targetId, actor: user.id, type: 'follow' })
   }
 
   const { count } = await supabase

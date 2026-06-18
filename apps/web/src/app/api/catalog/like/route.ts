@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
+import { notify } from '@/lib/notify'
 
 /**
  * Toggle del like su una traccia del catalogo. Richiede login.
@@ -50,6 +51,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Like fallito' }, { status: 500 })
     }
     liked = true
+    const { data: sub } = await supabase.from('user_submissions').select('user_id').eq('id', submissionId).maybeSingle()
+    await notify(supabase, { recipient: (sub as { user_id?: string } | null)?.user_id, actor: user.id, type: 'like', submissionId })
   }
 
   // Ricalcola il conteggio esatto e denormalizza.
