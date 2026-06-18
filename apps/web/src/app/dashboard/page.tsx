@@ -8,7 +8,7 @@ import { deriveSoundDna } from '@/lib/sound-dna'
 import { AppShell } from '@/components/app/app-shell'
 import {
   Loader2, Sparkles, BarChart3, IdCard, Music, LogOut, ArrowRight, ExternalLink,
-  Play, Heart, Bookmark, Radio, Users, Settings, Pencil,
+  Play, Heart, Bookmark, Radio, Users, Settings, Pencil, ListMusic, Plus,
 } from 'lucide-react'
 
 interface Submission {
@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const [subs, setSubs] = useState<Submission[]>([])
   const [savedCount, setSavedCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
+  const [playlists, setPlaylists] = useState<{ id: string; title: string; is_public: boolean }[]>([])
 
   useEffect(() => {
     ;(async () => {
@@ -70,23 +71,33 @@ export default function DashboardPage() {
       setEmail(user.email ?? '')
       await claimPendingSubmissions()
 
-      const [{ data: prof }, { data: rows }, { count: saved }, { count: following }] = await Promise.all([
+      const [{ data: prof }, { data: rows }, { count: saved }, { count: following }, { data: pls }] = await Promise.all([
         (supabase as any).from('artist_profiles').select('handle, display_name, photo_url, city, tagline').eq('user_id', user.id).maybeSingle(),
         (supabase as any).from('user_submissions')
           .select('id, title, display_title, cover_url, created_at, analysis_status, published, bpm, key, scale, sub_ratio, mid_presence, spectral_centroid, onset_strength, likes_count, saves_count, play_count, match_results')
           .eq('user_id', user.id).order('created_at', { ascending: false }).limit(80),
         (supabase as any).from('track_saves').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
         (supabase as any).from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', user.id),
+        (supabase as any).from('playlists').select('id, title, is_public').eq('user_id', user.id).order('updated_at', { ascending: false }),
       ])
       setProfile(prof ?? null)
       setSubs(rows ?? [])
       setSavedCount(saved ?? 0)
       setFollowingCount(following ?? 0)
+      setPlaylists(pls ?? [])
       setLoading(false)
     })()
   }, [router, supabase])
 
   const logout = async () => { await supabase.auth.signOut(); router.push('/'); router.refresh() }
+
+  const createPlaylist = async () => {
+    const t = window.prompt('Titolo della nuova playlist')
+    if (!t || !t.trim()) return
+    const res = await fetch('/api/playlists', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: t.trim() }) })
+    const { playlist } = await res.json()
+    if (playlist) router.push(`/playlist/${playlist.id}`)
+  }
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center text-muted"><Loader2 className="h-6 w-6 animate-spin" /></div>
@@ -180,6 +191,26 @@ export default function DashboardPage() {
               <p className="mt-0.5 truncate text-sm text-muted">{a.sub}</p>
             </Link>
           ))}
+        </div>
+
+        {/* ── Le tue playlist ── */}
+        <div className="mb-10">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted"><ListMusic className="h-4 w-4" /> Le tue playlist</h2>
+            <button onClick={createPlaylist} className="flex items-center gap-1.5 text-sm text-accent hover:underline"><Plus className="h-4 w-4" /> Nuova</button>
+          </div>
+          {playlists.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-line bg-surface/40 p-6 text-sm text-muted">Nessuna playlist. Creane una e aggiungi tracce dal catalogo.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {playlists.map((pl) => (
+                <Link key={pl.id} href={`/playlist/${pl.id}`} className="flex items-center gap-3 rounded-2xl border border-line bg-surface/50 p-4 transition-colors hover:border-faint">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent"><ListMusic className="h-5 w-5" /></div>
+                  <div className="min-w-0"><p className="truncate font-medium text-text">{pl.title}</p><p className="text-xs text-muted">{pl.is_public ? 'Pubblica' : 'Privata'}</p></div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ── Le mie tracce ── */}

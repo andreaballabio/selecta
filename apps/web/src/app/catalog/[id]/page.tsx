@@ -10,6 +10,7 @@ import { parseEmbedding, cosine } from '@/lib/embedding'
 import { CatalogGrid, toPlayerTrack, type CatalogTrack } from '@/components/catalog/catalog-grid'
 import { CommentsSection, type CommentItem } from '@/components/catalog/comments-section'
 import { Waveform } from '@/components/player/waveform'
+import { AddToPlaylist } from '@/components/playlist/add-to-playlist'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,6 +106,8 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
               <span className="flex items-center gap-1.5"><Heart className="h-4 w-4" />{main.likes_count ?? 0}</span>
               <span className="flex items-center gap-1.5"><Bookmark className="h-4 w-4" />{main.saves_count ?? 0} salvataggi</span>
             </div>
+
+            <div className="mt-4"><AddToPlaylist submissionId={id} /></div>
 
             {savers.length > 0 && (
               <p className="mt-4 text-sm text-muted">

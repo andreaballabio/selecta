@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Play, Pause, Heart, Bookmark } from 'lucide-react'
+import { Play, Pause, Heart, Bookmark, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { bucketByKey } from '@/lib/sound-bucket'
 import { usePlayer } from '@/components/player/player-context'
 import { toPlayerTrack, type CatalogTrack } from './catalog-grid'
 
-export function TrackList({ tracks, numbered = false }: { tracks: CatalogTrack[]; numbered?: boolean }) {
+export function TrackList({ tracks, numbered = false, onRemove }: { tracks: CatalogTrack[]; numbered?: boolean; onRemove?: (id: string) => void }) {
   const player = usePlayer()
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set())
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
@@ -100,6 +100,7 @@ export function TrackList({ tracks, numbered = false }: { tracks: CatalogTrack[]
               <button onClick={() => toggleMeta(t.id, 'save')} className="flex items-center gap-1 text-xs hover:text-accent" aria-label="Salva">
                 <Bookmark className={`h-4 w-4 ${savedIds.has(t.id) ? 'fill-accent text-accent' : ''}`} />
               </button>
+              {onRemove && <button onClick={() => onRemove(t.id)} className="text-faint hover:text-text" aria-label="Rimuovi dalla playlist"><X className="h-4 w-4" /></button>}
             </div>
           </div>
         )
