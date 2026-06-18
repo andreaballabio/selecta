@@ -5,6 +5,7 @@ import { ArrowLeft, Play, Heart, Bookmark } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { bucketByKey } from '@/lib/sound-bucket'
+import { keyLabel } from '@/lib/camelot'
 import { parseEmbedding, cosine } from '@/lib/embedding'
 import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
 import { CommentsSection, type CommentItem } from '@/components/catalog/comments-section'
@@ -95,7 +96,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
               {bucket && <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">{bucket.label}</span>}
               {main.genre && <span className="rounded-full border border-line px-3 py-1 text-text">{main.genre}</span>}
               {main.bpm != null && <span className="rounded-full border border-line px-3 py-1 text-text">{Math.round(main.bpm)} BPM</span>}
-              {main.key && <span className="rounded-full border border-line px-3 py-1 text-text">{main.key}{main.scale ? ' ' + main.scale : ''}</span>}
+              {main.key && <span className="rounded-full border border-line px-3 py-1 text-text">{keyLabel(main.key, main.scale)}</span>}
             </div>
 
             <div className="mt-4 flex items-center gap-5 text-sm text-muted">
