@@ -84,10 +84,10 @@ export default function AdminLabelsPage() {
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-text">Gestione Label</h1>
           <a
-            href="/admin/create-label"
+            href="/admin/import"
             className="rounded-lg bg-accent px-4 py-2 font-semibold text-accent-ink hover:bg-accent"
           >
-            + Crea Label
+            + Importa da Deezer
           </a>
         </div>
 

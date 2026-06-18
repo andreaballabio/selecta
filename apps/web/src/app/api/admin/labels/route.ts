@@ -63,7 +63,13 @@ export async function DELETE(request: NextRequest) {
       .from('label_ingestion_queue')
       .delete()
       .eq('label_id', id)
-    
+
+    // E il profilo sonoro della label (per poterla rifare pulita)
+    await supabase
+      .from('label_profiles')
+      .delete()
+      .eq('label_id', id)
+
     // Poi elimina la label
     const { error } = await supabase
       .from('labels')
