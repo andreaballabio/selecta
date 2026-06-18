@@ -1,111 +1,99 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { TrendingUp, Heart, Bookmark, Play } from 'lucide-react'
+import { Trophy, Flame, Rocket } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { BUCKETS, bucketByKey } from '@/lib/sound-bucket'
+import { BUCKETS } from '@/lib/sound-bucket'
 import { hotScore } from '@/lib/social'
+import { AppShell } from '@/components/app/app-shell'
+import { TrackList } from '@/components/catalog/track-list'
+import { PlayAllList } from '@/components/catalog/play-all'
+import type { CatalogTrack } from '@/components/catalog/catalog-grid'
 
 export const dynamic = 'force-dynamic'
+export const metadata: Metadata = { title: 'Classifiche — Selecta' }
 
-export const metadata: Metadata = {
-  title: 'Classifiche — Selecta',
-  description: 'Le tracce di Tech House non firmata che stanno girando: più ascoltate, amate e salvate dai DJ.',
-}
+const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count, published_at, user_id'
+const MONTH = 30 * 24 * 3.6e6
 
-interface Row {
-  id: string
-  display_title: string | null
-  display_artist: string | null
-  sound_bucket: string | null
-  likes_count: number | null
-  saves_count: number | null
-  play_count: number | null
-  published_at: string | null
-}
+type Row = CatalogTrack & { published_at: string; user_id: string }
 
-export default async function ChartsPage() {
-  const supabase = createAdminClient()
-  const { data } = await supabase
-    .from('user_submissions')
-    .select('id, display_title, display_artist, sound_bucket, likes_count, saves_count, play_count, published_at')
-    .eq('published', true)
-    .limit(300)
+export default async function ChartsPage({ searchParams }: { searchParams: Promise<{ bucket?: string }> }) {
+  const { bucket } = await searchParams
+  const sb = createAdminClient()
+  const [{ data }, { data: follows }] = await Promise.all([
+    sb.from('user_submissions').select(SELECT).eq('published', true).limit(300),
+    sb.from('follows').select('following_id').limit(5000),
+  ])
+  const all = (data ?? []) as Row[]
+  const followers = new Map<string, number>()
+  for (const f of (follows ?? []) as { following_id: string }[]) followers.set(f.following_id, (followers.get(f.following_id) ?? 0) + 1)
 
-  const rows = (data ?? []) as Row[]
-  const ranked = [...rows].sort((a, b) => hotScore(b) - hotScore(a))
-  const top = ranked.slice(0, 20)
+  if (bucket) {
+    const list = all.filter((t) => t.sound_bucket === bucket).sort((a, b) => hotScore(b) - hotScore(a)).slice(0, 50)
+    const b = BUCKETS.find((x) => x.key === bucket)
+    return (
+      <AppShell>
+        <Chips active={bucket} />
+        <header className="mb-6"><h1 className="font-display text-4xl font-bold tracking-tight text-text">Top {b?.label ?? ''}</h1></header>
+        {list.length > 0 ? <PlayAllList tracks={list} label="Riproduci la Top" /> : <Empty />}
+      </AppShell>
+    )
+  }
 
-  const perBucket = BUCKETS.map((b) => ({
-    bucket: b,
-    tracks: ranked.filter((r) => r.sound_bucket === b.key).slice(0, 3),
-  })).filter((g) => g.tracks.length > 0)
+  const now = Date.now()
+  const top = [...all].sort((a, b) => hotScore(b) - hotScore(a)).slice(0, 50)
+  const newHotPool = all.filter((t) => now - new Date(t.published_at).getTime() < MONTH)
+  const newHot = (newHotPool.length >= 6 ? newHotPool : all).sort((a, b) => hotScore(b) - hotScore(a)).slice(0, 15)
+  const emerging = [...all]
+    .sort((a, b) => hotScore(b) / ((followers.get(b.user_id) ?? 0) + 1) - hotScore(a) / ((followers.get(a.user_id) ?? 0) + 1))
+    .slice(0, 15)
 
   return (
-    <div className="min-h-screen bg-bg">
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <header className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1">
-            <TrendingUp className="h-3.5 w-3.5 text-accent" />
-            <span className="text-xs font-medium text-accent">Classifiche</span>
-          </div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">Cosa sta girando</h1>
-          <p className="mt-2 text-muted">Ranking per ascolti, like e salvataggi dei DJ — con peso al più recente.</p>
-        </header>
+    <AppShell>
+      <Chips active={null} />
+      <header className="mb-8">
+        <h1 className="font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">Classifiche</h1>
+        <p className="mt-2 max-w-xl text-muted">Cosa gira adesso nel catalogo, su ascolti, like e salvataggi reali.</p>
+      </header>
 
-        {top.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-10 text-center text-muted">
-            Ancora nessuna traccia in classifica. <Link href="/match" className="text-accent hover:underline">Pubblica la prima.</Link>
-          </div>
-        ) : (
-          <>
-            <section className="mb-10">
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">In tendenza ora</h2>
-              <div className="divide-y divide-surface-2 overflow-hidden rounded-2xl border border-line bg-surface/50">
-                {top.map((t, i) => (
-                  <ChartRow key={t.id} row={t} pos={i + 1} />
-                ))}
-              </div>
-            </section>
+      {all.length === 0 ? <Empty /> : (
+        <div className="space-y-12">
+          <section>
+            <H icon={<Trophy className="h-5 w-5 text-accent" />} title="Top della settimana" sub="Le più forti su engagement recente" />
+            <PlayAllList tracks={top} label="Riproduci la Top" />
+          </section>
+          <section>
+            <H icon={<Flame className="h-5 w-5 text-accent" />} title="New & Hot" sub="Uscite recenti in salita" />
+            <TrackList tracks={newHot} />
+          </section>
+          <section>
+            <H icon={<Rocket className="h-5 w-5 text-accent" />} title="Emergenti" sub="Talenti con pochi follower che stanno spingendo" />
+            <TrackList tracks={emerging} />
+          </section>
+        </div>
+      )}
+    </AppShell>
+  )
+}
 
-            <section>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">Sound del mese</h2>
-              <div className="space-y-6">
-                {perBucket.map(({ bucket, tracks }) => (
-                  <div key={bucket.key}>
-                    <div className="mb-2 flex items-baseline justify-between">
-                      <h3 className="font-semibold text-accent">{bucket.label}</h3>
-                      <Link href={`/catalog?bucket=${bucket.key}`} className="text-xs text-muted hover:text-text">Vedi tutto →</Link>
-                    </div>
-                    <div className="divide-y divide-surface-2 overflow-hidden rounded-2xl border border-line bg-surface/50">
-                      {tracks.map((t, i) => <ChartRow key={t.id} row={t} pos={i + 1} />)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </>
-        )}
-      </div>
+function Chips({ active }: { active: string | null }) {
+  return (
+    <div className="mb-7 flex flex-wrap gap-2">
+      <Link href="/charts" className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${!active ? 'bg-accent text-accent-ink' : 'border border-line text-muted hover:text-text'}`}>Tutto</Link>
+      {BUCKETS.map((b) => (
+        <Link key={b.key} href={`/charts?bucket=${b.key}`} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${active === b.key ? 'bg-accent text-accent-ink' : 'border border-line text-muted hover:text-text'}`}>{b.label}</Link>
+      ))}
     </div>
   )
 }
-
-function ChartRow({ row, pos }: { row: Row; pos: number }) {
-  const bucket = bucketByKey(row.sound_bucket)
+function H({ icon, title, sub }: { icon: React.ReactNode; title: string; sub: string }) {
   return (
-    <Link href={`/catalog/${row.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2/50">
-      <span className={`w-6 shrink-0 text-center text-sm font-bold ${pos <= 3 ? 'text-accent' : 'text-faint'}`}>{pos}</span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium text-text">{row.display_title || 'Senza titolo'}</p>
-        <p className="truncate text-xs text-muted">
-          {row.display_artist || 'Sconosciuto'}{bucket ? ` · ${bucket.label}` : ''}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-center gap-3 text-xs text-muted">
-        <span className="flex items-center gap-1"><Play className="h-3.5 w-3.5" />{row.play_count ?? 0}</span>
-        <span className="flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{row.likes_count ?? 0}</span>
-        <span className="flex items-center gap-1"><Bookmark className="h-3.5 w-3.5" />{row.saves_count ?? 0}</span>
-      </div>
-    </Link>
+    <div className="mb-4">
+      <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-text">{icon}{title}</h2>
+      <p className="mt-1 text-sm text-muted">{sub}</p>
+    </div>
   )
+}
+function Empty() {
+  return <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-12 text-center text-muted">Ancora nessuna traccia in classifica.</div>
 }

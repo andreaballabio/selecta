@@ -1,9 +1,11 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { Disc3, Flame, Clock, ArrowRight } from 'lucide-react'
+import { Disc3, Flame, Clock, ArrowRight, Sparkles } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { BUCKETS } from '@/lib/sound-bucket'
 import { hotScore } from '@/lib/social'
+import { getMixForUser } from '@/lib/mix'
 import { AppShell } from '@/components/app/app-shell'
 import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
 import { TrackList } from '@/components/catalog/track-list'
@@ -26,6 +28,11 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
   const trending = [...all].sort((a, b) => hotScore(b) - hotScore(a))
   const recent = [...all].sort((a, b) => (b.published_at ?? '').localeCompare(a.published_at ?? ''))
   const featured = trending[0]
+
+  // "Per te" — solo per utenti loggati con gusto (like/salvataggi)
+  const ssr = await createSsrClient()
+  const { data: { user } } = await ssr.auth.getUser()
+  const mix = !bucket && user ? (await getMixForUser(user.id, 8)).tracks : []
 
   return (
     <AppShell>
@@ -60,6 +67,12 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
             <h1 className="font-display text-4xl font-bold tracking-tight text-text">Library</h1>
             <p className="mt-2 max-w-xl text-muted">Tech House non firmata, curata dall’AI per come suona.</p>
           </header>
+
+          {mix.length > 0 && (
+            <Section icon={<Sparkles className="h-5 w-5 text-accent" />} title="Per te" href="/mix" sub="Sul tuo gusto, dai like e dai salvataggi">
+              <CatalogGrid tracks={mix} />
+            </Section>
+          )}
 
           {featured && <FeaturedTrack track={featured} />}
 
