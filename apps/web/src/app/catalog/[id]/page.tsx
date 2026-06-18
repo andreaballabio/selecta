@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Play, Heart, Bookmark } from 'lucide-react'
+import { ArrowLeft, Play, Heart, Bookmark, ExternalLink } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { bucketByKey } from '@/lib/sound-bucket'
@@ -12,10 +12,11 @@ import { CommentsSection, type CommentItem } from '@/components/catalog/comments
 import { Waveform } from '@/components/player/waveform'
 import { AddToPlaylist } from '@/components/playlist/add-to-playlist'
 import { RepostButton } from '@/components/catalog/repost-button'
+import { TrackOwnerControls } from '@/components/catalog/track-owner-controls'
 
 export const dynamic = 'force-dynamic'
 
-const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count, reposts_count'
+const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count, reposts_count, track_label, release_year, buy_url'
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
@@ -45,13 +46,21 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
 
   const { data: track } = await admin
     .from('user_submissions')
-    .select(`${SELECT}, audio_embedding, published, comments_count`)
+    .select(`${SELECT}, audio_embedding, published, comments_count, user_id`)
     .eq('id', id)
     .maybeSingle()
 
-  if (!track || !(track as { published?: boolean }).published) notFound()
-  const main = track as unknown as CatalogTrack & { audio_embedding: unknown; comments_count: number | null }
+  if (!track) notFound()
+  const main = track as unknown as CatalogTrack & { audio_embedding: unknown; comments_count: number | null; published: boolean; user_id: string; track_label: string | null; release_year: number | null; buy_url: string | null }
+  const isOwner = viewer?.id === main.user_id
+  if (!main.published && !isOwner) notFound()
   const bucket = bucketByKey(main.sound_bucket)
+
+  let pinned = false
+  if (isOwner) {
+    const { data: prof } = await admin.from('artist_profiles').select('spotlight').eq('user_id', main.user_id).maybeSingle()
+    pinned = ((prof as { spotlight?: string[] } | null)?.spotlight ?? []).includes(id)
+  }
 
   // Tracce simili (cosine fra embedding).
   const emb = parseEmbedding(main.audio_embedding)
@@ -97,10 +106,13 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
             <p className="mt-1 text-lg text-muted">{main.display_artist || 'Sconosciuto'}</p>
 
             <div className="mt-4 flex flex-wrap gap-2 text-sm">
+              {!main.published && <span className="rounded-full bg-surface-2 px-3 py-1 text-xs font-bold uppercase tracking-wider text-faint">Bozza</span>}
               {bucket && <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">{bucket.label}</span>}
               {main.genre && <span className="rounded-full border border-line px-3 py-1 text-text">{main.genre}</span>}
               {main.bpm != null && <span className="rounded-full border border-line px-3 py-1 text-text">{Math.round(main.bpm)} BPM</span>}
               {main.key && <span className="rounded-full border border-line px-3 py-1 text-text">{keyLabel(main.key, main.scale)}</span>}
+              {main.track_label && <span className="rounded-full border border-line px-3 py-1 text-text">{main.track_label}</span>}
+              {main.release_year && <span className="rounded-full border border-line px-3 py-1 text-text">{main.release_year}</span>}
             </div>
 
             <div className="mt-4 flex items-center gap-5 text-sm text-muted">
@@ -112,7 +124,23 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <RepostButton submissionId={id} initialCount={(main as { reposts_count?: number }).reposts_count ?? 0} />
               <AddToPlaylist submissionId={id} />
+              {main.buy_url && (
+                <a href={main.buy_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-sm text-text hover:border-faint">
+                  <ExternalLink className="h-4 w-4" /> Ascolta / Compra
+                </a>
+              )}
             </div>
+
+            {isOwner && (
+              <TrackOwnerControls
+                submissionId={id}
+                initialPinned={pinned}
+                initial={{
+                  display_title: main.display_title, display_artist: main.display_artist, cover_url: main.cover_url,
+                  genre: main.genre, track_label: main.track_label, release_year: main.release_year, buy_url: main.buy_url, published: main.published,
+                }}
+              />
+            )}
 
             {savers.length > 0 && (
               <p className="mt-4 text-sm text-muted">
