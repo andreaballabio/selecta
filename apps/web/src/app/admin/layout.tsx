@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Disc, Plus, ArrowLeft, Flag } from 'lucide-react'
+import { LayoutDashboard, Users, Disc, Plus, ArrowLeft, Flag, DownloadCloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/admin/users', label: 'Utenti', icon: Users },
   { href: '/admin/labels', label: 'Label', icon: Disc },
+  { href: '/admin/import', label: 'Importa', icon: DownloadCloud },
   { href: '/admin/create-label', label: 'Crea label', icon: Plus },
   { href: '/admin/reports', label: 'Segnalazioni', icon: Flag },
 ]
