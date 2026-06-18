@@ -216,7 +216,11 @@ export async function analyzeSingleTrack(supabase: SupabaseClient, trackId: stri
  * function crashata a metà) rimettendole pending. Pensata per girare a intervalli
  * dal cron Vercel → l'analisi prosegue anche a computer spento.
  */
-export async function drainQueue(supabase: SupabaseClient, limit = 3): Promise<{ processed: number; ok: number; fail: number }> {
+export async function drainQueue(
+  supabase: SupabaseClient,
+  limit = 8,
+  maxMs = 80000,
+): Promise<{ processed: number; ok: number; fail: number; timedOut: boolean }> {
   // self-heal: tracce 'analyzing' senza embedding → tornano pending
   await supabase.from('label_ingestion_queue')
     .update({ analysis_status: 'pending' })
@@ -234,10 +238,16 @@ export async function drainQueue(supabase: SupabaseClient, limit = 3): Promise<{
     .limit(limit)
 
   const ids = (cands ?? []).map((c: { id: string }) => c.id)
-  let ok = 0, fail = 0
+  const start = Date.now()
+  let ok = 0, fail = 0, processed = 0
   for (const id of ids) {
     const r = await analyzeSingleTrack(supabase, id)
+    processed++
     r.success ? ok++ : fail++
+    // TETTO DI TEMPO: ferma la run ben prima dell'intervallo del cron (2 min) →
+    // due esecuzioni non possono MAI accavallarsi sul worker. Le tracce non fatte
+    // restano pending e le prende la run successiva.
+    if (Date.now() - start >= maxMs) break
   }
-  return { processed: ids.length, ok, fail }
+  return { processed, ok, fail, timedOut: processed < ids.length }
 }

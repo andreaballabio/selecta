@@ -28,12 +28,14 @@ export async function GET(request: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY! || process.env.SUPABASE_SERVICE_KEY!,
   )
 
-  // Lotto piccolo: il worker HF processa ~1 traccia alla volta; restiamo sotto
-  // maxDuration e sotto l'intervallo del cron così due run non si accavallano.
-  const BATCH = Number(process.env.ANALYZE_BATCH ?? 4)
+  // Throughput limitato dal worker (~1 traccia alla volta). Alziamo il tetto di
+  // tracce per run, ma il TEMPO massimo (maxMs) garantisce che ogni esecuzione
+  // finisca ben sotto l'intervallo del cron (2 min) → niente sovrapposizioni.
+  const BATCH = Number(process.env.ANALYZE_BATCH ?? 8)
+  const MAX_MS = Number(process.env.ANALYZE_MAX_MS ?? 80000)
 
   try {
-    const res = await drainQueue(supabase, BATCH)
+    const res = await drainQueue(supabase, BATCH, MAX_MS)
     return NextResponse.json({ ok: true, ...res })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : 'drain failed' }, { status: 500 })
