@@ -7,6 +7,9 @@
     },
     "app/api/cron/analyze-queue/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/admin/drain/route.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [

@@ -43,6 +43,25 @@ export default function QueueIndicator() {
     return () => { alive = false; if (timer.current) clearTimeout(timer.current) }
   }, [])
 
+  // DRIVER: finché un tab admin è aperto, spinge la coda GLOBALE (round-robin su
+  // tutte le label) — non dipende dal cron Vercel. Una sola chiamata in volo;
+  // si auto-pacing in base a quanto trova da fare.
+  useEffect(() => {
+    let alive = true
+    let t: ReturnType<typeof setTimeout> | null = null
+    const drive = async () => {
+      if (!alive) return
+      let processed = 0
+      try {
+        const r = await fetch('/api/admin/drain', { method: 'POST' })
+        if (r.ok) { const d = await r.json(); processed = d.processed ?? 0 }
+      } catch { /* ignora */ }
+      if (alive) t = setTimeout(drive, processed > 0 ? 800 : 15000)
+    }
+    drive()
+    return () => { alive = false; if (t) clearTimeout(t) }
+  }, [])
+
   if (!status) return null
   const g = status.global
 

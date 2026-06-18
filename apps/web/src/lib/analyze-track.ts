@@ -227,17 +227,33 @@ export async function drainQueue(
     .eq('analysis_status', 'analyzing')
     .is('audio_embedding', null)
 
-  // candidati: matched, non ancora analizzati (pending o null), preview/sorgente disponibile
-  const { data: cands } = await supabase
+  // pool di pending (più ampio del lotto) con la label di appartenenza
+  const { data: pool } = await supabase
     .from('label_ingestion_queue')
-    .select('id')
+    .select('id, label_id')
     .eq('status', 'matched')
     .is('audio_embedding', null)
     .or('analysis_status.eq.pending,analysis_status.is.null')
-    .order('release_date', { ascending: false })
-    .limit(limit)
+    .order('created_at', { ascending: true })
+    .limit(200)
 
-  const ids = (cands ?? []).map((c: { id: string }) => c.id)
+  // ROUND-ROBIN fra le label: una traccia per label a giro → nessuna label resta
+  // indietro mentre un'altra viene drenata per intera.
+  const byLabel = new Map<string, string[]>()
+  for (const r of (pool ?? []) as { id: string; label_id: string }[]) {
+    if (!byLabel.has(r.label_id)) byLabel.set(r.label_id, [])
+    byLabel.get(r.label_id)!.push(r.id)
+  }
+  const queues = [...byLabel.values()]
+  const ids: string[] = []
+  let added = true
+  while (added && ids.length < limit) {
+    added = false
+    for (const q of queues) {
+      if (q.length && ids.length < limit) { ids.push(q.shift()!); added = true }
+    }
+  }
+
   const start = Date.now()
   let ok = 0, fail = 0, processed = 0
   for (const id of ids) {

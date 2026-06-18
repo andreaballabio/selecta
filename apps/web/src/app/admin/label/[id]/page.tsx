@@ -600,20 +600,10 @@ export default function LabelDetailPage() {
     }
   }, [])
 
-  // Auto-start: arrivando da "Importa → analizza" (?analyze=1) avvia subito
-  // l'analisi se ci sono tracce in attesa. Parte una sola volta.
-  const autoStartedRef = useRef(false)
-  useEffect(() => {
-    if (autoStartedRef.current || loading || processing) return
-    const wantAuto = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('analyze') === '1'
-    if (!wantAuto) return
-    const pending = tracks.filter(t => t.status === 'matched' && (t.analysis_status === 'pending' || !t.analysis_status)).length
-    if (pending > 0) {
-      autoStartedRef.current = true
-      startAudioAnalysis()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, processing, tracks])
+  // Nota: l'analisi NON parte più da un loop per-label nel browser. La fa
+  // l'indicatore in navbar (drain GLOBALE round-robin su tutte le label) finché
+  // un tab admin è aperto, più il cron Vercel a computer spento. Il pulsante
+  // "Avvia Analisi Audio" resta come controllo manuale.
 
   // ==================== VERIFICA TINDER-STYLE ====================
   
