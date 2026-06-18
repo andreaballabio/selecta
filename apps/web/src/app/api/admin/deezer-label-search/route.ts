@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-const dz = (path: string) => fetch(`https://api.deezer.com/${path}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(15000) }).then((r) => r.json())
+import { dz, sleep, DZ_BATCH, DZ_THROTTLE_MS } from '@/lib/deezer'
 
 /**
  * Cerca una label per nome su Deezer. Deezer non ha l'entità "label", quindi la
@@ -19,9 +18,10 @@ export async function GET(request: NextRequest) {
   // Campiona i dettagli per leggere il campo label esatto (a blocchi, rate-limit safe)
   const sample = albums.slice(0, 18)
   const counts = new Map<string, { count: number; cover: string | null; latest: string }>()
-  for (let i = 0; i < sample.length; i += 6) {
-    const batch = sample.slice(i, i + 6)
+  for (let i = 0; i < sample.length; i += DZ_BATCH) {
+    const batch = sample.slice(i, i + DZ_BATCH)
     const details = await Promise.all(batch.map((a) => dz(`album/${a.id}`).catch(() => null)))
+    if (i + DZ_BATCH < sample.length) await sleep(DZ_THROTTLE_MS)
     for (const d of details) {
       const lab = d?.label
       if (!lab) continue

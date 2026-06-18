@@ -48,14 +48,18 @@ const RECENT_AGE_MAX   = 1.5   // anni: best match "in linea col suono attuale"
 const LEGACY_AGE_MIN   = 3.0   // anni: best match dalla "fase vecchia" della label
 const NOW_MS = Date.now()
 
-/** Età in anni dalla data di uscita (fallback su anno; null se sconosciuta). */
+/** Età in ANNI dalla data di uscita = (oggi − data)/365.25 giorni. È un anno a
+ *  ritroso CONTINUO che scala ogni giorno (NON l'anno solare). Se manca la data
+ *  piena uso l'anno con ancora a metà anno (1 luglio) → resta comunque rolling.
+ *  null se la data è del tutto sconosciuta. */
+const YEAR_MS = 365.25 * 24 * 3600 * 1000
 function ageYears(releaseDate: string | null, releaseYear: number | null): number | null {
   if (releaseDate) {
     const t = Date.parse(releaseDate)
-    if (!isNaN(t)) return Math.max(0, (NOW_MS - t) / (365.25 * 24 * 3600 * 1000))
+    if (!isNaN(t)) return Math.max(0, (NOW_MS - t) / YEAR_MS)
   }
   if (releaseYear && releaseYear > 1900)
-    return Math.max(0, new Date(NOW_MS).getUTCFullYear() - releaseYear)
+    return Math.max(0, (NOW_MS - Date.UTC(releaseYear, 6, 1)) / YEAR_MS)
   return null
 }
 /** Peso a decadimento esponenziale; `fallback` per le tracce senza data. */

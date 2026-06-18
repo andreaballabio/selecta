@@ -18,6 +18,7 @@ export default function ImportPage() {
   const [tracks, setTracks] = useState<DzTrack[]>([])
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [importing, setImporting] = useState(false)
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
   const search = async () => {
     if (q.trim().length < 2) return
@@ -27,13 +28,34 @@ export default function ImportPage() {
   }
 
   const openLabel = async (l: LabelCand) => {
-    setLabel(l); setStep('tracks'); setLoading(true); setTracks([]); setSel(new Set())
+    setLabel(l); setStep('tracks'); setLoading(true); setTracks([]); setSel(new Set()); setProgress(null)
     try {
-      const d = await fetch(`/api/admin/deezer-label-tracks?label=${encodeURIComponent(l.name)}`).then((r) => r.json())
-      const ts: DzTrack[] = d.tracks ?? []
-      setTracks(ts)
-      setSel(new Set(ts.filter((t) => !t.already && t.preview_url).map((t) => t.deezer_id))) // preseleziona le nuove
-    } finally { setLoading(false) }
+      // Risposta in streaming NDJSON → contatore "x/y album" mentre Deezer carica
+      const res = await fetch(`/api/admin/deezer-label-tracks?label=${encodeURIComponent(l.name)}`)
+      const reader = res.body?.getReader()
+      if (!reader) return
+      const dec = new TextDecoder()
+      let buf = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        const lines = buf.split('\n')
+        buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.trim()) continue
+          let msg: { type: string; done?: number; total?: number; tracks?: DzTrack[] }
+          try { msg = JSON.parse(line) } catch { continue }
+          if (msg.type === 'progress') {
+            setProgress({ done: msg.done ?? 0, total: msg.total ?? 0 })
+          } else if (msg.type === 'result') {
+            const ts: DzTrack[] = msg.tracks ?? []
+            setTracks(ts)
+            setSel(new Set(ts.filter((t) => !t.already && t.preview_url).map((t) => t.deezer_id))) // preseleziona le nuove
+          }
+        }
+      }
+    } finally { setLoading(false); setProgress(null) }
   }
 
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n })
@@ -67,7 +89,22 @@ export default function ImportPage() {
           </div>
         </div>
 
-        {loading ? <div className="py-16 text-center text-muted"><Loader2 className="mx-auto h-6 w-6 animate-spin" /></div> : (
+        {loading ? (
+          <div className="py-16 text-center">
+            <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-muted" />
+            {progress ? (
+              <>
+                <p className="text-sm text-muted">Carico le uscite da Deezer… <span className="font-medium text-text">{progress.done}/{progress.total}</span> album</p>
+                <div className="mx-auto mt-3 h-1.5 w-56 overflow-hidden rounded-full bg-surface-2">
+                  <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: `${progress.total ? Math.round((progress.done / progress.total) * 100) : 0}%` }} />
+                </div>
+                <p className="mt-2 text-xs text-faint">Ritmo controllato per non superare i limiti di Deezer</p>
+              </>
+            ) : (
+              <p className="text-sm text-muted">Cerco gli album della label…</p>
+            )}
+          </div>
+        ) : (
           <div className="overflow-hidden rounded-2xl border border-line">
             {tracks.map((t) => (
               <label key={t.deezer_id} className={`flex cursor-pointer items-center gap-3 border-b border-line px-4 py-2.5 last:border-0 ${t.already ? 'opacity-50' : 'hover:bg-surface/60'}`}>
