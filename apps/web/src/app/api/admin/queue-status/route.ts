@@ -10,10 +10,21 @@ const supabase = createClient(
 
 /** Stato globale + per-label della coda di analisi (per l'indicatore in navbar). */
 export async function GET() {
-  const [{ data: rows }, { data: labels }] = await Promise.all([
-    supabase.from('label_ingestion_queue').select('label_id, status, analysis_status'),
-    supabase.from('labels').select('id, name'),
-  ])
+  // PostgREST limita a 1000 righe per richiesta → con migliaia di tracce i
+  // conteggi venivano TRONCATI (totale fermo a 1000, label mancanti). Paginiamo
+  // con .range() finché non finiscono le righe, così contiamo TUTTO davvero.
+  const PAGE = 1000
+  const rows: { label_id: string; status: string | null; analysis_status: string | null }[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('label_ingestion_queue')
+      .select('label_id, status, analysis_status')
+      .range(from, from + PAGE - 1)
+    if (error || !data || data.length === 0) break
+    rows.push(...(data as typeof rows))
+    if (data.length < PAGE) break
+  }
+  const { data: labels } = await supabase.from('labels').select('id, name')
 
   const nameOf = new Map((labels ?? []).map((l) => [l.id, l.name]))
   const g = { total: 0, analyzed: 0, analyzing: 0, pending: 0, failed: 0 }
