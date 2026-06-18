@@ -27,13 +27,18 @@ export function DownloadButton({ submissionId, versionId, label, small }: { subm
       if (res.status === 402) { router.push('/pricing'); return }
       const d = await res.json()
       if (!d.url) return
-      // Forza il download col nome file
-      const blob = await fetch(d.url).then((r) => r.blob())
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = d.filename || 'track.mp3'
-      document.body.appendChild(a); a.click(); a.remove()
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+      try {
+        // Forza il download col nome file
+        const blob = await fetch(d.url).then((r) => r.blob())
+        const a = document.createElement('a')
+        a.href = URL.createObjectURL(blob)
+        a.download = d.filename || 'track.mp3'
+        document.body.appendChild(a); a.click(); a.remove()
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000)
+      } catch {
+        // Fallback (es. CORS bloccato): apri il file
+        window.open(d.url, '_blank')
+      }
     } finally { setBusy(false) }
   }
 

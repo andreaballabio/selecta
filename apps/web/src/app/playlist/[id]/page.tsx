@@ -35,12 +35,12 @@ export default async function PlaylistPage({ params }: { params: Promise<{ id: s
 
   const { data: rows } = await sb
     .from('playlist_tracks')
-    .select(`position, user_submissions(${TRACK_FIELDS})`)
+    .select(`position, user_submissions(${TRACK_FIELDS}, published)`)
     .eq('playlist_id', id)
     .order('position', { ascending: true })
-  const tracks = ((rows ?? []) as unknown as { user_submissions: CatalogTrack | CatalogTrack[] | null }[])
+  const tracks = ((rows ?? []) as unknown as { user_submissions: (CatalogTrack & { published?: boolean }) | (CatalogTrack & { published?: boolean })[] | null }[])
     .map((r) => (Array.isArray(r.user_submissions) ? r.user_submissions[0] : r.user_submissions))
-    .filter((t): t is CatalogTrack => !!t)
+    .filter((t): t is CatalogTrack & { published?: boolean } => !!t && t.published === true)
 
   const { data: owner } = await sb.from('artist_profiles').select('handle, display_name').eq('user_id', playlist.user_id).maybeSingle()
   const ownerName = (owner as { display_name?: string } | null)?.display_name ?? 'Artista'
