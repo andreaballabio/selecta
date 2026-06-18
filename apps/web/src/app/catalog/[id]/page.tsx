@@ -77,10 +77,10 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
   })
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <Link href="/catalog" className="mb-6 inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white">
-          <ArrowLeft className="h-4 w-4" /> Catalogo
+        <Link href="/library" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
+          <ArrowLeft className="h-4 w-4" /> Library
         </Link>
 
         <div className="grid gap-6 sm:grid-cols-[260px_1fr]">
@@ -88,28 +88,28 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
             <CatalogGrid tracks={[main]} />
           </div>
           <div className="flex flex-col justify-center">
-            <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">{main.display_title || 'Senza titolo'}</h1>
-            <p className="mt-1 text-lg text-zinc-400">{main.display_artist || 'Sconosciuto'}</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight text-text sm:text-4xl">{main.display_title || 'Senza titolo'}</h1>
+            <p className="mt-1 text-lg text-muted">{main.display_artist || 'Sconosciuto'}</p>
 
             <div className="mt-4 flex flex-wrap gap-2 text-sm">
-              {bucket && <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-emerald-300">{bucket.label}</span>}
-              {main.genre && <span className="rounded-full border border-zinc-800 px-3 py-1 text-zinc-300">{main.genre}</span>}
-              {main.bpm != null && <span className="rounded-full border border-zinc-800 px-3 py-1 text-zinc-300">{Math.round(main.bpm)} BPM</span>}
-              {main.key && <span className="rounded-full border border-zinc-800 px-3 py-1 text-zinc-300">{main.key}{main.scale ? ' ' + main.scale : ''}</span>}
+              {bucket && <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">{bucket.label}</span>}
+              {main.genre && <span className="rounded-full border border-line px-3 py-1 text-text">{main.genre}</span>}
+              {main.bpm != null && <span className="rounded-full border border-line px-3 py-1 text-text">{Math.round(main.bpm)} BPM</span>}
+              {main.key && <span className="rounded-full border border-line px-3 py-1 text-text">{main.key}{main.scale ? ' ' + main.scale : ''}</span>}
             </div>
 
-            <div className="mt-4 flex items-center gap-5 text-sm text-zinc-400">
+            <div className="mt-4 flex items-center gap-5 text-sm text-muted">
               <span className="flex items-center gap-1.5"><Play className="h-4 w-4" />{main.play_count ?? 0} ascolti</span>
               <span className="flex items-center gap-1.5"><Heart className="h-4 w-4" />{main.likes_count ?? 0}</span>
               <span className="flex items-center gap-1.5"><Bookmark className="h-4 w-4" />{main.saves_count ?? 0} salvataggi</span>
             </div>
 
             {savers.length > 0 && (
-              <p className="mt-4 text-sm text-zinc-500">
+              <p className="mt-4 text-sm text-muted">
                 Salvata da{' '}
                 {savers.slice(0, 6).map((s, i) => (
                   <span key={s.handle}>
-                    <Link href={`/u/${s.handle}`} className="text-zinc-300 hover:text-emerald-400">@{s.handle}</Link>
+                    <Link href={`/u/${s.handle}`} className="text-text hover:text-accent">@{s.handle}</Link>
                     {i < Math.min(savers.length, 6) - 1 ? ', ' : ''}
                   </span>
                 ))}
@@ -121,7 +121,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
 
         {similar.length > 0 && (
           <section className="mt-12">
-            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-zinc-500">Tracce simili</h2>
+            <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-muted">Tracce simili</h2>
             <CatalogGrid tracks={similar} />
           </section>
         )}

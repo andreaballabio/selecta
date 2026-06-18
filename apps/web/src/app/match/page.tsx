@@ -175,15 +175,15 @@ export default function MatchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">
         <div className="mb-10 text-center">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-2">
-            <Sparkles className="h-4 w-4 text-emerald-500" />
-            <span className="text-sm font-medium text-emerald-400">AI Matching</span>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-4 py-2">
+            <Sparkles className="h-4 w-4 text-accent" />
+            <span className="text-sm font-medium text-accent">AI Matching</span>
           </div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-white">Trova la tua label</h1>
-          <p className="mt-2 text-zinc-400">
+          <h1 className="font-display text-4xl font-bold tracking-tight text-text">Trova la tua label</h1>
+          <p className="mt-2 text-muted">
             Carica la tua demo e scopri le label più compatibili col tuo sound
           </p>
         </div>
@@ -196,41 +196,41 @@ export default function MatchPage() {
             />
 
             {uploadedFile && (
-              <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
+              <div className="space-y-4 rounded-xl border border-line bg-surface/50 p-6">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-                    Titolo <span className="text-zinc-600">(opzionale)</span>
+                  <label className="mb-1.5 block text-sm font-medium text-text">
+                    Titolo <span className="text-faint">(opzionale)</span>
                   </label>
                   <input
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Es. Deep Dive"
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                    className="w-full rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-text placeholder-faint focus:border-accent focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">
-                    Artista <span className="text-zinc-600">(opzionale)</span>
+                  <label className="mb-1.5 block text-sm font-medium text-text">
+                    Artista <span className="text-faint">(opzionale)</span>
                   </label>
                   <input
                     type="text"
                     value={artist}
                     onChange={(e) => setArtist(e.target.value)}
                     placeholder="Es. John Doe"
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                    className="w-full rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-text placeholder-faint focus:border-accent focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">
+                  <label className="mb-1.5 block text-sm font-medium text-text">
                     Stato della traccia
                   </label>
                   <select
                     value={trackStatus}
                     onChange={(e) => setTrackStatus(e.target.value)}
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-white focus:border-emerald-500 focus:outline-none"
+                    className="w-full rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-text focus:border-accent focus:outline-none"
                   >
                     <option value="unknown">Non specificato</option>
                     <option value="demo">Demo</option>
@@ -241,7 +241,7 @@ export default function MatchPage() {
 
                 <button
                   onClick={handleAnalyze}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-black transition-colors hover:bg-emerald-400"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-semibold text-accent-ink transition-colors hover:bg-accent"
                 >
                   <Sparkles className="h-5 w-5" />
                   Analizza con AI
@@ -259,21 +259,21 @@ export default function MatchPage() {
         )}
 
         {pageStatus === 'analyzing' && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-8 text-center">
-            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 mx-auto">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+          <div className="rounded-xl border border-line bg-surface/50 p-8 text-center">
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 mx-auto">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
-            <p className="mb-1 text-lg font-semibold text-white">Analisi in corso...</p>
-            <p className="mb-6 text-sm text-zinc-500">
+            <p className="mb-1 text-lg font-semibold text-text">Analisi in corso...</p>
+            <p className="mb-6 text-sm text-muted">
               Il worker sta estraendo le feature audio. Può richiedere fino a 90 secondi.
             </p>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-900">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
               <div
-                className="h-full rounded-full bg-emerald-500 transition-all duration-700"
+                className="h-full rounded-full bg-accent transition-all duration-700"
                 style={{ width: `${progress}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-zinc-600">{Math.round(progress)}%</p>
+            <p className="mt-2 text-xs text-faint">{Math.round(progress)}%</p>
           </div>
         )}
 
@@ -285,7 +285,7 @@ export default function MatchPage() {
             </div>
             <button
               onClick={handleReset}
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-800 px-6 py-3 font-medium text-zinc-300 hover:border-zinc-700 hover:text-white"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-line px-6 py-3 font-medium text-text hover:border-faint hover:text-text"
             >
               <RotateCcw className="h-4 w-4" />
               Riprova
@@ -320,16 +320,16 @@ function ResultsView({
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">Le tue label</h1>
-            <p className="text-sm text-zinc-400">Top {results.length} match per il tuo sound</p>
+            <h1 className="text-2xl font-bold text-text">Le tue label</h1>
+            <p className="text-sm text-muted">Top {results.length} match per il tuo sound</p>
           </div>
           <button
             onClick={onReset}
-            className="flex shrink-0 items-center gap-2 rounded-lg border border-zinc-800 px-4 py-2 text-sm font-medium text-zinc-400 hover:border-zinc-700 hover:text-white"
+            className="flex shrink-0 items-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted hover:border-faint hover:text-text"
           >
             <RotateCcw className="h-4 w-4" />
             Nuova analisi
@@ -338,43 +338,43 @@ function ResultsView({
 
         {/* Dati audio rilevati dalla traccia */}
         {features && (
-          <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500">La tua traccia</p>
+          <div className="mb-6 rounded-xl border border-line bg-surface/60 p-4">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted">La tua traccia</p>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
               {features.bpm != null && (
                 <div className="text-center">
-                  <p className="text-lg font-bold text-white">{Math.round(features.bpm)}</p>
-                  <p className="text-xs text-zinc-600">BPM</p>
+                  <p className="text-lg font-bold text-text">{Math.round(features.bpm)}</p>
+                  <p className="text-xs text-faint">BPM</p>
                 </div>
               )}
               {features.key && (
                 <div className="text-center">
-                  <p className="text-lg font-bold text-white">{features.key} {features.scale ?? ''}</p>
-                  <p className="text-xs text-zinc-600">Key</p>
+                  <p className="text-lg font-bold text-text">{features.key} {features.scale ?? ''}</p>
+                  <p className="text-xs text-faint">Key</p>
                 </div>
               )}
               {features.lufs != null && (
                 <div className="text-center">
-                  <p className="text-lg font-bold text-white">{features.lufs.toFixed(1)}</p>
-                  <p className="text-xs text-zinc-600">LUFS</p>
+                  <p className="text-lg font-bold text-text">{features.lufs.toFixed(1)}</p>
+                  <p className="text-xs text-faint">LUFS</p>
                 </div>
               )}
               {features.duration != null && (
                 <div className="text-center">
-                  <p className="text-lg font-bold text-white">{formatDuration(features.duration)}</p>
-                  <p className="text-xs text-zinc-600">Durata</p>
+                  <p className="text-lg font-bold text-text">{formatDuration(features.duration)}</p>
+                  <p className="text-xs text-faint">Durata</p>
                 </div>
               )}
               {features.sub_ratio != null && (
                 <div className="text-center">
-                  <p className="text-lg font-bold text-white">{Math.round(features.sub_ratio * 100)}%</p>
-                  <p className="text-xs text-zinc-600">Sub</p>
+                  <p className="text-lg font-bold text-text">{Math.round(features.sub_ratio * 100)}%</p>
+                  <p className="text-xs text-faint">Sub</p>
                 </div>
               )}
               {features.onset_strength != null && (
                 <div className="text-center">
-                  <p className="text-lg font-bold text-white">{Math.round(features.onset_strength * 100)}</p>
-                  <p className="text-xs text-zinc-600">Groove</p>
+                  <p className="text-lg font-bold text-text">{Math.round(features.onset_strength * 100)}</p>
+                  <p className="text-xs text-faint">Groove</p>
                 </div>
               )}
             </div>
@@ -408,8 +408,8 @@ function ResultsView({
                 key={result.label_id}
                 className={`rounded-xl border p-6 ${
                   isTop
-                    ? 'border-emerald-500/40 bg-emerald-950/20'
-                    : 'border-zinc-800 bg-zinc-950/50'
+                    ? 'border-accent/40 bg-surface-2'
+                    : 'border-line bg-surface/50'
                 }`}
               >
                 {/* Header */}
@@ -417,21 +417,21 @@ function ResultsView({
                   <div className="flex items-center gap-3">
                     <div
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${
-                        isTop ? 'bg-emerald-500 text-black' : 'bg-zinc-800 text-zinc-400'
+                        isTop ? 'bg-accent text-accent-ink' : 'bg-surface-2 text-muted'
                       }`}
                     >
                       {index + 1}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-white">{result.label_name}</h3>
+                      <h3 className="font-semibold text-text">{result.label_name}</h3>
                       {result.primary_genre && (
-                        <p className="text-xs text-zinc-500">{result.primary_genre}</p>
+                        <p className="text-xs text-muted">{result.primary_genre}</p>
                       )}
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className={`text-2xl font-bold ${isTop ? 'text-emerald-400' : 'text-zinc-300'}`}>
+                    <p className={`text-2xl font-bold ${isTop ? 'text-accent' : 'text-text'}`}>
                       {displayScore}%
                     </p>
                     <div className="mt-1 flex flex-col items-end gap-1">
@@ -441,9 +441,9 @@ function ResultsView({
                 </div>
 
                 {/* Score bar */}
-                <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-zinc-900">
+                <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                   <div
-                    className={`h-full rounded-full ${isTop ? 'bg-emerald-500' : 'bg-zinc-600'}`}
+                    className={`h-full rounded-full ${isTop ? 'bg-accent' : 'bg-faint'}`}
                     style={{ width: `${displayScore}%` }}
                   />
                 </div>
@@ -451,14 +451,14 @@ function ResultsView({
                 {/* Traccia più simile trovata */}
                 {result.best_track_title && (
                   <div className={`mb-3 rounded-lg px-3 py-2 text-sm ${
-                    isTop ? 'bg-emerald-950/40 border border-emerald-800/30' : 'bg-zinc-900/60'
+                    isTop ? 'bg-surface-2 border border-accent/30' : 'bg-surface-2/60'
                   }`}>
-                    <span className="text-zinc-500">Traccia più simile: </span>
-                    <span className="font-medium text-zinc-200">
+                    <span className="text-muted">Traccia più simile: </span>
+                    <span className="font-medium text-text">
                       {result.best_track_artist ? `${result.best_track_artist} — ` : ''}
                       {result.best_track_title}
                     </span>
-                    <span className={`ml-2 font-semibold ${isTop ? 'text-emerald-400' : 'text-zinc-400'}`}>
+                    <span className={`ml-2 font-semibold ${isTop ? 'text-accent' : 'text-muted'}`}>
                       {result.best_track_score}%
                     </span>
                   </div>
@@ -467,7 +467,7 @@ function ResultsView({
                 {/* Badge contesto */}
                 <div className="mb-3 flex flex-wrap gap-1.5">
                   {result.match_context.includes('exact_match') && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
                       ✦ Traccia quasi identica nel catalogo
                     </span>
                   )}
@@ -482,12 +482,12 @@ function ResultsView({
                     </span>
                   )}
                   {result.match_context.includes('sparse') && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-zinc-700/50 px-2 py-0.5 text-xs text-zinc-500">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-faint/50 px-2 py-0.5 text-xs text-muted">
                       Poche tracce corrispondenti
                     </span>
                   )}
                   {result.match_context.length === 0 && result.good_matches > 0 && (
-                    <span className="text-xs text-zinc-600">
+                    <span className="text-xs text-faint">
                       {result.good_matches} tracce simili su {result.analyzed_tracks_count}
                     </span>
                   )}
@@ -496,8 +496,8 @@ function ResultsView({
                 {/* Feedback */}
                 <ul className="space-y-1.5">
                   {result.feedback.map((line, i) => (
-                    <li key={i} className="flex gap-2 text-sm text-zinc-400">
-                      <span className="shrink-0 text-zinc-600">—</span>
+                    <li key={i} className="flex gap-2 text-sm text-muted">
+                      <span className="shrink-0 text-faint">—</span>
                       {line}
                     </li>
                   ))}
@@ -515,18 +515,18 @@ function ResultsView({
         )}
 
         {/* Funnel: dall'analisi alla tua identità condivisibile */}
-        <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-6 text-center">
-          <h3 className="text-lg font-semibold text-white">Trasforma il tuo sound in una Press Kit</h3>
-          <p className="mx-auto mt-1 max-w-md text-sm text-zinc-400">
+        <div className="mt-8 rounded-2xl border border-accent/20 bg-surface-2 p-6 text-center">
+          <h3 className="text-lg font-semibold text-text">Trasforma il tuo sound in una Press Kit</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-muted">
             Una pagina condivisibile, auto-popolata dalle tue analisi, da mandare a locali, PR e label.
           </p>
-          <Link href="/profile" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-black transition-colors hover:bg-emerald-400">
+          <Link href="/profile" className="mt-4 inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-2.5 font-semibold text-accent-ink transition-colors hover:bg-accent">
             <IdCard className="h-4 w-4" /> Crea la tua Press Kit
           </Link>
         </div>
 
         {submissionId && (
-          <p className="mt-6 text-center text-xs text-zinc-700">ID analisi: {submissionId}</p>
+          <p className="mt-6 text-center text-xs text-faint">ID analisi: {submissionId}</p>
         )}
       </div>
     </div>
@@ -537,7 +537,7 @@ function ResultsView({
 function ConfidenceBadge({ score }: { score: number }) {
   if (score >= 0.6) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-400">
+      <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent">
         <CheckCircle className="h-3 w-3" />
         Profilo solido
       </span>

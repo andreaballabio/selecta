@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard } from 'lucide-react'
+import { User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 
 const NAV = [
   { href: '/match', label: 'Analizza' },
-  { href: '/catalog', label: 'Catalogo' },
+  { href: '/library', label: 'Library' },
   { href: '/charts', label: 'Classifiche' },
   { href: '/artists', label: 'Artisti' },
 ]
@@ -34,18 +34,18 @@ export function SiteHeader() {
   return (
     <header className={cn(
       'sticky top-0 z-40 border-b transition-colors duration-300',
-      scrolled ? 'border-zinc-800/80 bg-black/70 backdrop-blur-xl' : 'border-transparent bg-transparent',
+      scrolled ? 'border-line bg-bg/80 backdrop-blur-xl' : 'border-transparent',
     )}>
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="group flex items-center gap-2.5">
-          <span className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-emerald-500">
-            <span className="flex items-end gap-0.5">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-8">
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
+            <span className="flex items-end gap-[2px]">
               {[0, 1, 2].map((i) => (
-                <span key={i} className="eq-bar w-[3px] rounded-full bg-black" style={{ height: 12, animationDelay: `${i * 0.15}s` }} />
+                <span key={i} className="eq-bar w-[3px] rounded-full bg-accent-ink" style={{ height: 12, animationDelay: `${i * 0.15}s` }} />
               ))}
             </span>
           </span>
-          <span className="font-display text-[17px] font-bold tracking-tight text-white">Selecta</span>
+          <span className="font-display text-lg font-bold tracking-tight text-text">Selecta</span>
         </Link>
 
         <nav className="flex items-center gap-1">
@@ -56,12 +56,12 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'relative hidden rounded-lg px-3 py-1.5 text-sm font-medium transition-colors sm:block',
-                  active ? 'text-white' : 'text-zinc-400 hover:text-white',
+                  'relative hidden rounded-lg px-3.5 py-2 text-sm font-medium transition-colors sm:block',
+                  active ? 'text-text' : 'text-muted hover:text-text',
                 )}
               >
                 {item.label}
-                {active && <span className="absolute inset-x-3 -bottom-px h-px bg-emerald-400" />}
+                {active && <span className="absolute inset-x-3.5 -bottom-px h-px bg-accent" />}
               </Link>
             )
           })}
@@ -69,20 +69,20 @@ export function SiteHeader() {
           {authed ? (
             <Link
               href="/dashboard"
-              className="ml-2 flex items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+              className="ml-2 flex items-center gap-2 rounded-full bg-surface-2 px-3.5 py-2 text-sm font-semibold text-text ring-1 ring-line transition-colors hover:ring-faint"
             >
-              <LayoutDashboard className="h-4 w-4" /> Dashboard
+              <User className="h-4 w-4" /> <span className="hidden sm:inline">Account</span>
             </Link>
           ) : (
             <>
-              <Link href="/auth/login" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-300 hover:text-white">
+              <Link href="/auth/login" className="hidden rounded-lg px-3.5 py-2 text-sm font-medium text-muted hover:text-text sm:block">
                 Accedi
               </Link>
               <Link
                 href="/match"
-                className="ml-1 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-sm font-semibold text-black transition-colors hover:bg-emerald-400"
+                className="ml-1 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition-transform hover:scale-[1.03]"
               >
-                Inizia
+                Inizia gratis
               </Link>
             </>
           )}

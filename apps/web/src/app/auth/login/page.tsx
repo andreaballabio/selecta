@@ -26,11 +26,11 @@ export default function LoginPage() {
   }, [router, supabase])
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black px-4">
-      <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950/50 p-8">
+    <div className="flex min-h-screen items-center justify-center bg-bg px-4">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface/50 p-8">
         <div className="mb-8 text-center">
-          <h1 className="mb-2 text-2xl font-bold text-white">Accedi a Selecta</h1>
-          <p className="text-zinc-400">Analizza le tue tracce con AI</p>
+          <h1 className="mb-2 text-2xl font-bold text-text">Accedi a Selecta</h1>
+          <p className="text-muted">Analizza le tue tracce con AI</p>
         </div>
 
         <Auth

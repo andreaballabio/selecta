@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Inter, Syne } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { PlayerProvider } from "@/components/player/player-context";
@@ -10,16 +10,16 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
-const spaceGrotesk = Space_Grotesk({
+const syne = Syne({
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-space-grotesk",
+  weight: ["600", "700", "800"],
+  variable: "--font-syne",
 });
 
 export const metadata: Metadata = {
   title: "Selecta — A&R AI e catalogo Tech House",
   description:
-    "Analizza il tuo sound, scopri le label compatibili e pubblica la tua traccia nel catalogo Tech House curato per come suona.",
+    "Analizza il tuo sound, scopri le label compatibili e pubblica nel catalogo Tech House curato per come suona. Dove DJ e label ascoltano davvero.",
 };
 
 export default function RootLayout({
@@ -28,8 +28,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">
+    <html lang="it" className={`${inter.variable} ${syne.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col bg-bg font-sans text-text">
         <PlayerProvider>
           <SiteHeader />
           {children}

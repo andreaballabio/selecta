@@ -69,8 +69,8 @@ export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
 
   if (tracks.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 p-10 text-center text-zinc-500">
-        <Music className="mx-auto mb-3 h-6 w-6 text-zinc-700" />
+      <div className="rounded-3xl border border-dashed border-line bg-surface/40 p-12 text-center text-muted">
+        <Music className="mx-auto mb-3 h-6 w-6 text-faint" />
         Ancora nessuna traccia qui. Analizza la tua e pubblicala nel catalogo.
       </div>
     )
@@ -117,22 +117,20 @@ function TrackCard({
   })
 
   return (
-    <div className="group rounded-2xl border border-zinc-800/80 bg-zinc-950/40 p-2.5 transition-all duration-300 hover:border-emerald-500/30 hover:bg-zinc-900/40">
-      <div className="relative mb-3 aspect-square overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/10">
+    <div className="group rounded-2xl border border-line bg-surface/50 p-2.5 transition-all duration-300 hover:border-faint hover:bg-surface-2/60">
+      <div className="relative mb-3 aspect-square overflow-hidden rounded-xl bg-surface-2">
         {track.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={track.cover_url} alt={track.display_title ?? ''} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center font-display text-4xl font-bold text-emerald-300/60">{initials}</div>
+          <div className="flex h-full w-full items-center justify-center font-display text-4xl font-bold text-faint">{initials}</div>
         )}
-
-        {/* Overlay scuro al hover / quando attiva */}
-        <div className={`absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 transition-opacity duration-300 ${isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
+        <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent transition-opacity duration-300 ${isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
 
         <button
           onClick={play}
           aria-label={isPlaying ? 'Pausa' : 'Play'}
-          className={`absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-emerald-500 text-black shadow-xl shadow-emerald-500/20 transition-all duration-300 hover:scale-105 ${
+          className={`absolute bottom-2.5 right-2.5 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-accent-ink shadow-xl transition-all duration-300 hover:scale-105 ${
             isCurrent ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100'
           }`}
         >
@@ -142,27 +140,27 @@ function TrackCard({
         {isPlaying && (
           <div className="absolute bottom-3.5 left-3 flex items-end gap-0.5" aria-hidden>
             {[0, 1, 2].map((i) => (
-              <span key={i} className="eq-bar w-0.5 rounded-full bg-emerald-400" style={{ height: 12, animationDelay: `${i * 0.14}s` }} />
+              <span key={i} className="eq-bar w-0.5 rounded-full bg-accent" style={{ height: 12, animationDelay: `${i * 0.14}s` }} />
             ))}
           </div>
         )}
       </div>
 
       <div className="px-1">
-        <Link href={`/catalog/${track.id}`} className="block truncate font-semibold text-white transition-colors hover:text-emerald-400">
+        <Link href={`/catalog/${track.id}`} className="block truncate font-semibold text-text transition-colors hover:text-accent">
           {track.display_title || 'Senza titolo'}
         </Link>
-        <p className="truncate text-sm text-zinc-500">{track.display_artist || 'Sconosciuto'}</p>
+        <p className="truncate text-sm text-muted">{track.display_artist || 'Sconosciuto'}</p>
 
-        <div className="mt-2.5 flex items-center justify-between border-t border-zinc-800/60 pt-2.5">
-          <span className="truncate text-[11px] font-medium text-emerald-400/80">{bucket?.label ?? track.genre ?? 'Tech House'}</span>
-          <div className="flex shrink-0 items-center gap-2.5 text-zinc-400">
-            <button onClick={onLike} className="flex items-center gap-1 text-xs transition-colors hover:text-emerald-400" aria-label="Like">
-              <Heart className={`h-4 w-4 ${liked ? 'fill-emerald-500 text-emerald-500' : ''}`} />
+        <div className="mt-2.5 flex items-center justify-between border-t border-line pt-2.5">
+          <span className="truncate text-[11px] font-medium uppercase tracking-wider text-faint">{bucket?.label ?? track.genre ?? 'Tech House'}</span>
+          <div className="flex shrink-0 items-center gap-2.5 text-muted">
+            <button onClick={onLike} className="flex items-center gap-1 text-xs transition-colors hover:text-accent" aria-label="Like">
+              <Heart className={`h-4 w-4 ${liked ? 'fill-accent text-accent' : ''}`} />
               {likes > 0 && <span>{likes}</span>}
             </button>
-            <button onClick={onSave} className="flex items-center gap-1 text-xs transition-colors hover:text-emerald-400" aria-label="Salva">
-              <Bookmark className={`h-4 w-4 ${saved ? 'fill-emerald-500 text-emerald-500' : ''}`} />
+            <button onClick={onSave} className="flex items-center gap-1 text-xs transition-colors hover:text-accent" aria-label="Salva">
+              <Bookmark className={`h-4 w-4 ${saved ? 'fill-accent text-accent' : ''}`} />
               {saves > 0 && <span>{saves}</span>}
             </button>
           </div>

@@ -121,24 +121,24 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
 
   if (selectedFile && !uploading) {
     return (
-      <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-6">
+      <div className="rounded-lg border border-line bg-surface p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10">
-              <FileAudio className="h-6 w-6 text-emerald-500" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10">
+              <FileAudio className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <p className="font-medium text-white">{selectedFile.name}</p>
-              <p className="text-sm text-zinc-500">
+              <p className="font-medium text-text">{selectedFile.name}</p>
+              <p className="text-sm text-muted">
                 {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
               </p>
             </div>
           </div>
           <button
             onClick={clearFile}
-            className="rounded-lg p-2 hover:bg-zinc-900"
+            className="rounded-lg p-2 hover:bg-surface-2"
           >
-            <X className="h-5 w-5 text-zinc-500" />
+            <X className="h-5 w-5 text-muted" />
           </button>
         </div>
       </div>
@@ -150,9 +150,9 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
       {...getRootProps()}
       className={cn(
         'relative cursor-pointer rounded-xl border-2 border-dashed p-8 transition-colors',
-        isDragActive && !isDragReject && 'border-emerald-500 bg-emerald-500/5',
+        isDragActive && !isDragReject && 'border-accent bg-accent/5',
         isDragReject && 'border-red-500 bg-red-500/5',
-        !isDragActive && !isDragReject && 'border-zinc-800 hover:border-zinc-700',
+        !isDragActive && !isDragReject && 'border-line hover:border-faint',
         uploading && 'cursor-not-allowed opacity-50'
       )}
     >
@@ -161,34 +161,34 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
       <div className="flex flex-col items-center gap-4 text-center">
         {uploading ? (
           <>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-900">
-              <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
             </div>
             <div>
-              <p className="font-medium text-white">Uploading...</p>
-              <p className="text-sm text-zinc-500">{uploadProgress}%</p>
+              <p className="font-medium text-text">Uploading...</p>
+              <p className="text-sm text-muted">{uploadProgress}%</p>
             </div>
-            <div className="h-2 w-48 overflow-hidden rounded-full bg-zinc-900">
+            <div className="h-2 w-48 overflow-hidden rounded-full bg-surface-2">
               <div
-                className="h-full bg-emerald-500 transition-all"
+                className="h-full bg-accent transition-all"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
           </>
         ) : (
           <>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-900">
-              <Upload className="h-8 w-8 text-zinc-500" />
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2">
+              <Upload className="h-8 w-8 text-muted" />
             </div>
             <div>
-              <p className="font-medium text-white">
+              <p className="font-medium text-text">
                 {isDragActive ? 'Rilascia il file qui' : 'Trascina il tuo file audio'}
               </p>
-              <p className="mt-1 text-sm text-zinc-500">
+              <p className="mt-1 text-sm text-muted">
                 o clicca per selezionare
               </p>
             </div>
-            <div className="flex items-center gap-4 text-xs text-zinc-600">
+            <div className="flex items-center gap-4 text-xs text-faint">
               <span className="flex items-center gap-1">
                 <Music className="h-3 w-3" />
                 WAV, MP3, AIFF, FLAC

@@ -46,12 +46,12 @@ export function FollowButton({
       className={`inline-flex items-center gap-1.5 rounded-lg font-semibold transition-colors disabled:opacity-60 ${
         compact ? 'px-3 py-1.5 text-sm' : 'px-4 py-2 text-sm'
       } ${following
-        ? 'border border-zinc-700 text-zinc-300 hover:border-zinc-600'
-        : 'bg-emerald-500 text-black hover:bg-emerald-400'}`}
+        ? 'border border-faint text-text hover:border-faint'
+        : 'bg-accent text-accent-ink hover:bg-accent'}`}
     >
       {following ? <UserCheck className="h-4 w-4" /> : <UserPlus className="h-4 w-4" />}
       {following ? 'Segui già' : 'Segui'}
-      {!compact && initialFollowers !== undefined && <span className="text-zinc-500">· {followers}</span>}
+      {!compact && initialFollowers !== undefined && <span className="text-muted">· {followers}</span>}
     </button>
   )
 }

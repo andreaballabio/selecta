@@ -109,25 +109,25 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-zinc-500">
+      <div className="flex min-h-screen items-center justify-center bg-bg text-muted">
         <Loader2 className="h-6 w-6 animate-spin" />
       </div>
     )
   }
 
-  const input = 'w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-white placeholder-zinc-600 focus:border-emerald-500 focus:outline-none'
-  const label = 'mb-1.5 block text-sm font-medium text-zinc-300'
+  const input = 'w-full rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-text placeholder-faint focus:border-accent focus:outline-none'
+  const label = 'mb-1.5 block text-sm font-medium text-text'
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">La tua press kit</h1>
-            <p className="text-sm text-zinc-400">La pagina che condividi con locali, PR e label</p>
+            <h1 className="text-2xl font-bold text-text">La tua press kit</h1>
+            <p className="text-sm text-muted">La pagina che condividi con locali, PR e label</p>
           </div>
           {handle && id && (
-            <Link href={`/u/${handle}`} target="_blank" className="flex items-center gap-1.5 rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 hover:text-white">
+            <Link href={`/u/${handle}`} target="_blank" className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-text hover:text-text">
               Vedi <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           )}
@@ -142,12 +142,12 @@ export default function ProfilePage() {
             <div>
               <label className={label}>Handle (URL)</label>
               <input className={input} value={handle} onChange={e => setHandle(e.target.value)} placeholder="marco-rossi" />
-              <p className="mt-1 text-xs text-zinc-600">{host || 'selecta'}/u/{slugify(handle) || '...'}</p>
+              <p className="mt-1 text-xs text-faint">{host || 'selecta'}/u/{slugify(handle) || '...'}</p>
             </div>
           </div>
 
           <div>
-            <label className={label}>Tagline <span className="text-zinc-600">(una riga)</span></label>
+            <label className={label}>Tagline <span className="text-faint">(una riga)</span></label>
             <input className={input} value={tagline} onChange={e => setTagline(e.target.value)} placeholder="Melodic techno from Milano" />
           </div>
 
@@ -172,12 +172,12 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className={label}>Il tuo suono <span className="text-zinc-600">(parole chiave, separate da virgola)</span></label>
+            <label className={label}>Il tuo suono <span className="text-faint">(parole chiave, separate da virgola)</span></label>
             <input className={input} value={descriptors} onChange={e => setDescriptors(e.target.value)} placeholder="ipnotico, percussivo, dark" />
           </div>
 
           <div>
-            <label className={label}>Bio <span className="text-zinc-600">(2-4 frasi)</span></label>
+            <label className={label}>Bio <span className="text-faint">(2-4 frasi)</span></label>
             <textarea className={`${input} min-h-[110px] resize-y`} value={bio} onChange={e => setBio(e.target.value)} placeholder="Chi sei, da dove vieni, il tuo suono, un risultato recente." />
           </div>
 
@@ -201,7 +201,7 @@ export default function ProfilePage() {
             </div>
           )}
           {saved && (
-            <div className="flex items-center gap-2 rounded-lg border border-emerald-900/50 bg-emerald-950/30 p-3 text-sm text-emerald-400">
+            <div className="flex items-center gap-2 rounded-lg border border-surface-2 bg-surface-2 p-3 text-sm text-accent">
               <CheckCircle className="h-4 w-4 shrink-0" /> Salvato! La tua press kit è online su <Link href={`/u/${handle}`} target="_blank" className="underline">/u/{handle}</Link>
             </div>
           )}
@@ -209,7 +209,7 @@ export default function ProfilePage() {
           <button
             onClick={save}
             disabled={saving}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-black transition-colors hover:bg-emerald-400 disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-semibold text-accent-ink transition-colors hover:bg-accent disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
             {saving ? 'Salvataggio...' : 'Salva press kit'}

@@ -34,21 +34,21 @@ export default async function SavedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <Link href="/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm text-zinc-400 hover:text-white">
+        <Link href="/dashboard" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
           <ArrowLeft className="h-4 w-4" /> Dashboard
         </Link>
         <header className="mb-8">
-          <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-tight text-white">
-            <Bookmark className="h-6 w-6 text-emerald-400" /> I miei salvati
+          <h1 className="flex items-center gap-2 font-display text-3xl font-bold tracking-tight text-text">
+            <Bookmark className="h-6 w-6 text-accent" /> I miei salvati
           </h1>
-          <p className="mt-1 text-sm text-zinc-500">Le tracce che hai messo in crate dal catalogo.</p>
+          <p className="mt-1 text-sm text-muted">Le tracce che hai messo in crate dal catalogo.</p>
         </header>
 
         {tracks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 p-10 text-center text-zinc-500">
-            Non hai ancora salvato tracce. <Link href="/catalog" className="text-emerald-400 hover:underline">Esplora il catalogo.</Link>
+          <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-10 text-center text-muted">
+            Non hai ancora salvato tracce. <Link href="/library" className="text-accent hover:underline">Esplora la library.</Link>
           </div>
         ) : (
           <CatalogGrid tracks={tracks} />

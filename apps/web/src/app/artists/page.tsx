@@ -91,20 +91,20 @@ export default async function ArtistsPage() {
     .map((a) => ({ ...a, affinity: undefined }))
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <header className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1">
-            <Users className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="text-xs font-medium text-emerald-400">Artisti</span>
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1">
+            <Users className="h-3.5 w-3.5 text-accent" />
+            <span className="text-xs font-medium text-accent">Artisti</span>
           </div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-white sm:text-5xl">Chi fa Tech House qui</h1>
-          <p className="mt-2 text-zinc-400">Scopri i producer e — se hai analizzato le tue tracce — trova chi suona come te.</p>
+          <h1 className="font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">Chi fa Tech House qui</h1>
+          <p className="mt-2 text-muted">Scopri i producer e — se hai analizzato le tue tracce — trova chi suona come te.</p>
         </header>
 
         {similar.length > 0 && (
           <section className="mb-10">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-emerald-500/80">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-accent/80">
               <Sparkles className="h-3.5 w-3.5" /> Simili a te
             </h2>
             <ArtistsList artists={similar} />
@@ -112,13 +112,13 @@ export default async function ArtistsPage() {
         )}
 
         {!viewer && (
-          <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-950/10 p-5 text-center text-sm text-zinc-400">
-            <Link href="/match" className="font-semibold text-emerald-400 hover:underline">Analizza le tue tracce</Link> per scoprire gli artisti che suonano come te.
+          <div className="mb-8 rounded-2xl border border-accent/20 bg-surface-2 p-5 text-center text-sm text-muted">
+            <Link href="/match" className="font-semibold text-accent hover:underline">Analizza le tue tracce</Link> per scoprire gli artisti che suonano come te.
           </div>
         )}
 
         <section>
-          {similar.length > 0 && <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-500">Tutti gli artisti</h2>}
+          {similar.length > 0 && <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted">Tutti gli artisti</h2>}
           <ArtistsList artists={directory} />
         </section>
       </div>

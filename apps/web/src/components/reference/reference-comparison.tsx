@@ -36,12 +36,12 @@ export function ReferenceComparison({
   labelName: string
 }) {
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-6">
+    <section className="rounded-2xl border border-line bg-surface/60 p-6">
       <div className="mb-1 flex items-center gap-2">
-        <GitCompareArrows className="h-5 w-5 text-emerald-400" />
-        <h2 className="text-lg font-bold text-white">Il tuo suono vs {labelName}</h2>
+        <GitCompareArrows className="h-5 w-5 text-accent" />
+        <h2 className="text-lg font-bold text-text">Il tuo suono vs {labelName}</h2>
       </div>
-      <p className="mb-5 text-xs text-zinc-500">
+      <p className="mb-5 text-xs text-muted">
         Dove ti posizioni rispetto al sound medio della label
       </p>
 
@@ -61,25 +61,25 @@ export function ReferenceComparison({
           return (
             <div key={axis.key}>
               <div className="mb-1 flex items-center justify-between text-sm">
-                <span className="font-medium text-zinc-300">{axis.label}</span>
-                <span className={inLine ? 'text-xs text-zinc-500' : `text-xs ${more ? 'text-emerald-400' : 'text-yellow-400'}`}>
+                <span className="font-medium text-text">{axis.label}</span>
+                <span className={inLine ? 'text-xs text-muted' : `text-xs ${more ? 'text-accent' : 'text-yellow-400'}`}>
                   {word}
                 </span>
               </div>
 
-              <div className="relative h-2 rounded-full bg-zinc-900">
-                <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-zinc-600" />
+              <div className="relative h-2 rounded-full bg-surface-2">
+                <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-faint" />
                 {!inLine && (
                   <div
-                    className={`absolute top-0 h-full ${more ? 'rounded-r-full bg-emerald-500' : 'rounded-l-full bg-yellow-500'}`}
+                    className={`absolute top-0 h-full ${more ? 'rounded-r-full bg-accent' : 'rounded-l-full bg-yellow-500'}`}
                     style={more ? { left: '50%', width: `${halfPct}%` } : { right: '50%', width: `${halfPct}%` }}
                   />
                 )}
               </div>
 
-              <div className="mt-1 flex items-center justify-between text-xs text-zinc-600">
-                <span>tu <span className="text-zinc-400">{axis.fmt(u)}</span></span>
-                <span><span className="text-zinc-400">{axis.fmt(r)}</span> {labelName}</span>
+              <div className="mt-1 flex items-center justify-between text-xs text-faint">
+                <span>tu <span className="text-muted">{axis.fmt(u)}</span></span>
+                <span><span className="text-muted">{axis.fmt(r)}</span> {labelName}</span>
               </div>
             </div>
           )
