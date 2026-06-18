@@ -4,12 +4,19 @@
   "functions": {
     "app/api/match/route.ts": {
       "maxDuration": 150
+    },
+    "app/api/cron/analyze-queue/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
     {
       "path": "/api/cron/ping-worker",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/analyze-queue",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

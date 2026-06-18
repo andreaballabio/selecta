@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Users, Disc, ArrowLeft, Flag, DownloadCloud } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import QueueIndicator from '@/components/admin/queue-indicator'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
@@ -32,7 +33,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </Link>
             ))}
           </nav>
-          <Link href="/" className="flex items-center gap-1 text-sm text-muted hover:text-text"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Sito</span></Link>
+          <div className="flex items-center gap-3">
+            <QueueIndicator />
+            <Link href="/" className="flex items-center gap-1 text-sm text-muted hover:text-text"><ArrowLeft className="h-4 w-4" /> <span className="hidden sm:inline">Sito</span></Link>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-8">{children}</main>

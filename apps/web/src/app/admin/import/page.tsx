@@ -66,7 +66,7 @@ export default function ImportPage() {
     setImporting(true)
     try {
       const d = await fetch('/api/admin/deezer-import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label_name: label.name, primary_genre: genre, tracks: chosen }) }).then((r) => r.json())
-      if (d.label_id) router.push(`/admin/label/${d.label_id}`)
+      if (d.label_id) router.push(`/admin/label/${d.label_id}?analyze=1`) // avvia subito l'analisi
     } finally { setImporting(false) }
   }
 
