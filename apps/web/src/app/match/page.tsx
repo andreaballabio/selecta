@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { AudioUpload } from '@/components/upload/audio-upload'
 import { ReportPro } from '@/components/report/report-pro'
+import { DemoScore } from '@/components/report/demo-score'
 import { ReferenceComparison } from '@/components/reference/reference-comparison'
 import { PublishToCatalog } from '@/components/catalog/publish-to-catalog'
 import { createClient } from '@/lib/supabase/client'
@@ -378,6 +379,13 @@ function ResultsView({
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Demo Score — punteggio + confronto col resto delle demo */}
+        {submissionId && (
+          <div className="mb-6">
+            <DemoScore submissionId={submissionId} />
           </div>
         )}
 

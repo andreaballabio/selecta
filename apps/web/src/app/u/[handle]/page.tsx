@@ -78,7 +78,8 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
   // Follow: numero follower + se il visitatore (loggato) segue già questo artista.
   const ssr = await createClient()
   const { data: { user: viewer } } = await ssr.auth.getUser()
-  const [{ count: followersCount }, { data: followRow }, { data: trackRows }] = await Promise.all([
+  const NINETY = new Date(Date.now() - 90 * 24 * 3.6e6).toISOString()
+  const [{ count: followersCount }, { data: followRow }, { data: trackRows }, { data: allTracks }, { count: newFollowers90 }] = await Promise.all([
     admin.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', p.user_id),
     viewer
       ? admin.from('follows').select('follower_id').eq('follower_id', viewer.id).eq('following_id', p.user_id).maybeSingle()
@@ -87,9 +88,20 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
       .select('id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count')
       .eq('user_id', p.user_id).eq('published', true)
       .order('published_at', { ascending: false }).limit(12),
+    admin.from('user_submissions').select('play_count, likes_count, saves_count, published_at').eq('user_id', p.user_id).eq('published', true),
+    admin.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', p.user_id).gte('created_at', NINETY),
   ])
   const isSelf = viewer?.id === p.user_id
   const publishedTracks = (trackRows ?? []) as CatalogTrack[]
+  const allPub = (allTracks ?? []) as { play_count: number | null; likes_count: number | null; saves_count: number | null; published_at: string | null }[]
+  const totals = {
+    tracks: allPub.length,
+    plays: allPub.reduce((s, t) => s + (t.play_count ?? 0), 0),
+    likes: allPub.reduce((s, t) => s + (t.likes_count ?? 0), 0),
+    saves: allPub.reduce((s, t) => s + (t.saves_count ?? 0), 0),
+    newTracks90: allPub.filter((t) => (t.published_at ?? '') > NINETY).length,
+    newFollowers90: newFollowers90 ?? 0,
+  }
   const spotlightIds: string[] = (p as unknown as { spotlight?: string[] }).spotlight ?? []
   const spotlightTracks = spotlightIds.map((sid) => publishedTracks.find((t) => t.id === sid)).filter((t): t is CatalogTrack => !!t)
   const restTracks = publishedTracks.filter((t) => !spotlightIds.includes(t.id))
@@ -142,6 +154,28 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             )}
           </div>
         </header>
+
+        {/* Statistiche live */}
+        {totals.tracks > 0 && (
+          <>
+            <section className="mb-2 grid grid-cols-4 gap-px overflow-hidden rounded-2xl border border-line bg-line">
+              {[
+                { label: 'Tracce', value: totals.tracks },
+                { label: 'Ascolti', value: totals.plays },
+                { label: 'Like', value: totals.likes },
+                { label: 'Salvataggi', value: totals.saves },
+              ].map((s) => (
+                <div key={s.label} className="bg-surface/60 p-3 text-center sm:p-4">
+                  <p className="font-display text-xl font-bold text-text tabular-nums sm:text-2xl">{s.value.toLocaleString('it-IT')}</p>
+                  <p className="text-xs text-muted">{s.label}</p>
+                </div>
+              ))}
+            </section>
+            {(totals.newTracks90 > 0 || totals.newFollowers90 > 0) && (
+              <p className="mb-6 text-center text-xs text-faint sm:text-left">Ultimi 90 giorni: +{totals.newTracks90} {totals.newTracks90 === 1 ? 'traccia' : 'tracce'} · +{totals.newFollowers90} follower</p>
+            )}
+          </>
+        )}
 
         {/* Sound DNA — manuale + auto-derivato dalle analisi reali */}
         {((p.sound_descriptors ?? []).length > 0 || (dna && dna.descriptors.length > 0)) && (

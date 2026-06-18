@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { Trophy, Flame, Rocket } from 'lucide-react'
+import { Trophy, Flame, Rocket, BadgeCheck, Gem } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BUCKETS } from '@/lib/sound-bucket'
 import { hotScore } from '@/lib/social'
@@ -12,10 +12,11 @@ import type { CatalogTrack } from '@/components/catalog/catalog-grid'
 export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Classifiche — Selecta' }
 
-const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count, published_at, user_id'
+const SELECT = 'id, display_title, display_artist, cover_url, file_url, bpm, key, scale, genre, sound_bucket, likes_count, saves_count, play_count, published_at, user_id, match_results'
 const MONTH = 30 * 24 * 3.6e6
 
-type Row = CatalogTrack & { published_at: string; user_id: string }
+type Row = CatalogTrack & { published_at: string; user_id: string; match_results: { score?: number }[] | null }
+const ready = (t: Row) => t.match_results?.[0]?.score ?? 0
 
 export default async function ChartsPage({ searchParams }: { searchParams: Promise<{ bucket?: string }> }) {
   const { bucket } = await searchParams
@@ -47,6 +48,8 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
   const emerging = [...all]
     .sort((a, b) => hotScore(b) / ((followers.get(b.user_id) ?? 0) + 1) - hotScore(a) / ((followers.get(a.user_id) ?? 0) + 1))
     .slice(0, 15)
+  const labelReady = [...all].filter((t) => ready(t) > 0).sort((a, b) => ready(b) - ready(a)).slice(0, 15)
+  const hiddenGems = [...all].filter((t) => ready(t) > 0).sort((a, b) => ready(b) / ((b.play_count ?? 0) + 5) - ready(a) / ((a.play_count ?? 0) + 5)).slice(0, 15)
 
   return (
     <AppShell>
@@ -70,6 +73,18 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
             <H icon={<Rocket className="h-5 w-5 text-accent" />} title="Emergenti" sub="Talenti con pochi follower che stanno spingendo" />
             <TrackList tracks={emerging} />
           </section>
+          {labelReady.length > 0 && (
+            <section>
+              <H icon={<BadgeCheck className="h-5 w-5 text-accent" />} title="Pronte da firmare" sub="Il sound più vicino a quello che le label firmano" />
+              <TrackList tracks={labelReady} />
+            </section>
+          )}
+          {hiddenGems.length > 0 && (
+            <section>
+              <H icon={<Gem className="h-5 w-5 text-accent" />} title="Gemme nascoste" sub="Suono forte ma ancora pochi ascolti" />
+              <TrackList tracks={hiddenGems} />
+            </section>
+          )}
         </div>
       )}
     </AppShell>

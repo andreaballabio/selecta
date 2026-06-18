@@ -1,13 +1,11 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAdminEmail } from '@/lib/admin'
 
 /**
- * Rinfresca la sessione Supabase lato server (token refresh) a ogni richiesta,
- * così le route server (es. user-linking in /api/match) e i Server Component
- * leggono uno stato di autenticazione affidabile.
- *
- * In questo fork di Next il file-convention "middleware" è stato rinominato in
- * "proxy" (gira sul runtime Node). Pattern ufficiale @supabase/ssr.
+ * Rinfresca la sessione Supabase lato server (token refresh) e PROTEGGE l'area
+ * admin: /admin e /api/admin sono accessibili solo agli account nell'allowlist.
+ * In questo fork di Next il file-convention "middleware" è "proxy" (runtime Node).
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -17,26 +15,31 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
+        getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           response = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options),
-          )
+          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         },
       },
     },
   )
 
-  // IMPORTANTE: nessuna logica tra createServerClient e getUser — questa chiamata
-  // rinfresca il token e riscrive i cookie di sessione sulla response.
+  let email: string | null = null
   try {
-    await supabase.auth.getUser()
-  } catch {
-    // Auth non raggiungibile: lascia passare la richiesta invariata.
+    const { data: { user } } = await supabase.auth.getUser()
+    email = user?.email ?? null
+  } catch { /* auth non raggiungibile */ }
+
+  // Guardia area admin
+  const path = request.nextUrl.pathname
+  if (path.startsWith('/admin') || path.startsWith('/api/admin')) {
+    if (!isAdminEmail(email)) {
+      if (path.startsWith('/api/')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      const url = request.nextUrl.clone()
+      url.pathname = email ? '/dashboard' : '/auth/login'
+      return NextResponse.redirect(url)
+    }
   }
 
   return response
@@ -44,7 +47,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Tutte le route tranne asset statici, immagini e file con estensione immagine.
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }
