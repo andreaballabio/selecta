@@ -13,6 +13,7 @@ import { Waveform } from '@/components/player/waveform'
 import { AddToPlaylist } from '@/components/playlist/add-to-playlist'
 import { RepostButton } from '@/components/catalog/repost-button'
 import { TrackOwnerControls } from '@/components/catalog/track-owner-controls'
+import { TrackVersions, type TrackVersion } from '@/components/catalog/track-versions'
 
 export const dynamic = 'force-dynamic'
 
@@ -70,12 +71,14 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
     .map((o) => ({ o: o as unknown as CatalogTrack, sim: cosine(emb, parseEmbedding((o as { audio_embedding: unknown }).audio_embedding)) }))
     .sort((a, b) => b.sim - a.sim).slice(0, 6).map(({ o }) => o)
 
-  // Chi ha salvato / messo like + commenti.
-  const [{ data: saveRows }, { data: likeRows }, { data: commentRows }] = await Promise.all([
+  // Chi ha salvato / messo like + commenti + versioni.
+  const [{ data: saveRows }, { data: likeRows }, { data: commentRows }, { data: versionRows }] = await Promise.all([
     admin.from('track_saves').select('user_id').eq('submission_id', id).limit(12),
     admin.from('track_likes').select('user_id').eq('submission_id', id).limit(12),
     admin.from('track_comments').select('id, body, created_at, user_id, position_sec').eq('submission_id', id).order('created_at', { ascending: false }).limit(50),
+    admin.from('track_versions').select('id, label, file_url').eq('submission_id', id).order('position', { ascending: true }),
   ])
+  const versions = (versionRows ?? []) as TrackVersion[]
 
   const handleMap = await resolveHandles(admin, [
     ...((saveRows ?? []) as { user_id: string }[]).map((r) => r.user_id),
@@ -160,6 +163,8 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
         <div className="mt-8 rounded-2xl border border-line bg-surface/40 p-4">
           <Waveform track={toPlayerTrack(main)} comments={waveComments} />
         </div>
+
+        <TrackVersions submissionId={id} trackTitle={main.display_title} trackArtist={main.display_artist} trackCover={main.cover_url} initial={versions} isOwner={isOwner} />
 
         {similar.length > 0 && (
           <section className="mt-12">
