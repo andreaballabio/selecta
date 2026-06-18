@@ -484,6 +484,16 @@ function ResultsView({
                       ⚠ Match forte su traccia singola — verifica il catalogo
                     </span>
                   )}
+                  {result.match_context.includes('current_sound') && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-medium text-accent">
+                      ↗ In linea con il loro suono attuale
+                    </span>
+                  )}
+                  {result.match_context.includes('legacy_match') && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-faint/50 px-2 py-0.5 text-xs text-muted">
+                      ↺ Ricorda una loro fase più vecchia
+                    </span>
+                  )}
                   {result.match_context.includes('consistent') && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-400">
                       ◆ Stile coerente con {result.good_matches} tracce del catalogo

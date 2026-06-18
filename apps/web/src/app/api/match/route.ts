@@ -32,6 +32,37 @@ const FLOOR_MIN      = 0.10      // guardrail inferiore
 const GOOD_MATCH_THRESHOLD = 0.45   // "buon match" per i conteggi
 const EXACT_MATCH_COSINE   = 0.75   // traccia quasi identica (stessa registrazione)
 const STRONG_MATCH_COSINE  = 0.55   // match di stile forte
+
+// ─── Peso temporale (favorisce il SUONO ATTUALE della label) ──────────────────
+// I trend cambiano in fretta: pesiamo ogni uscita per "freschezza" così il match
+// riflette dove la label è ADESSO, non la media di tutta la sua storia. Resta
+// ASSOLUTO (nessuna normalizzazione fra label) e lavora sull'embedding timbrico
+// (niente BPM/key). Disattivabile con RECENCY_ENABLED=false → torna al best-match
+// puro di prima.
+const RECENCY_ENABLED  = true
+const RECENCY_HALFLIFE = 1.3   // anni: un'uscita DIMEZZA il suo peso ogni ~1.3 anni
+                               //   0a→1.0  1a→0.59  2a→0.34  3a→0.20  5a→0.07
+const RECENCY_FLOOR    = 0.12  // peso minimo: il passato conta poco ma non sparisce
+const STYLE_WEIGHT     = 0.45  // quanto pesa "suono attuale" vs "miglior match assoluto"
+const RECENT_AGE_MAX   = 1.5   // anni: best match "in linea col suono attuale"
+const LEGACY_AGE_MIN   = 3.0   // anni: best match dalla "fase vecchia" della label
+const NOW_MS = Date.now()
+
+/** Età in anni dalla data di uscita (fallback su anno; null se sconosciuta). */
+function ageYears(releaseDate: string | null, releaseYear: number | null): number | null {
+  if (releaseDate) {
+    const t = Date.parse(releaseDate)
+    if (!isNaN(t)) return Math.max(0, (NOW_MS - t) / (365.25 * 24 * 3600 * 1000))
+  }
+  if (releaseYear && releaseYear > 1900)
+    return Math.max(0, new Date(NOW_MS).getUTCFullYear() - releaseYear)
+  return null
+}
+/** Peso a decadimento esponenziale; `fallback` per le tracce senza data. */
+function recencyWeight(age: number | null, fallback: number): number {
+  if (age == null) return fallback
+  return Math.max(RECENCY_FLOOR, Math.pow(0.5, age / RECENCY_HALFLIFE))
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -259,7 +290,7 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       .from('label_ingestion_queue')
       .select(`
         id, label_id, audio_embedding,
-        track_title, artist_name,
+        track_title, artist_name, release_date, release_year,
         spectral_centroid, spectral_rolloff, lufs, zero_crossing_rate,
         sub_ratio, mid_presence, onset_strength, spectral_contrast
       `)
@@ -308,6 +339,8 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       features: Record<string, number | null>
       track_title: string | null
       artist_name: string | null
+      release_date: string | null
+      release_year: number | null
     }
 
     // ── Debug: quante finestre sliding-window ha il worker restituito? ────────
@@ -331,6 +364,8 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         features: dbTrack as Record<string, number | null>,
         track_title: (dbTrack as Record<string, unknown>).track_title as string | null ?? null,
         artist_name: (dbTrack as Record<string, unknown>).artist_name as string | null ?? null,
+        release_date: (dbTrack as Record<string, unknown>).release_date as string | null ?? null,
+        release_year: (dbTrack as Record<string, unknown>).release_year as number | null ?? null,
       }
     })
 
@@ -388,11 +423,26 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const sorted = [...tracks].sort((a, b) => b.score - a.score)
       const topK = sorted.slice(0, TOP_K_PER_LABEL)
 
+      // ── Peso temporale per traccia ────────────────────────────────────────
+      // Le tracce SENZA data prendono il peso MEDIANO delle tracce datate della
+      // label (= "una traccia tipica di questa label"), così un'uscita senza
+      // data non domina né viene azzerata. Re-importando da Deezer le date ci
+      // sono → il fallback diventa marginale.
+      const ages = new Map(tracks.map(t => [t, ageYears(t.release_date, t.release_year)]))
+      const datedW = tracks.map(t => ages.get(t)!).filter((a): a is number => a != null)
+                           .map(a => recencyWeight(a, 0))
+      const medianW = datedW.length
+        ? [...datedW].sort((a, b) => a - b)[Math.floor(datedW.length / 2)]
+        : 0.5
+      const wOf = (t: ScoredTrack) => recencyWeight(ages.get(t) ?? null, medianW)
+
       // ── Score ─────────────────────────────────────────────────────────────
-      // Segnale primario = MIGLIOR match singolo: una label con UNA traccia
-      // quasi identica deve vincere, qualunque sia la dimensione del catalogo.
-      // Il cosine grezzo determina il ranking; matchStrength() lo converte in
-      // percentuale assoluta per il display.
+      // Due segnali combinati:
+      //   • EVIDENZA (date-agnostica): il MIGLIOR match singolo → una label con
+      //     UNA traccia quasi identica vince comunque (anche se vecchia).
+      //   • SUONO ATTUALE: media dei top-K pesata per freschezza → premia chi
+      //     è in linea con la direzione RECENTE della label.
+      // matchStrength() converte il cosine grezzo in percentuale assoluta.
 
       const bestTrack = sorted[0]
       const bestCosine = bestTrack?.score ?? 0   // cosine grezzo [~0.7, 1.0]
@@ -401,11 +451,26 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       const topKScores = topK.map(t => t.score)
       const topKMean = topKScores.reduce((s, v) => s + v, 0) / topKScores.length
 
-      // % mostrata = forza assoluta del miglior match.
+      const bestEvidence = matchStrength(bestCosine, cosineFloor)
+
+      // % mostrata = mix fra evidenza assoluta e fit col suono attuale.
+      let displayStrength = bestEvidence
+      if (RECENCY_ENABLED) {
+        const wsum = topK.reduce((s, t) => s + wOf(t), 0)
+        const currentCosine = wsum > 0
+          ? topK.reduce((s, t) => s + t.score * wOf(t), 0) / wsum
+          : topKMean
+        const styleStrength = matchStrength(currentCosine, cosineFloor)
+        displayStrength = STYLE_WEIGHT * styleStrength + (1 - STYLE_WEIGHT) * bestEvidence
+        // Salvaguardia: un quasi-duplicato resta un segnale forte a prescindere
+        // dall'età → la recency non può affossarlo sotto il 90% della sua evidenza.
+        if (bestCosine > EXACT_MATCH_COSINE)
+          displayStrength = Math.max(displayStrength, bestEvidence * 0.9)
+      }
+
       // I tiebreaker (coerenza su più tracce, confidence del profilo) sono
       // INFINITESIMI: rompono i pari-merito nell'ordinamento senza spostare la
       // percentuale visibile (round a 2 cifre invariato).
-      const displayStrength = matchStrength(bestCosine, cosineFloor)
       const finalScore =
         displayStrength +
         topKMean * 0.001 +
@@ -427,6 +492,15 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         match_context.push('consistent')        // stile coerente con il catalogo
       if (goodMatchCount < 2 && tracks.length >= 8)
         match_context.push('sparse')            // poche tracce corrispondenti
+
+      // ── Evoluzione: il miglior match è recente o di una fase passata? ─────
+      const bestAge = ages.get(bestTrack)
+      if (RECENCY_ENABLED && bestCosine > STRONG_MATCH_COSINE && bestAge != null) {
+        if (bestAge <= RECENT_AGE_MAX)
+          match_context.push('current_sound')   // in linea con la direzione ATTUALE
+        else if (bestAge >= LEGACY_AGE_MIN)
+          match_context.push('legacy_match')     // ricorda la loro fase più vecchia
+      }
 
       // ── Feature medie dei top-K per generare il feedback ─────────────────
       const refAvg: Record<string, number> = {}
