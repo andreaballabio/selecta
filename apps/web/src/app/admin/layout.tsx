@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Disc, Plus, ArrowLeft } from 'lucide-react'
+import { LayoutDashboard, Users, Disc, Plus, ArrowLeft, Flag } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const NAV = [
@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/users', label: 'Utenti', icon: Users },
   { href: '/admin/labels', label: 'Label', icon: Disc },
   { href: '/admin/create-label', label: 'Crea label', icon: Plus },
+  { href: '/admin/reports', label: 'Segnalazioni', icon: Flag },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

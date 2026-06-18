@@ -15,6 +15,7 @@ import { RepostButton } from '@/components/catalog/repost-button'
 import { TrackOwnerControls } from '@/components/catalog/track-owner-controls'
 import { TrackVersions, type TrackVersion } from '@/components/catalog/track-versions'
 import { DownloadButton } from '@/components/catalog/download-button'
+import { ReportButton } from '@/components/catalog/report-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -146,6 +147,8 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
                 }}
               />
             )}
+
+            {!isOwner && <div className="mt-3"><ReportButton submissionId={id} /></div>}
 
             {savers.length > 0 && (
               <p className="mt-4 text-sm text-muted">

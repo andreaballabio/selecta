@@ -350,7 +350,9 @@ export default async function HomePage() {
             <Link href="/library" className="hover:text-text">Library</Link>
             <Link href="/charts" className="hover:text-text">Classifiche</Link>
             <Link href="/artists" className="hover:text-text">Artisti</Link>
-            <Link href="#pricing" className="hover:text-text">Prezzi</Link>
+            <Link href="/pricing" className="hover:text-text">Prezzi</Link>
+            <Link href="/terms" className="hover:text-text">Termini</Link>
+            <Link href="/privacy" className="hover:text-text">Privacy</Link>
           </nav>
           <p className="text-sm text-faint">© 2026 Selecta · Tech House</p>
         </div>
