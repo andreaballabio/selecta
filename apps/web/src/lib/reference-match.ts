@@ -73,7 +73,10 @@ const AXES: AxisDef[] = [
   },
 ]
 
-const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) ? v : null)
+// 0 = sentinella "dato mancante" (l'API mette 0 quando una feature non c'è). Nessuna
+// di queste feature audio (LUFS, centroide Hz, rapporti) vale davvero 0 → la scartiamo,
+// così non generiamo consigli verso un target inesistente (es. "scurisci verso 0 Hz").
+const num = (v: unknown): number | null => (typeof v === 'number' && isFinite(v) && v !== 0 ? v : null)
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
 /** Confronto per-asse fra la tua traccia (`user`) e la reference (`ref`). Solo

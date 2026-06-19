@@ -225,11 +225,10 @@ function computeReadiness(f: ReportFeatures): TrackReport['readiness'] {
   if (lufs == null) {
     return { level: 'almost', score: 60, headline: 'Loudness non rilevata.' }
   }
-  // penalità ancorate
+  // penalità ancorate (coerenti coi verdetti mostrati: -8..-5 è "da club", nessuna penalità)
   if (lufs > -5) score -= 35           // schiacciato
   else if (lufs < -16) score -= 35     // troppo basso
   else if (lufs < -12) score -= 15     // bassino per il club
-  else if (lufs > -6 && lufs <= -5) score -= 5
 
   // profilo estremo
   if (f.sub_ratio != null && (f.sub_ratio > 0.55 || f.sub_ratio < 0.15)) score -= 8
@@ -239,7 +238,7 @@ function computeReadiness(f: ReportFeatures): TrackReport['readiness'] {
   if (f.true_peak_dbtp != null && f.true_peak_dbtp > 0) score -= 20      // clipping inter-sample
   if (f.stereo_correlation != null && f.stereo_correlation < -0.1) score -= 15 // cancella in mono
   if (f.loopiness != null && f.loopiness > 0.85) score -= 10             // loop che non evolve
-  if (f.crest_db != null && f.crest_db < 5) score -= 5                   // master schiacciato
+  if (f.crest_db != null && f.crest_db < 6) score -= 5                   // master schiacciato (coerente con l'item <6)
 
   score = Math.max(20, Math.min(100, score))
   const level = score >= 80 ? 'ready' : score >= 60 ? 'almost' : 'not'

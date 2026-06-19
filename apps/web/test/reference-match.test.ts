@@ -40,3 +40,13 @@ test('magnitudine satura a ±1 e valori mancanti saltati', () => {
   assert.equal(axes.find((a) => a.key === 'lufs')!.magnitude, -1)
   assert.equal(compareToReference({ lufs: -7 }, { sub_ratio: 0.3 }).length, 0) // nessun asse in comune
 })
+
+test('reference a 0 (dato mancante dall\'API) → asse SALTATO, niente consigli fasulli', () => {
+  // L'utente è perfettamente in linea tranne il centroide, dove la ref è 0 (mancante).
+  const user = { lufs: -7, sub_ratio: 0.32, spectral_centroid: 2800, onset_strength: 0.5, mid_presence: 0.25 }
+  const ref = { ...user, spectral_centroid: 0 }
+  const axes = compareToReference(user, ref)
+  assert.ok(!axes.some((a) => a.key === 'spectral_centroid'), 'il centroide con ref=0 deve essere saltato')
+  assert.equal(axes.length, 4)
+  assert.equal(closeness(axes), 100) // niente ritocco inventato
+})
