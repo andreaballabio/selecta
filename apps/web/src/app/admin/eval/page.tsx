@@ -167,7 +167,16 @@ export default function EvalPage() {
 
         {expErr && <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"><AlertTriangle className="h-4 w-4" /> {expErr}</div>}
 
-        {exp && (() => {
+        {exp && exp.embedded < 20 && (
+          <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            <strong>Esperimento non valido:</strong> solo {exp.embedded}/{exp.requested} tracce elaborate dal worker.
+            {exp.workerErrors > 0
+              ? ` Il worker non ha risposto (${exp.workerErrors} blocchi falliti): hai ricaricato app.py su HF? Controlla che /health sia "healthy" e che il rebuild dello Space sia finito, poi rilancia.`
+              : ' Il worker ha risposto ma non è riuscito a scaricare/elaborare le preview (URL scaduti?). Rilancia; se persiste, le preview del campione vanno rinfrescate.'}
+          </div>
+        )}
+
+        {exp && exp.embedded >= 20 && (() => {
           const imprP5 = exp.dim64.p5 > 0 ? (exp.dim256.p5 - exp.dim64.p5) / exp.dim64.p5 : 0
           const imprMrr = exp.dim64.mrr > 0 ? (exp.dim256.mrr - exp.dim64.mrr) / exp.dim64.mrr : 0
           const best = Math.max(imprP5, imprMrr)
