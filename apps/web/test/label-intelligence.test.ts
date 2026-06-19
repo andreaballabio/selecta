@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { deriveIntel, type LabelAgg } from '../src/lib/label-intelligence.ts'
+import { deriveIntel, bestAlpha, type LabelAgg, type ScoredQuery } from '../src/lib/label-intelligence.ts'
 
 // Scenario: BIG = calamita (tante label ci finiscono); DUP = quasi-duplicato di BIG;
 // GOOD = riconoscibile (hit alto); ECL = eclettica (hit basso, confusione sparsa).
@@ -51,4 +51,27 @@ test('ECL (eclettica, confusione sparsa <50%) non finisce in una famiglia', () =
 
 test('input vuoto → nessun crash', () => {
   assert.deepEqual(deriveIntel([]), { metrics: [], families: [] })
+})
+
+test('bestAlpha: se la calamita ruba tracce, lo smorzamento aiuta → α>0', () => {
+  const weight = new Map([['M', 0.6], ['A', 1], ['B', 1]])
+  // Query di A: M (calamita) la batterebbe; smorzando M, A torna 1ª.
+  // Query di M: vince comunque.
+  const queries: ScoredQuery[] = [
+    { home: 'A', scores: [{ id: 'A', score: 0.5 }, { id: 'M', score: 0.6 }, { id: 'B', score: 0.1 }] },
+    { home: 'M', scores: [{ id: 'M', score: 0.9 }, { id: 'A', score: 0.3 }, { id: 'B', score: 0.2 }] },
+  ]
+  const r = bestAlpha(queries, weight, [0, 0.5, 1], 1)
+  assert.ok(r.alpha > 0, `atteso α>0, ottenuto ${r.alpha}`)
+})
+
+test('bestAlpha: se lo smorzamento peggiora, sceglie α=0 (spento)', () => {
+  const weight = new Map([['M', 0.6], ['A', 1]])
+  // Query di M: vince di poco; smorzando M, perde → precision peggiora.
+  const queries: ScoredQuery[] = [
+    { home: 'M', scores: [{ id: 'M', score: 0.5 }, { id: 'A', score: 0.45 }] },
+    { home: 'M', scores: [{ id: 'M', score: 0.52 }, { id: 'A', score: 0.48 }] },
+  ]
+  const r = bestAlpha(queries, weight, [0, 0.5, 1], 1)
+  assert.equal(r.alpha, 0)
 })

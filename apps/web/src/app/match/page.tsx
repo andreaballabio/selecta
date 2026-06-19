@@ -50,6 +50,8 @@ interface MatchResult {
   match_context: string[]
   feedback: string[]
   ref_features?: Record<string, number>
+  sound_family?: string | null
+  reliable?: boolean | null
 }
 
 interface TrackFeatures {
@@ -448,6 +450,14 @@ function ResultsView({
                       {result.primary_genre && (
                         <p className="text-xs text-muted">{result.primary_genre}</p>
                       )}
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px]">
+                        {result.sound_family && result.sound_family !== result.label_name && (
+                          <span className="text-faint">famiglia {result.sound_family}</span>
+                        )}
+                        {result.reliable === false && (
+                          <span className="text-yellow-400">match meno affidabile (suono eclettico)</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 

@@ -11,6 +11,7 @@ interface IntelLabel {
 interface Snapshot { run_at: string; payload: {
   labels: number; families: number; precisionAt1: number; precisionAt5: number; mrr: number
   avgHit5: number; familyList: { name: string; size: number; members: string[] }[]
+  downWeight?: { on: boolean; alpha: number; precisionByAlpha: { alpha: number; p: number }[] }
 } }
 interface Data { labels: IntelLabel[]; snapshots: Snapshot[]; needsMigration?: boolean }
 
@@ -62,6 +63,16 @@ export function LabelIntelligenceReport() {
             <Kpi label="Famiglie di suono" value={String(latest.families)} delta={prev ? latest.families - prev.families : null} suffix="" />
             <Kpi label="Auto-match medio" value={pct(latest.avgHit5)} delta={delta(latest.avgHit5, prev?.avgHit5)} />
           </div>
+
+          {/* Auto-validazione dello smorzamento "calamite" */}
+          {latest.downWeight && (
+            <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${latest.downWeight.on ? 'border-accent/30 bg-accent/5 text-muted' : 'border-line bg-surface/40 text-muted'}`}>
+              <strong className={latest.downWeight.on ? 'text-accent' : 'text-text'}>Smorzamento calamite: {latest.downWeight.on ? `ATTIVO` : 'spento'}.</strong>{' '}
+              {latest.downWeight.on
+                ? `Il match riduce le label generiche (intensità ${latest.downWeight.alpha}) perché migliora/regge la precision.`
+                : 'Disattivato in automatico: smorzare peggiorerebbe la precision. Il match non cambia.'}
+            </div>
+          )}
 
           {/* Famiglie */}
           {latest.familyList?.length > 0 && (

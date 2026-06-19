@@ -321,10 +321,12 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       console.warn('[match] catalogo embedding MISTO → confronto ristretto a una versione (rianalizza per uniformare)')
 
     // ── 3. Load label metadata + profiles (for name, genre, confidence) ────
-    const [labelsRes, profilesRes] = await Promise.all([
-      supabase.from('labels').select('id, name, primary_genre'),
-      supabase.from('label_profiles').select('label_id, confidence_score, analyzed_tracks_count'),
-    ])
+    // Label Intelligence (generic_weight/sound_family/match_reliable) inclusa con
+    // fallback: se le colonne non esistono ancora, si usa il set base → no-op.
+    const profilesP = supabase.from('label_profiles').select('label_id, confidence_score, analyzed_tracks_count')
+    let labelsRes = await supabase.from('labels').select('id, name, primary_genre, generic_weight, sound_family, match_reliable')
+    if (labelsRes.error) labelsRes = await supabase.from('labels').select('id, name, primary_genre')
+    const profilesRes = await profilesP
 
     const labelMap = new Map((labelsRes.data ?? []).map((l) => [l.id, l]))
     const profileMap = new Map((profilesRes.data ?? []).map((p) => [p.label_id, p]))
@@ -432,6 +434,8 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
       match_context: string[]
       feedback: string[]
       ref_features: Record<string, number>
+      sound_family: string | null
+      reliable: boolean | null
     }[] = []
 
     for (const [labelId, tracks] of byLabel.entries()) {
@@ -488,6 +492,12 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         if (bestCosine > EXACT_MATCH_COSINE)
           displayStrength = Math.max(displayStrength, bestEvidence * 0.9)
       }
+
+      // Smorzamento "calamita" (Label Intelligence, AUTO-VALIDATO): riduce le label
+      // generiche così emergono i fit distintivi. =1 (nessun effetto) se la
+      // validazione l'ha spento o se l'intelligence non è ancora girata.
+      const genW = (labelMeta as { generic_weight?: number | null }).generic_weight
+      if (typeof genW === 'number' && genW > 0 && genW < 1) displayStrength *= genW
 
       // I tiebreaker (coerenza su più tracce, confidence del profilo) sono
       // INFINITESIMI: rompono i pari-merito nell'ordinamento senza spostare la
@@ -546,6 +556,8 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         match_context,
         feedback: generateFeedback(f, refAvg),
         ref_features: refAvg,
+        sound_family: (labelMeta as { sound_family?: string | null }).sound_family ?? null,
+        reliable: (labelMeta as { match_reliable?: boolean | null }).match_reliable ?? null,
       })
     }
 

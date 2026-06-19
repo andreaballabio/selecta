@@ -98,3 +98,38 @@ export function deriveIntel(labels: LabelAgg[], opts: DeriveOptions = {}): { met
 
   return { metrics, families }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTO-VALIDAZIONE dello smorzamento "calamite"
+// Per ogni traccia del campione abbiamo i punteggi verso ogni label. Proviamo a
+// ri-classificare moltiplicando per genericWeight^α e misuriamo la precision@k.
+// Scegliamo l'α che NON peggiora la precision (a parità, il più alto = più
+// diversità "gratis"). Se anche il minimo α peggiora → α=0 (smorzamento spento).
+// Risultato: lo smorzamento entra in produzione SOLO se i numeri lo confermano.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ScoredQuery { home: string; scores: { id: string; score: number }[] }
+
+export function bestAlpha(
+  queries: ScoredQuery[],
+  weight: Map<string, number>,
+  alphas: number[] = [0, 0.4, 0.7, 1],
+  k = 5,
+  tol = 0.003,
+): { alpha: number; precisionByAlpha: { alpha: number; p: number }[] } {
+  const precisionByAlpha = alphas.map((alpha) => {
+    let hit = 0
+    for (const q of queries) {
+      const ranked = [...q.scores].sort(
+        (a, b) => b.score * Math.pow(weight.get(b.id) ?? 1, alpha) - a.score * Math.pow(weight.get(a.id) ?? 1, alpha),
+      )
+      const r = ranked.findIndex((s) => s.id === q.home)
+      if (r >= 0 && r < k) hit++
+    }
+    return { alpha, p: queries.length ? hit / queries.length : 0 }
+  })
+  const best = Math.max(...precisionByAlpha.map((r) => r.p))
+  // tra gli α entro `tol` dal migliore, prendi il più alto (più smorzamento gratis)
+  const chosen = precisionByAlpha.filter((r) => r.p >= best - tol).sort((a, b) => b.alpha - a.alpha)[0]
+  return { alpha: chosen.alpha, precisionByAlpha }
+}

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cosine, meanCenter } from './eval-matching'
-import { deriveIntel, type LabelAgg } from './label-intelligence'
+import { deriveIntel, bestAlpha, type LabelAgg, type ScoredQuery } from './label-intelligence'
 
 const MAX = 2500   // tetto per l'O(n²)
 const TOPK = 5
@@ -22,6 +22,7 @@ export interface IntelSummary {
   mostGeneric: { name: string; genericWeight: number }[]
   leastReliable: { name: string; hit5: number; similar: string | null }[]
   familyList: { name: string; size: number; members: string[] }[]
+  downWeight: { on: boolean; alpha: number; precisionByAlpha: { alpha: number; p: number }[] }
 }
 
 /**
@@ -59,6 +60,7 @@ export async function runLabelIntelligence(sb: SupabaseClient): Promise<IntelSum
   // Leave-one-out: rank della label vera (precision/hit) + #1 predetta (confusione).
   type Agg = { n: number; hit5: number; confusion: Map<string, number> }
   const agg = new Map<string, Agg>()
+  const queries: ScoredQuery[] = []
   let hit1 = 0, hit5all = 0, rr = 0, total = 0
   for (const qi of eligible.flatMap((l) => byLabel.get(l)!)) {
     const home = cat[qi].labelId
@@ -74,6 +76,7 @@ export async function runLabelIntelligence(sb: SupabaseClient): Promise<IntelSum
       let s = 0; for (let m = 0; m < k; m++) s += sims[m]
       scored.push({ label: L, score: s / k })
     }
+    queries.push({ home, scores: scored.map((s) => ({ id: s.label, score: s.score })) })
     scored.sort((a, b) => b.score - a.score)
     const rank = scored.findIndex((s) => s.label === home) + 1
     const pred = scored[0]?.label
@@ -96,10 +99,16 @@ export async function runLabelIntelligence(sb: SupabaseClient): Promise<IntelSum
   }))
   const { metrics, families } = deriveIntel(labelAggs)
 
+  // AUTO-VALIDAZIONE: quanto smorzare le calamite SENZA peggiorare la precision.
+  // Se anche il minimo smorzamento peggiora → alpha=0 → peso effettivo 1 (spento).
+  const weightMap = new Map(metrics.map((m) => [m.id, m.genericWeight]))
+  const { alpha, precisionByAlpha } = bestAlpha(queries, weightMap, [0, 0.4, 0.7, 1], 5)
+  const effWeight = (genericWeight: number) => Math.round(Math.pow(genericWeight, alpha) * 1000) / 1000
+
   // Persisti per label (best-effort: si ferma se le colonne non esistono).
   for (const m of metrics) {
     const { error } = await sb.from('labels').update({
-      generic_weight: m.genericWeight,
+      generic_weight: effWeight(m.genericWeight),
       distinctiveness: m.hit5,          // ora = hit@5 reale (riconoscibilità)
       match_reliable: m.reliable,
       nearest_label_id: m.similarToId,
@@ -121,6 +130,7 @@ export async function runLabelIntelligence(sb: SupabaseClient): Promise<IntelSum
     mostGeneric: [...metrics].sort((a, b) => a.genericWeight - b.genericWeight).slice(0, 6).map((m) => ({ name: m.name, genericWeight: m.genericWeight })),
     leastReliable: metrics.filter((m) => !m.reliable).sort((a, b) => a.hit5 - b.hit5).map((m) => ({ name: m.name, hit5: m.hit5, similar: m.similarToName })),
     familyList: families.map((f) => ({ name: f.name, size: f.members.length, members: f.members.map((m) => m.name) })),
+    downWeight: { on: alpha > 0, alpha, precisionByAlpha },
   }
   await sb.from('label_intel_snapshots').insert({ payload: summary }).then(() => {}, () => {})
   return summary
