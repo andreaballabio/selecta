@@ -27,6 +27,9 @@ export default function EvalPage() {
   const [runs, setRuns] = useState<EvalResult[]>([])
   const [exps, setExps] = useState<Experiment[]>([])
   const [copied, setCopied] = useState(false)
+  const [health, setHealth] = useState('')
+  const [healthLoading, setHealthLoading] = useState(false)
+  const [healthCopied, setHealthCopied] = useState(false)
 
   const run = async () => {
     setLoading(true); setErr('')
@@ -58,6 +61,19 @@ export default function EvalPage() {
   )
   const copyExport = async () => {
     try { await navigator.clipboard.writeText(exportText); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { /* fallback: textarea */ }
+  }
+
+  const runHealth = async () => {
+    setHealthLoading(true)
+    try {
+      const r = await fetch('/api/admin/label-health', { cache: 'no-store' })
+      const d = await r.json()
+      setHealth(JSON.stringify(d, (_k, v) => (typeof v === 'number' ? Number(v.toFixed(4)) : v), 2))
+    } catch { setHealth('Errore nel calcolo della diagnostica.') }
+    finally { setHealthLoading(false) }
+  }
+  const copyHealth = async () => {
+    try { await navigator.clipboard.writeText(health); setHealthCopied(true); setTimeout(() => setHealthCopied(false), 2000) } catch { /* fallback: textarea */ }
   }
 
   const baseline = data ? 1 / Math.max(1, data.labelsCovered) : 0
@@ -212,6 +228,30 @@ export default function EvalPage() {
             </div>
           )
         })()}
+      </section>
+
+      {/* Diagnostica label (per l'analisi di Claude) */}
+      <section className="mt-4 rounded-2xl border border-line bg-surface/40 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold text-text">Diagnostica label (per l’analisi)</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">Per ogni label: accuratezza, coerenza del suono, diversità di artisti e verso quali label viene confusa. Lancia una volta (~30s) e incolla il JSON nella chat.</p>
+          </div>
+          <button onClick={runHealth} disabled={healthLoading}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-accent/50 px-5 py-2.5 text-sm font-semibold text-accent disabled:opacity-50">
+            {healthLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+            {healthLoading ? 'Calcolo…' : 'Calcola diagnostica'}
+          </button>
+        </div>
+        {health && (
+          <>
+            <button onClick={copyHealth} className="mt-3 inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink">
+              {healthCopied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />} {healthCopied ? 'Copiato!' : 'Copia diagnostica'}
+            </button>
+            <textarea readOnly value={health} onFocus={(e) => e.currentTarget.select()}
+              className="mt-3 h-48 w-full resize-y rounded-xl border border-line bg-surface-2 p-3 font-mono text-xs text-muted focus:border-accent focus:outline-none" />
+          </>
+        )}
       </section>
 
       {/* Esporta per l'analisi: incolla questo JSON nella chat */}
