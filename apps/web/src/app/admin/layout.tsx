@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Disc, ArrowLeft, Flag, DownloadCloud } from 'lucide-react'
+import { LayoutDashboard, Users, Disc, ArrowLeft, Flag, DownloadCloud, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import QueueIndicator from '@/components/admin/queue-indicator'
 
 const NAV = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/admin/insights', label: 'Insights', icon: BarChart3 },
   { href: '/admin/users', label: 'Utenti', icon: Users },
   { href: '/admin/labels', label: 'Label', icon: Disc },
   { href: '/admin/import', label: 'Importa', icon: DownloadCloud },
