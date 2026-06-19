@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Radio, TrendingUp, Users, Bookmark, User, Sparkles, Rss, MessageSquare, BarChart3, Download, Disc } from 'lucide-react'
+import { Home, Search, Radio, TrendingUp, Users, Bookmark, User, Sparkles, Rss, MessageSquare, BarChart3, Download, Disc, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const PRIMARY = [
@@ -19,6 +19,7 @@ const LIBRARY = [
   { href: '/messages', label: 'Messaggi', icon: MessageSquare },
   { href: '/insights', label: 'Insights', icon: BarChart3 },
   { href: '/downloads', label: 'Download', icon: Download },
+  { href: '/outcomes', label: 'I miei invii', icon: Send },
   { href: '/saved', label: 'Salvati', icon: Bookmark },
   { href: '/dashboard', label: 'Account', icon: User },
 ]
