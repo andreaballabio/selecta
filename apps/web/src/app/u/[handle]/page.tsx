@@ -7,6 +7,7 @@ import { MapPin, Mail, ExternalLink, Sparkles, Users, MessageSquare, Star } from
 import { deriveSoundDna } from '@/lib/sound-dna'
 import { FollowButton } from '@/components/social/follow-button'
 import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
+import { SimilarArtists } from '@/components/social/similar-artists'
 
 interface ArtistProfile {
   user_id: string
@@ -224,6 +225,9 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             <CatalogGrid tracks={restTracks} />
           </section>
         )}
+
+        {/* Producer dal suono simile (peer-graph) */}
+        <SimilarArtists userId={p.user_id} />
 
         {/* Bio */}
         {p.bio && (
