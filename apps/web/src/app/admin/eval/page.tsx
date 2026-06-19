@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Target, Loader2, AlertTriangle } from 'lucide-react'
+import { Target, Loader2, AlertTriangle, Copy, Check } from 'lucide-react'
 
 interface PerLabel { labelId: string; tracks: number; hitRateTop5: number; avgRank: number }
 interface VersionInfo { distribution: Record<string, number>; untagged: number; distinct: string[]; mixed: boolean; dominant: string | null }
@@ -23,6 +23,10 @@ export default function EvalPage() {
   const [exp, setExp] = useState<Experiment | null>(null)
   const [expLoading, setExpLoading] = useState(false)
   const [expErr, setExpErr] = useState('')
+  // Storico di tutte le esecuzioni (per esportarle e fartele analizzare).
+  const [runs, setRuns] = useState<EvalResult[]>([])
+  const [exps, setExps] = useState<Experiment[]>([])
+  const [copied, setCopied] = useState(false)
 
   const run = async () => {
     setLoading(true); setErr('')
@@ -30,7 +34,7 @@ export default function EvalPage() {
       const r = await fetch('/api/admin/eval', { cache: 'no-store' })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Errore')
-      setData(d)
+      setData(d); setRuns((prev) => [...prev, d])
     } catch (e) { setErr(e instanceof Error ? e.message : 'Errore') }
     finally { setLoading(false) }
   }
@@ -41,9 +45,19 @@ export default function EvalPage() {
       const r = await fetch('/api/admin/eval-experiment?n=100', { cache: 'no-store' })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Errore')
-      setExp(d)
+      setExp(d); setExps((prev) => [...prev, d])
     } catch (e) { setExpErr(e instanceof Error ? e.message : 'Errore (il worker ci mette qualche minuto)') }
     finally { setExpLoading(false) }
+  }
+
+  // Blocco JSON con TUTTE le esecuzioni, da incollare nella chat per l'analisi.
+  const exportText = JSON.stringify(
+    { tool: 'selecta-eval-export', exportedAt: new Date().toISOString(), validationRuns: runs, experimentRuns: exps },
+    (_k, v) => (typeof v === 'number' ? Number(v.toFixed(4)) : v),
+    2,
+  )
+  const copyExport = async () => {
+    try { await navigator.clipboard.writeText(exportText); setCopied(true); setTimeout(() => setCopied(false), 2000) } catch { /* fallback: textarea */ }
   }
 
   const baseline = data ? 1 / Math.max(1, data.labelsCovered) : 0
@@ -190,6 +204,25 @@ export default function EvalPage() {
           )
         })()}
       </section>
+
+      {/* Esporta per l'analisi: incolla questo JSON nella chat */}
+      {(runs.length > 0 || exps.length > 0) && (
+        <section className="mt-4 rounded-2xl border border-line bg-surface/40 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold text-text">Esporta per l’analisi</h2>
+              <p className="mt-1 text-sm text-muted">Registrate <strong className="text-text">{runs.length}</strong> validazioni e <strong className="text-text">{exps.length}</strong> esperimenti. Lancia 2-3 volte, poi copia e incolla questo nella chat.</p>
+            </div>
+            <button onClick={copyExport}
+              className="inline-flex shrink-0 items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-ink">
+              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? 'Copiato!' : 'Copia risultati'}
+            </button>
+          </div>
+          <textarea readOnly value={exportText} onFocus={(e) => e.currentTarget.select()}
+            className="mt-3 h-48 w-full resize-y rounded-xl border border-line bg-surface-2 p-3 font-mono text-xs text-muted focus:border-accent focus:outline-none" />
+        </section>
+      )}
     </div>
   )
 }
