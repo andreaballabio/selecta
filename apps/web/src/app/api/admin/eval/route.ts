@@ -58,5 +58,5 @@ export async function GET() {
   }
 
   const result = evaluatePrecision(catalog, { minTracksPerLabel: 3, topKWindows: 5, center: true })
-  return NextResponse.json({ ...result, tracksLoaded: loaded, sampled, version })
+  return NextResponse.json({ ...result, tracksLoaded: loaded, sampled, version, versionColumnExists: !probe.error })
 }

@@ -8,7 +8,7 @@ interface VersionInfo { distribution: Record<string, number>; untagged: number; 
 interface EvalResult {
   tracksEvaluated: number; labelsCovered: number
   precisionAt1: number; precisionAt3: number; precisionAt5: number; mrr: number
-  perLabel: PerLabel[]; tracksLoaded: number; sampled: boolean; version?: VersionInfo
+  perLabel: PerLabel[]; tracksLoaded: number; sampled: boolean; version?: VersionInfo; versionColumnExists?: boolean
 }
 
 const pct = (x: number) => (x * 100).toFixed(1) + '%'
@@ -93,7 +93,9 @@ export default function EvalPage() {
               ? <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"><AlertTriangle className="h-4 w-4 shrink-0" /> Catalogo a embedding <strong>MISTO</strong> ({Object.entries(data.version.distribution).map(([k, v]) => `${k}:${v}`).join(', ')}). I vettori di modelli diversi non sono confrontabili → <strong>rianalizza tutto</strong> per uniformare.</div>
               : data.version.distinct.length === 1
                 ? <div className="rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-muted">Embedding coerente: tutte su <strong className="text-accent">{data.version.distinct[0]}</strong>{data.version.untagged ? ` (+${data.version.untagged} non taggate)` : ''}. ✓</div>
-                : <div className="rounded-xl border border-line bg-surface/40 px-4 py-3 text-sm text-muted">Versione embedding non ancora tracciata. Applica la migration <strong>0014</strong> e rianalizza per attivare la diagnostica.</div>
+                : data.versionColumnExists
+                  ? <div className="rounded-xl border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-muted">Migration <strong>0014</strong> applicata ✓. Le tracce verranno etichettate man mano che le rianalizzi/importi; le esistenti restano valide (il match non cambia). La diagnostica diventa verde quando ci sono tracce etichettate.</div>
+                  : <div className="rounded-xl border border-yellow-500/30 bg-yellow-950/15 px-4 py-3 text-sm text-yellow-300">Colonna versione assente: esegui la migration <strong>0014</strong> su Supabase.</div>
           )}
 
           <div className="overflow-hidden rounded-2xl border border-line">
