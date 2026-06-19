@@ -53,6 +53,27 @@ export default function EvalPage() {
 
       {data && (
         <>
+          {/* Sintesi a colpo d'occhio (verdetto leggibile, niente da interpretare) */}
+          {(() => {
+            const ratio = data.precisionAt1 / Math.max(baseline, 1e-9)
+            const q = ratio >= 8 && data.precisionAt5 >= 0.6
+              ? { t: 'Forte', cls: 'border-accent/40 bg-accent/10 text-accent' }
+              : ratio >= 4
+                ? { t: 'Buono', cls: 'border-accent/30 bg-accent/5 text-text' }
+                : ratio >= 2
+                  ? { t: 'Discreto', cls: 'border-yellow-500/30 bg-yellow-950/15 text-yellow-300' }
+                  : { t: 'Debole', cls: 'border-red-500/30 bg-red-950/20 text-red-300' }
+            return (
+              <div className={`rounded-2xl border p-4 ${q.cls}`}>
+                <p className="text-base">
+                  <strong>{q.t}.</strong> La label giusta è nei primi 5 nel{' '}
+                  <strong>{pct(data.precisionAt5)}</strong> dei casi —{' '}
+                  <strong>{ratio.toFixed(1)}×</strong> meglio del caso (1ª nel {pct(data.precisionAt1)}).
+                </p>
+              </div>
+            )
+          })()}
+
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <Metric label="Precision@1" value={pct(data.precisionAt1)} hint="la label giusta è la 1ª" highlight />
             <Metric label="Precision@3" value={pct(data.precisionAt3)} hint="giusta entro le prime 3" />
