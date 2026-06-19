@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Loader2, Disc, Layers, Activity, TrendingUp, Gauge } from 'lucide-react'
+import { LabelIntelligenceReport } from '@/components/admin/label-intelligence-report'
 
 interface MapLabel {
   name: string; genre: string; tracks: number; confidence: number; solid: boolean
@@ -169,6 +170,8 @@ export default function InsightsPage() {
           </div>
         </section>
       </div>
+
+      <LabelIntelligenceReport />
     </div>
   )
 }

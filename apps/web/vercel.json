@@ -13,6 +13,9 @@
     },
     "app/api/cron/refresh-scores/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron/label-intelligence/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
@@ -27,6 +30,10 @@
     {
       "path": "/api/cron/refresh-scores",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/cron/label-intelligence",
+      "schedule": "0 4 * * *"
     }
   ]
 }
