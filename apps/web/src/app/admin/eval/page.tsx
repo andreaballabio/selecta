@@ -13,10 +13,16 @@ interface EvalResult {
 
 const pct = (x: number) => (x * 100).toFixed(1) + '%'
 
+interface DimRes { p1: number; p3: number; p5: number; mrr: number; labels: number }
+interface Experiment { requested: number; embedded: number; workerErrors: number; dim64: DimRes; dim256: DimRes }
+
 export default function EvalPage() {
   const [data, setData] = useState<EvalResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
+  const [exp, setExp] = useState<Experiment | null>(null)
+  const [expLoading, setExpLoading] = useState(false)
+  const [expErr, setExpErr] = useState('')
 
   const run = async () => {
     setLoading(true); setErr('')
@@ -27,6 +33,17 @@ export default function EvalPage() {
       setData(d)
     } catch (e) { setErr(e instanceof Error ? e.message : 'Errore') }
     finally { setLoading(false) }
+  }
+
+  const runExperiment = async () => {
+    setExpLoading(true); setExpErr('')
+    try {
+      const r = await fetch('/api/admin/eval-experiment?n=100', { cache: 'no-store' })
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Errore')
+      setExp(d)
+    } catch (e) { setExpErr(e instanceof Error ? e.message : 'Errore (il worker ci mette qualche minuto)') }
+    finally { setExpLoading(false) }
   }
 
   const baseline = data ? 1 / Math.max(1, data.labelsCovered) : 0
@@ -119,6 +136,60 @@ export default function EvalPage() {
       )}
 
       {!data && !loading && <p className="py-12 text-center text-muted">Premi «Esegui validazione» per calcolare l’accuratezza sul catalogo attuale.</p>}
+
+      {/* Esperimento A/B: dimensione embedding 64 vs 256 */}
+      <section className="mt-4 rounded-2xl border border-line bg-surface/40 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-lg font-bold text-text">Esperimento: 64 vs 256 dimensioni</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted">Ri-calcola l’impronta su un campione (~100 tracce) sia a 64 che a 256 dim e confronta la precisione. Non tocca nulla: serve a decidere se vale la migrazione a 256. Richiede ~2-4 minuti (il worker rielabora l’audio).</p>
+          </div>
+          <button onClick={runExperiment} disabled={expLoading}
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-accent/50 px-5 py-2.5 text-sm font-semibold text-accent disabled:opacity-50">
+            {expLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Target className="h-4 w-4" />}
+            {expLoading ? 'In corso… (qualche minuto)' : 'Esegui esperimento'}
+          </button>
+        </div>
+
+        {expErr && <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400"><AlertTriangle className="h-4 w-4" /> {expErr}</div>}
+
+        {exp && (() => {
+          const imprP5 = exp.dim64.p5 > 0 ? (exp.dim256.p5 - exp.dim64.p5) / exp.dim64.p5 : 0
+          const imprMrr = exp.dim64.mrr > 0 ? (exp.dim256.mrr - exp.dim64.mrr) / exp.dim64.mrr : 0
+          const best = Math.max(imprP5, imprMrr)
+          const verdict = best >= 0.10
+            ? { t: `256 conviene: +${Math.round(best * 100)}% di precisione → migra ora che il catalogo è piccolo.`, cls: 'border-accent/40 bg-accent/10 text-accent' }
+            : best <= -0.03
+              ? { t: 'Resta a 64: il 256 non migliora (anzi peggiora). Niente migrazione.', cls: 'border-line bg-surface/40 text-muted' }
+              : { t: 'Guadagno marginale: non vale la migrazione adesso. Resta a 64.', cls: 'border-yellow-500/30 bg-yellow-950/15 text-yellow-300' }
+          const Row = ({ k, a, b }: { k: string; a: number; b: number }) => (
+            <tr className="border-t border-line">
+              <td className="px-4 py-2 text-muted">{k}</td>
+              <td className="px-4 py-2 text-text">{pct(a)}</td>
+              <td className={`px-4 py-2 font-semibold ${b > a ? 'text-accent' : b < a ? 'text-red-400' : 'text-text'}`}>{pct(b)}</td>
+            </tr>
+          )
+          return (
+            <div className="mt-4 space-y-3">
+              <div className={`rounded-xl border p-3 text-sm ${verdict.cls}`}><strong>Verdetto:</strong> {verdict.t}</div>
+              <p className="text-xs text-faint">Campione: {exp.embedded}/{exp.requested} tracce ri-elaborate{exp.workerErrors ? `, ${exp.workerErrors} blocchi falliti` : ''}. È una stima: rilancia per confermare.</p>
+              <div className="overflow-hidden rounded-2xl border border-line">
+                <table className="w-full text-sm">
+                  <thead className="bg-surface-2 text-left text-xs uppercase text-muted">
+                    <tr><th className="px-4 py-2 font-medium">Metrica</th><th className="px-4 py-2 font-medium">64 dim (attuale)</th><th className="px-4 py-2 font-medium">256 dim</th></tr>
+                  </thead>
+                  <tbody>
+                    <Row k="Precision@1" a={exp.dim64.p1} b={exp.dim256.p1} />
+                    <Row k="Precision@3" a={exp.dim64.p3} b={exp.dim256.p3} />
+                    <Row k="Precision@5" a={exp.dim64.p5} b={exp.dim256.p5} />
+                    <tr className="border-t border-line"><td className="px-4 py-2 text-muted">MRR</td><td className="px-4 py-2 text-text">{exp.dim64.mrr.toFixed(3)}</td><td className={`px-4 py-2 font-semibold ${exp.dim256.mrr > exp.dim64.mrr ? 'text-accent' : 'text-red-400'}`}>{exp.dim256.mrr.toFixed(3)}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
+        })()}
+      </section>
     </div>
   )
 }

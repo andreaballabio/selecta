@@ -421,6 +421,32 @@ def _project64(vec1280) -> List[float]:
     return p.astype(np.float32).tolist()
 
 
+# --- A/B esperimento: proiezione a 256 dim (matrice separata, frozen) ---
+_RP_SEED_256 = 20260616
+_rp_matrix_256 = None
+
+
+def _get_rp_matrix_256() -> np.ndarray:
+    global _rp_matrix_256
+    if _rp_matrix_256 is None:
+        rng = np.random.default_rng(_RP_SEED_256)
+        m = rng.standard_normal((1280, 256)).astype(np.float32)
+        m /= (np.linalg.norm(m, axis=0, keepdims=True) + 1e-9)
+        _rp_matrix_256 = m
+    return _rp_matrix_256
+
+
+def _project_to(vec1280, matrix) -> List[float]:
+    v = np.asarray(vec1280, dtype=np.float32).reshape(-1)
+    if v.shape[0] != 1280:
+        v = np.resize(v, 1280)
+    p = v @ matrix
+    n = float(np.linalg.norm(p))
+    if n > 0:
+        p = p / n
+    return p.astype(np.float32).tolist()
+
+
 def _deep_whole(audio_16k: np.ndarray, model):
     """EffNet sull'intero segmento → (n_patch, 1280); media patch → 64-dim."""
     patches = np.asarray(model(audio_16k), dtype=np.float32)
@@ -886,6 +912,56 @@ async def health_check():
         "tempo_neural": _get_tempocnn() is not None,
         "key_neural": _get_madmom_proc() is not None,
     }
+
+
+class ExperimentRequest(BaseModel):
+    items: List[Dict[str, Any]]   # [{label_id, url}, ...]
+
+
+@app.post("/experiment/embed-batch")
+async def experiment_embed_batch(req: ExperimentRequest):
+    """A/B sulla DIMENSIONE dell'embedding. Per ogni preview ricalcola l'impronta
+    EffNet (una sola forward pass) e la proietta a 64 E a 256 dim. NON scrive nulla:
+    serve solo a misurare se 256 migliora il match prima di decidere una migrazione."""
+    model = _get_effnet()
+    if model is None:
+        raise HTTPException(status_code=503, detail="EffNet non disponibile")
+    import essentia.standard as es
+    results: List[Dict[str, Any]] = []
+    async with httpx.AsyncClient() as client:
+        for it in req.items:
+            url = it.get("url")
+            label_id = it.get("label_id")
+            if not url or not label_id:
+                continue
+            path = None
+            try:
+                r = await client.get(url, timeout=30.0)
+                r.raise_for_status()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+                    tmp.write(r.content)
+                    path = tmp.name
+                audio_stereo, sr, _, _, _, _ = es.AudioLoader(filename=path)()
+                mono = np.mean(audio_stereo, axis=1).astype(np.float32)
+                audio_16k = es.Resample(inputSampleRate=int(sr), outputSampleRate=16000)(mono)
+                patches = np.asarray(model(audio_16k), dtype=np.float32)
+                if patches.ndim == 1:
+                    patches = patches[None, :]
+                pooled = patches.mean(axis=0)
+                results.append({
+                    "label_id": label_id,
+                    "e64": _project64(pooled),
+                    "e256": _project_to(pooled, _get_rp_matrix_256()),
+                })
+            except Exception as e:
+                logger.warning(f"[experiment] skip: {e}")
+            finally:
+                if path:
+                    try:
+                        os.remove(path)
+                    except Exception:
+                        pass
+    return {"results": results}
 
 
 @app.post("/analyze", response_model=AnalysisResponse)
