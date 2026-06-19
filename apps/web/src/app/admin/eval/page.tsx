@@ -42,7 +42,7 @@ export default function EvalPage() {
   const runExperiment = async () => {
     setExpLoading(true); setExpErr('')
     try {
-      const r = await fetch('/api/admin/eval-experiment?n=100', { cache: 'no-store' })
+      const r = await fetch('/api/admin/eval-experiment?n=80', { cache: 'no-store' })
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Errore')
       setExp(d); setExps((prev) => [...prev, d])

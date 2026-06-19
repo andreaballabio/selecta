@@ -52,8 +52,13 @@ export async function GET() {
   const loaded = catalog.length
   let sampled = false
   if (catalog.length > MAX_TRACKS) {
-    const step = catalog.length / MAX_TRACKS
-    catalog = Array.from({ length: MAX_TRACKS }, (_, k) => catalog[Math.floor(k * step)])
+    // Campione CASUALE (Fisher-Yates) → ogni run usa tracce diverse, così si vede
+    // la variabilità del risultato invece di avere sempre lo stesso numero.
+    for (let i = catalog.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[catalog[i], catalog[j]] = [catalog[j], catalog[i]]
+    }
+    catalog = catalog.slice(0, MAX_TRACKS)
     sampled = true
   }
 
