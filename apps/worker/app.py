@@ -12,6 +12,15 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("selecta_worker")
 
+# Check tecnici "da A&R" (true peak, mono, punch, struttura). Import difensivo:
+# se il file mancasse, il worker continua a funzionare senza i check.
+try:
+    from audio_checks import compute_checks
+except Exception as _e:  # pragma: no cover
+    logger.warning(f"audio_checks non disponibile ({_e}) → report tecnico ridotto")
+    def compute_checks(*_a, **_k):
+        return {}
+
 app = FastAPI(title="Selecta Worker", version="7.4.0")
 
 ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
@@ -54,6 +63,14 @@ class TrackFeatures(BaseModel):
     embeddings: Optional[List[List[float]]] = None  # sliding-window (solo full track)
 
     analysis_type: str = "full"     # "preview" | "full"
+    embedding_version: Optional[str] = None  # "effnet" | "v6" | "librosa" — spazio dell'embedding
+
+    # --- Check tecnici "da A&R" (solo full track) ---
+    true_peak_dbtp: Optional[float] = None      # >0 = clipping inter-sample
+    crest_db: Optional[float] = None            # punch / compressione
+    stereo_correlation: Optional[float] = None  # compatibilità mono (1=mono, <0=cancella)
+    loopiness: Optional[float] = None           # 0..1, alto = "loop che non evolve"
+    intro_build: Optional[float] = None         # l'energia sale nei primi ~30s?
 
 
 class AnalysisRequest(BaseModel):
@@ -749,6 +766,8 @@ def analyze_with_essentia(audio_mono: np.ndarray, audio_stereo: np.ndarray,
         sample_rate=sample_rate,
         embedding_prebuilt=embedding,
         sliding_embeddings=sliding_embeddings_out,
+        embedding_version='effnet' if model is not None else 'v6',
+        **({} if is_preview else compute_checks(audio_stereo, audio_mono, sample_rate)),
     )
 
 
@@ -849,6 +868,8 @@ def analyze_with_librosa(audio: np.ndarray, sr: int, is_preview: bool):
         sample_rate=sr,
         embedding_prebuilt=embedding,
         sliding_embeddings=None,
+        embedding_version='librosa',
+        **({} if is_preview else compute_checks(audio, audio, sr)),
     )
 
 
@@ -900,6 +921,7 @@ async def analyze_track(request: AnalysisRequest):
         sr              = feat.pop("sample_rate")
         embedding       = feat.pop("embedding_prebuilt")
         sliding_windows = feat.pop("sliding_embeddings", None)
+        embedding_version = feat.pop("embedding_version", None)
 
         embeddings_list: Optional[List[List[float]]] = None
         if not request.is_preview:
@@ -937,6 +959,12 @@ async def analyze_track(request: AnalysisRequest):
                 embedding=embedding,
                 embeddings=embeddings_list,
                 analysis_type=analysis_type,
+                embedding_version=embedding_version,
+                true_peak_dbtp=feat.get("true_peak_dbtp"),
+                crest_db=feat.get("crest_db"),
+                stereo_correlation=feat.get("stereo_correlation"),
+                loopiness=feat.get("loopiness"),
+                intro_build=feat.get("intro_build"),
             ),
             success=True,
         )

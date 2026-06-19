@@ -27,6 +27,12 @@ export interface ReportFeatures {
   mid_presence?: number | null        // presenza medi
   tempo_stability?: number | null
   spectral_contrast?: number | null
+  // Check tecnici "da A&R" (worker v2; possono mancare sulle analisi vecchie)
+  true_peak_dbtp?: number | null      // dBTP, >0 = clipping inter-sample
+  crest_db?: number | null            // punch / compressione
+  stereo_correlation?: number | null  // 1=mono, <0=cancella in mono
+  loopiness?: number | null           // 0..1, alto = loop statico
+  intro_build?: number | null         // l'energia sale nei primi ~30s?
 }
 
 export type Tone = 'good' | 'warn' | 'bad' | 'info'
@@ -154,9 +160,48 @@ function soundProfileItems(f: ReportFeatures): ReportItem[] {
   // Groove / percussività (onset_strength)
   if (f.onset_strength != null) {
     const o = f.onset_strength
-    let tone: Tone = 'info'
-    let verdict = o > 0.6 ? 'Groove molto percussivo e transient-rich.' : o < 0.35 ? 'Groove smooth, poco percussivo.' : 'Groove bilanciato.'
+    const tone: Tone = 'info'
+    const verdict = o > 0.6 ? 'Groove molto percussivo e transient-rich.' : o < 0.35 ? 'Groove smooth, poco percussivo.' : 'Groove bilanciato.'
     items.push({ id: 'groove', title: 'Groove', value: `${Math.round(o * 100)}`, tone, verdict })
+  }
+
+  return items
+}
+
+// ── Pre-flight A&R: i check che fanno scartare in 2 secondi ──────────────────
+function preflightItems(f: ReportFeatures): ReportItem[] {
+  const items: ReportItem[] = []
+
+  if (f.true_peak_dbtp != null && isFinite(f.true_peak_dbtp)) {
+    const tp = f.true_peak_dbtp
+    let tone: Tone = 'good', verdict = 'True peak con margine sicuro.', advice: string | undefined
+    if (tp > 0) { tone = 'bad'; verdict = 'Clipping inter-sample (oltre 0 dBTP): distorce su molti lettori/DSP.'; advice = 'Abbassa il limiter e tieni il true peak a −1 dBTP.' }
+    else if (tp > -0.3) { tone = 'warn'; verdict = 'True peak a ridosso di 0: rischio clipping inter-sample.'; advice = 'Lascia almeno −1 dBTP di margine.' }
+    items.push({ id: 'truepeak', title: 'True peak', value: `${tp.toFixed(1)} dBTP`, tone, verdict, advice })
+  }
+
+  if (f.stereo_correlation != null && isFinite(f.stereo_correlation)) {
+    const c = f.stereo_correlation
+    let tone: Tone = 'good', verdict = 'Compatibile in mono.', advice: string | undefined
+    if (c < -0.1) { tone = 'bad'; verdict = 'Fuori fase: in mono (impianti club) parte del suono si cancella.'; advice = 'Controlla la fase; tieni i bassi in mono.' }
+    else if (c < 0.2) { tone = 'warn'; verdict = 'Immagine molto larga: verifica come regge in mono.'; advice = 'Restringi lo stereo sotto i ~150 Hz.' }
+    items.push({ id: 'mono', title: 'Compatibilità mono', value: c.toFixed(2), tone, verdict, advice })
+  }
+
+  if (f.crest_db != null && isFinite(f.crest_db)) {
+    const cr = f.crest_db
+    let tone: Tone = 'good', verdict = 'Punch e dinamica in range.', advice: string | undefined
+    if (cr < 6) { tone = 'warn'; verdict = 'Master molto compresso: poco punch sul drop.'; advice = 'Allenta compressione/limiter per ridare transiente.' }
+    else if (cr > 18) { tone = 'info'; verdict = 'Molto dinamico: in un set DJ può suonare più basso degli altri brani.' }
+    items.push({ id: 'crest', title: 'Punch (crest)', value: `${cr.toFixed(1)} dB`, tone, verdict, advice })
+  }
+
+  if (f.loopiness != null && isFinite(f.loopiness)) {
+    const lp = f.loopiness
+    let tone: Tone = 'good', verdict = 'La traccia evolve (non è un loop statico).', advice: string | undefined
+    if (lp > 0.85) { tone = 'warn'; verdict = 'Sembra un loop: poca evoluzione. Le label cercano composizioni, non idee.'; advice = 'Aggiungi intro/break/drop con stacchi di energia.' }
+    else if (lp > 0.7) { tone = 'info'; verdict = 'Struttura piuttosto uniforme: valuta più dinamica tra le sezioni.' }
+    items.push({ id: 'structure', title: 'Struttura', value: `${Math.round((1 - lp) * 100)}/100`, tone, verdict, advice })
   }
 
   return items
@@ -180,6 +225,12 @@ function computeReadiness(f: ReportFeatures): TrackReport['readiness'] {
   if (f.sub_ratio != null && (f.sub_ratio > 0.55 || f.sub_ratio < 0.15)) score -= 8
   if (f.spectral_centroid != null && (f.spectral_centroid > 4200 || f.spectral_centroid < 1400)) score -= 6
 
+  // Check tecnici "da scarto" (quando disponibili dal worker v2)
+  if (f.true_peak_dbtp != null && f.true_peak_dbtp > 0) score -= 20      // clipping inter-sample
+  if (f.stereo_correlation != null && f.stereo_correlation < -0.1) score -= 15 // cancella in mono
+  if (f.loopiness != null && f.loopiness > 0.85) score -= 10             // loop che non evolve
+  if (f.crest_db != null && f.crest_db < 5) score -= 5                   // master schiacciato
+
   score = Math.max(20, Math.min(100, score))
   const level = score >= 80 ? 'ready' : score >= 60 ? 'almost' : 'not'
   const headline =
@@ -192,6 +243,10 @@ function computeReadiness(f: ReportFeatures): TrackReport['readiness'] {
 export function buildTrackReport(f: ReportFeatures): TrackReport {
   const sections: ReportSection[] = []
 
+  // Pre-flight per primo: è il gate che decide lo scarto in 2 secondi.
+  const preflight = preflightItems(f)
+  if (preflight.length) sections.push({ id: 'preflight', title: 'Pre-flight A&R · scarto in 2 secondi', items: preflight })
+
   const loud = loudnessItems(f)
   if (loud.length) sections.push({ id: 'loudness', title: 'Loudness & master', items: loud })
 
@@ -202,9 +257,8 @@ export function buildTrackReport(f: ReportFeatures): TrackReport {
     readiness: computeReadiness(f),
     sections,
     pending: [
-      'True peak (dBTP) e clipping inter-sample',
-      'Punch del drop (PSR) e dinamica (LRA)',
-      'Compatibilità mono e sub centrato',
+      'Loudness range (LRA) e PSR del drop precisi',
+      'Sub in mono / centratura del basso',
     ],
   }
 }
