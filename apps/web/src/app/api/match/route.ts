@@ -2,6 +2,7 @@ import { after } from 'next/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
+import { pickVersionSubset } from '@/lib/embedding-version'
 
 const WORKER_URL = process.env.WORKER_URL || 'https://andreaballabio-selecta-worker.hf.space'
 
@@ -289,19 +290,35 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         ? (rawEmbeddings as unknown[]).map(e => parseEmbedding(e))
         : [userEmbedding]
 
-    // ── 2. Load all analyzed label tracks (kNN candidates) ─────────────────
-    const { data: dbTracks, error: tracksErr } = await supabase
-      .from('label_ingestion_queue')
-      .select(`
-        id, label_id, audio_embedding,
-        track_title, artist_name, release_date, release_year,
-        spectral_centroid, spectral_rolloff, lufs, zero_crossing_rate,
-        sub_ratio, mid_presence, onset_strength, spectral_contrast
-      `)
-      .eq('analysis_status', 'analyzed')
-      .not('audio_embedding', 'is', null)
+    // Versione dello spazio embedding del worker (effnet / v6 / librosa).
+    const userVersion: string | null =
+      typeof workerFeatures.embedding_version === 'string' ? workerFeatures.embedding_version : null
 
-    if (tracksErr) throw tracksErr
+    // ── 2. Load all analyzed label tracks (kNN candidates) ─────────────────
+    type DbTrack = Record<string, unknown> & {
+      id: string; label_id: string; audio_embedding: unknown
+      track_title: string | null; artist_name: string | null
+      release_date: string | null; release_year: number | null
+      embedding_version?: string | null
+    }
+    const COLS =
+      'id, label_id, audio_embedding, track_title, artist_name, release_date, release_year, ' +
+      'spectral_centroid, spectral_rolloff, lufs, zero_crossing_rate, sub_ratio, mid_presence, onset_strength, spectral_contrast'
+    // Select con `embedding_version`; se la colonna non esiste ancora (pre-migrazione)
+    // si ricade sul set base → niente si rompe.
+    const sel = (cols: string) =>
+      supabase.from('label_ingestion_queue').select(cols)
+        .eq('analysis_status', 'analyzed').not('audio_embedding', 'is', null)
+    let dbRes = await sel(`${COLS}, embedding_version`)
+    if (dbRes.error) dbRes = await sel(COLS)
+    if (dbRes.error) throw dbRes.error
+
+    // Guard versione: confronta solo vettori dello STESSO spazio embedding.
+    // No-op se il catalogo è single-version o non taggato (caso attuale).
+    const { subset: dbTracks, mixed: catalogMixed } =
+      pickVersionSubset((dbRes.data ?? []) as unknown as DbTrack[], userVersion)
+    if (catalogMixed)
+      console.warn('[match] catalogo embedding MISTO → confronto ristretto a una versione (rianalizza per uniformare)')
 
     // ── 3. Load label metadata + profiles (for name, genre, confidence) ────
     const [labelsRes, profilesRes] = await Promise.all([
@@ -557,6 +574,20 @@ async function processSubmission(submissionId: string, fileUrl: string, trackSta
         match_results: top5,
       })
       .eq('id', submissionId)
+
+    // Best-effort: salva i campi "nuovi" (versione embedding + check tecnici).
+    // Update separato che ignora l'errore se le colonne non esistono ancora
+    // (pre-migrazioni 0014/0016) → non blocca mai il match.
+    const extras: Record<string, unknown> = {}
+    if (userVersion) extras.embedding_version = userVersion
+    for (const k of ['true_peak_dbtp', 'crest_db', 'stereo_correlation', 'loopiness', 'intro_build'] as const) {
+      const v = (workerFeatures as Record<string, unknown>)[k]
+      if (typeof v === 'number' && !Number.isNaN(v)) extras[k] = v
+    }
+    if (Object.keys(extras).length > 0) {
+      const vr = await supabase.from('user_submissions').update(extras).eq('id', submissionId)
+      if (vr.error) console.warn('[match] campi extra non salvati (migrazioni 0014/0016?):', vr.error.message)
+    }
 
   } catch (err) {
     console.error('[match] processing error:', err)
