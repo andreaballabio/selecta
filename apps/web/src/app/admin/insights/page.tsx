@@ -6,9 +6,11 @@ import { Loader2, Disc, Layers, Activity, TrendingUp, Gauge } from 'lucide-react
 interface MapLabel {
   name: string; genre: string; tracks: number; confidence: number; solid: boolean
   sim: { x: number; y: number }
-  feat: { brightness: number; punch: number; sub: number; lufs: number }
+  feat: { brightness: number; punch: number; sub: number; mid: number; lufs: number }
   coherence: number
 }
+
+const RADAR_COLORS = ['rgb(212,248,77)', 'rgb(96,165,250)', 'rgb(244,114,182)', 'rgb(251,191,36)', 'rgb(45,212,191)', 'rgb(248,113,113)', 'rgb(167,139,250)', 'rgb(248,150,30)']
 interface Insights {
   kpi: { labels: number; tracks: number; analyzed: number; analyzing: number; pending: number; failed: number; analyzedPct: number; avgConfidence: number; profiledLabels: number }
   genres: { genre: string; labels: number; tracks: number }[]
@@ -20,15 +22,42 @@ interface Insights {
 export default function InsightsPage() {
   const [data, setData] = useState<Insights | null>(null)
   const [loading, setLoading] = useState(true)
-  const [mode, setMode] = useState<'sim' | 'feat'>('feat')
+  const [sel, setSel] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetch('/api/admin/insights', { cache: 'no-store' })
       .then((r) => r.json())
-      .then((d) => setData(d))
+      .then((d: Insights) => {
+        setData(d)
+        // preseleziona le 3 label più grandi per il radar
+        setSel(new Set([...d.map].sort((a, b) => b.tracks - a.tracks).slice(0, 3).map((l) => l.name)))
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  // Assi del radar (caratteristiche normalizzate sul catalogo)
+  const radar = useMemo(() => {
+    const m = data?.map ?? []
+    const axes = [
+      { label: 'Brillantezza', get: (l: MapLabel) => l.feat.brightness },
+      { label: 'Percussività', get: (l: MapLabel) => l.feat.punch },
+      { label: 'Sub-bass', get: (l: MapLabel) => l.feat.sub },
+      { label: 'Medi', get: (l: MapLabel) => l.feat.mid },
+      { label: 'Loudness', get: (l: MapLabel) => l.feat.lufs },
+      { label: 'Coerenza', get: (l: MapLabel) => l.coherence },
+    ]
+    if (!m.length) return { axes: axes.map((a) => a.label), labels: [] as { name: string; tracks: number; values: number[] }[] }
+    const ranges = axes.map((a) => { const vs = m.map(a.get); return { min: Math.min(...vs), max: Math.max(...vs) } })
+    const labels = m.map((l) => ({
+      name: l.name, tracks: l.tracks,
+      values: axes.map((a, i) => { const { min, max } = ranges[i]; return max > min ? (a.get(l) - min) / (max - min) : 0.5 }),
+    }))
+    return { axes: axes.map((a) => a.label), labels }
+  }, [data])
+
+  const toggle = (name: string) => setSel((s) => { const n = new Set(s); n.has(name) ? n.delete(name) : n.add(name); return n })
+  const selected = radar.labels.filter((l) => sel.has(l.name)).map((l, i) => ({ ...l, color: RADAR_COLORS[i % RADAR_COLORS.length] }))
 
   if (loading) return <div className="flex items-center gap-2 py-20 text-muted"><Loader2 className="h-5 w-5 animate-spin" /> Carico le statistiche…</div>
   if (!data) return <div className="py-20 text-muted">Errore nel caricamento.</div>
@@ -51,31 +80,33 @@ export default function InsightsPage() {
         <Kpi icon={<TrendingUp className="h-4 w-4" />} label="Profili pronti" value={k.profiledLabels} sub={`su ${k.labels}`} />
       </div>
 
-      {/* MAPPA POSIZIONAMENTO */}
+      {/* CONFRONTO SONORO — RADAR */}
       <section className="rounded-2xl border border-line bg-surface/50 p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="font-display text-lg font-bold text-text">Mappa del sound delle label</h2>
-            <p className="text-xs text-muted">{mode === 'feat' ? 'Posizione = brillantezza × percussività · colore = sub-bass · dove cadrebbe una demo' : 'Vicinanza = suono complessivo simile (proiezione del timbro)'}</p>
-          </div>
-          <div className="flex rounded-lg border border-line p-0.5 text-xs">
-            <button onClick={() => setMode('feat')} className={`rounded px-3 py-1.5 font-medium ${mode === 'feat' ? 'bg-accent text-accent-ink' : 'text-muted hover:text-text'}`}>Caratteristiche</button>
-            <button onClick={() => setMode('sim')} className={`rounded px-3 py-1.5 font-medium ${mode === 'sim' ? 'bg-accent text-accent-ink' : 'text-muted hover:text-text'}`}>Similarità</button>
-          </div>
-        </div>
-        {data.map.length < 2 ? (
-          <p className="py-12 text-center text-sm text-muted">Servono almeno 2 label analizzate per la mappa. Le label in coda compariranno man mano che vengono analizzate.</p>
+        <h2 className="font-display text-lg font-bold text-text">Confronto sonoro delle label</h2>
+        <p className="mb-4 text-xs text-muted">Seleziona le label da sovrapporre: ogni asse è una caratteristica (normalizzata sul catalogo). Più la forma si allarga su un asse, più quella qualità è marcata.</p>
+
+        {radar.labels.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted">Nessuna label analizzata ancora. Le label compaiono man mano che vengono analizzate.</p>
         ) : (
-          <ScatterMap labels={data.map} mode={mode} />
+          <>
+            <div className="mb-5 flex flex-wrap gap-2">
+              {radar.labels.map((l) => {
+                const on = sel.has(l.name)
+                const col = selected.find((s) => s.name === l.name)?.color
+                return (
+                  <button key={l.name} onClick={() => toggle(l.name)}
+                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${on ? 'border-text/40 text-text' : 'border-line text-muted hover:text-text'}`}>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: on ? col : 'var(--line)' }} />
+                    {l.name}
+                  </button>
+                )
+              })}
+            </div>
+            {selected.length === 0
+              ? <p className="py-12 text-center text-sm text-muted">Seleziona almeno una label qui sopra.</p>
+              : <RadarChart axes={radar.axes} items={selected} />}
+          </>
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted">
-          <span className="flex items-center gap-2">Sub-bass
-            <span className="h-2.5 w-24 rounded-full" style={{ background: 'linear-gradient(90deg, rgb(56 189 248), rgb(212 248 77))' }} />
-            <span className="text-faint">meno → più</span>
-          </span>
-          <span>· dimensione bolla = n° tracce</span>
-          <span>· passa sopra una bolla per i dettagli</span>
-        </div>
       </section>
 
       {/* EVOLUZIONE */}
@@ -152,73 +183,36 @@ function Kpi({ icon, label, value, sub, accent }: { icon: React.ReactNode; label
   )
 }
 
-// ─── Scatter map (SVG) ────────────────────────────────────────────────────────
-function subColor(t: number) { // t 0..1 → blu (poco sub) → lime (molto sub)
-  const a = [56, 189, 248], b = [212, 248, 77]
-  const c = a.map((x, i) => Math.round(x + (b[i] - x) * t))
-  return `rgb(${c[0]} ${c[1]} ${c[2]})`
-}
-
-function ScatterMap({ labels, mode }: { labels: MapLabel[]; mode: 'sim' | 'feat' }) {
-  const W = 900, H = 540, padL = 64, padR = 36, padT = 44, padB = 60
-  const x0 = padL, x1 = W - padR, y0 = padT, y1 = H - padB
-  const pts = useMemo(() => labels.map((l) => ({
-    l,
-    x: mode === 'sim' ? l.sim.x : l.feat.brightness,
-    y: mode === 'sim' ? l.sim.y : l.feat.punch,
-  })), [labels, mode])
-
-  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y), subs = labels.map((l) => l.feat.sub)
-  const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
-  const minSub = Math.min(...subs), maxSub = Math.max(...subs)
-  const maxTracks = Math.max(...labels.map((l) => l.tracks), 1)
-  const nx = (v: number) => x0 + ((v - minX) / ((maxX - minX) || 1)) * (x1 - x0)
-  const ny = (v: number) => y1 - ((v - minY) / ((maxY - minY) || 1)) * (y1 - y0)
-  const rOf = (t: number) => 7 + Math.sqrt(t / maxTracks) * 13
-  const grid = [0, 0.25, 0.5, 0.75, 1]
+// ─── Radar chart (SVG) ────────────────────────────────────────────────────────
+function RadarChart({ axes, items }: { axes: string[]; items: { name: string; color: string; values: number[] }[] }) {
+  const W = 560, H = 460, cx = 280, cy = 220, R = 150
+  const N = axes.length
+  const ang = (i: number) => -Math.PI / 2 + i * ((2 * Math.PI) / N)
+  const pt = (i: number, v: number): [number, number] => [cx + R * v * Math.cos(ang(i)), cy + R * v * Math.sin(ang(i))]
+  const polyAt = (v: number) => axes.map((_, i) => pt(i, v).join(',')).join(' ')
+  const rings = [0.25, 0.5, 0.75, 1]
 
   return (
     <div className="overflow-x-auto">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 560 }}>
-        <rect x={x0} y={y0} width={x1 - x0} height={y1 - y0} fill="var(--surface-2)" fillOpacity={0.22} rx={12} />
-        {grid.map((f) => {
-          const gx = x0 + f * (x1 - x0), gy = y0 + f * (y1 - y0)
+      <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto w-full" style={{ maxWidth: 620 }}>
+        {rings.map((r) => <polygon key={r} points={polyAt(r)} fill="none" stroke="var(--line)" strokeOpacity={0.5} strokeWidth={1} />)}
+        {axes.map((a, i) => {
+          const [ex, ey] = pt(i, 1), [lx, ly] = pt(i, 1.16)
+          const anchor = lx > cx + 6 ? 'start' : lx < cx - 6 ? 'end' : 'middle'
           return (
-            <g key={f}>
-              <line x1={gx} y1={y0} x2={gx} y2={y1} stroke="var(--line)" strokeOpacity={0.45} strokeDasharray="2 5" />
-              <line x1={x0} y1={gy} x2={x1} y2={gy} stroke="var(--line)" strokeOpacity={0.45} strokeDasharray="2 5" />
+            <g key={a}>
+              <line x1={cx} y1={cy} x2={ex} y2={ey} stroke="var(--line)" strokeOpacity={0.5} strokeWidth={1} />
+              <text x={lx} y={ly + 3} textAnchor={anchor} className="fill-[var(--muted)] text-[12px] font-medium">{a}</text>
             </g>
           )
         })}
-
-        {mode === 'feat' ? (
-          <>
-            <text x={(x0 + x1) / 2} y={H - 18} textAnchor="middle" className="fill-[var(--muted)] text-[13px] font-medium">Brillantezza →</text>
-            <text x={x0} y={y1 + 18} textAnchor="start" className="fill-[var(--faint)] text-[10px]">{Math.round(minX)} Hz · dark</text>
-            <text x={x1} y={y1 + 18} textAnchor="end" className="fill-[var(--faint)] text-[10px]">{Math.round(maxX)} Hz · bright</text>
-            <text x={20} y={(y0 + y1) / 2} textAnchor="middle" transform={`rotate(-90 20 ${(y0 + y1) / 2})`} className="fill-[var(--muted)] text-[13px] font-medium">Percussività →</text>
-            <text x={x1 - 8} y={y0 + 15} textAnchor="end" className="fill-[var(--faint)] text-[9px] uppercase tracking-wider">bright · punchy</text>
-            <text x={x0 + 8} y={y0 + 15} textAnchor="start" className="fill-[var(--faint)] text-[9px] uppercase tracking-wider">dark · punchy</text>
-            <text x={x1 - 8} y={y1 - 8} textAnchor="end" className="fill-[var(--faint)] text-[9px] uppercase tracking-wider">bright · smooth</text>
-            <text x={x0 + 8} y={y1 - 8} textAnchor="start" className="fill-[var(--faint)] text-[9px] uppercase tracking-wider">dark · smooth</text>
-          </>
-        ) : (
-          <text x={(x0 + x1) / 2} y={H - 18} textAnchor="middle" className="fill-[var(--muted)] text-[12px]">← le label vicine suonano simili →</text>
-        )}
-
-        {pts.map((p) => {
-          const cx = nx(p.x), cy = ny(p.y), r = rOf(p.l.tracks)
-          const col = subColor(maxSub > minSub ? (p.l.feat.sub - minSub) / (maxSub - minSub) : 0.5)
-          const below = cy < (y0 + y1) / 2
-          return (
-            <g key={p.l.name}>
-              <title>{`${p.l.name} — ${p.l.tracks} tracce · brillantezza ${Math.round(p.l.feat.brightness)}Hz · punch ${p.l.feat.punch.toFixed(2)} · sub ${p.l.feat.sub.toFixed(2)} · coerenza ${Math.round(p.l.coherence * 100)}%`}</title>
-              <circle cx={cx} cy={cy} r={r} fill={col} fillOpacity={0.2} stroke={col} strokeWidth={1.5} />
-              <circle cx={cx} cy={cy} r={2.5} fill={col} />
-              <text x={cx} y={below ? cy + r + 13 : cy - r - 7} textAnchor="middle" className="fill-[var(--text)] text-[11px] font-medium">{p.l.name}</text>
-            </g>
-          )
-        })}
+        {items.map((it) => (
+          <polygon key={it.name} points={it.values.map((v, i) => pt(i, v).join(',')).join(' ')} fill={it.color} fillOpacity={0.13} stroke={it.color} strokeWidth={2} strokeLinejoin="round" />
+        ))}
+        {items.map((it) => it.values.map((v, i) => {
+          const [px, py] = pt(i, v)
+          return <circle key={`${it.name}-${i}`} cx={px} cy={py} r={2.6} fill={it.color} />
+        }))}
       </svg>
     </div>
   )

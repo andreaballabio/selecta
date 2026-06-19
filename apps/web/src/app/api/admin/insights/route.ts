@@ -63,7 +63,7 @@ export async function GET() {
   // ── Labels + profili ─────────────────────────────────────────────────────────
   const [{ data: labels }, { data: profiles }] = await Promise.all([
     supabase.from('labels').select('id, name, primary_genre, cataloged_tracks, created_at'),
-    supabase.from('label_profiles').select('label_id, avg_embedding, confidence_score, analyzed_tracks_count, avg_spectral_centroid, avg_onset_strength, avg_sub_ratio, avg_lufs, avg_tempo_stability, std_sub_ratio, std_onset_strength, std_spectral_centroid, updated_at'),
+    supabase.from('label_profiles').select('label_id, avg_embedding, confidence_score, analyzed_tracks_count, avg_spectral_centroid, avg_onset_strength, avg_sub_ratio, avg_mid_presence, avg_lufs, avg_tempo_stability, std_sub_ratio, std_onset_strength, std_spectral_centroid, updated_at'),
   ])
   const profById = new Map((profiles ?? []).map((p) => [p.label_id, p]))
   const labelList = (labels ?? [])
@@ -110,6 +110,7 @@ export async function GET() {
       brightness: x.p!.avg_spectral_centroid ?? 0, // Dark ↔ Bright
       punch: x.p!.avg_onset_strength ?? 0,          // Smooth ↔ Punchy
       sub: x.p!.avg_sub_ratio ?? 0,
+      mid: x.p!.avg_mid_presence ?? 0,
       lufs: x.p!.avg_lufs ?? 0,
     },
     coherence: coherenceOf(x.p!),
