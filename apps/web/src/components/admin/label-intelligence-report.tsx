@@ -10,7 +10,7 @@ interface IntelLabel {
 }
 interface Snapshot { run_at: string; payload: {
   labels: number; families: number; precisionAt1: number; precisionAt5: number; mrr: number
-  avgDistinctiveness: number; familyList: { name: string; size: number; members: string[] }[]
+  avgHit5: number; familyList: { name: string; size: number; members: string[] }[]
 } }
 interface Data { labels: IntelLabel[]; snapshots: Snapshot[]; needsMigration?: boolean }
 
@@ -60,7 +60,7 @@ export function LabelIntelligenceReport() {
             <Kpi label="Precision@5" value={pct(latest.precisionAt5)} delta={delta(latest.precisionAt5, prev?.precisionAt5)} />
             <Kpi label="Precision@1" value={pct(latest.precisionAt1)} delta={delta(latest.precisionAt1, prev?.precisionAt1)} />
             <Kpi label="Famiglie di suono" value={String(latest.families)} delta={prev ? latest.families - prev.families : null} suffix="" />
-            <Kpi label="Distintività media" value={pct(latest.avgDistinctiveness)} delta={delta(latest.avgDistinctiveness, prev?.avgDistinctiveness)} />
+            <Kpi label="Auto-match medio" value={pct(latest.avgHit5)} delta={delta(latest.avgHit5, prev?.avgHit5)} />
           </div>
 
           {/* Famiglie */}
@@ -85,7 +85,7 @@ export function LabelIntelligenceReport() {
                   <th className="px-3 py-2 font-medium">Label</th>
                   <th className="px-3 py-2 font-medium">Famiglia</th>
                   <th className="px-3 py-2 font-medium">Tracce</th>
-                  <th className="px-3 py-2 font-medium">Distintività</th>
+                  <th className="px-3 py-2 font-medium" title="Quanto le sue tracce ritrovano la label in top-5 (hit@5)">Auto-match</th>
                   <th className="px-3 py-2 font-medium">Peso</th>
                   <th className="px-3 py-2 font-medium">Simile a</th>
                   <th className="px-3 py-2 font-medium">Match</th>
