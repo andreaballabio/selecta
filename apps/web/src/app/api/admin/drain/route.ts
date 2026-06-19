@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 import { drainQueue } from '@/lib/analyze-track'
 
@@ -17,6 +18,7 @@ const supabase = createClient(
  * Lotto piccolo + tetto di tempo per stare sotto il maxDuration della function.
  */
 export async function POST() {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const res = await drainQueue(supabase, 4, 40000)
     return NextResponse.json({ ok: true, ...res })

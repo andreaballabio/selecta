@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,7 @@ const supabase = createClient(
 /** Tier 3 (lato label): le demo/tracce utente che suonano come QUESTA label,
  *  ordinate per quanto le assomigliano. Sfrutta match_results già salvati. */
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   const labelId = new URL(request.url).searchParams.get('label_id')
   if (!labelId) return NextResponse.json({ error: 'label_id richiesto' }, { status: 400 })
 

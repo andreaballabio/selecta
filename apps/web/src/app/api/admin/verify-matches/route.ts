@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
@@ -106,6 +107,7 @@ async function searchSpotifyTrack(token: string, query: string) {
 
 // GET: Ottieni tracce pending con match proposti da Deezer (primario) e Spotify (fallback)
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const labelId = searchParams.get('label_id')
@@ -203,6 +205,7 @@ export async function GET(request: NextRequest) {
 
 // POST: Conferma un match per una traccia
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const body = await request.json()
     const { track_id, action, spotify_track } = body

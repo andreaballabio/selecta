@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 
 // Interfacce per i dati traccia
 interface TrackMatch {
@@ -123,6 +124,7 @@ async function getSpotifyToken(): Promise<string> {
 
 // GET: Cerca tracce su Deezer (primario) e Spotify (fallback)
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')

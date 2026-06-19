@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -7,6 +8,7 @@ const supabase = createClient(
 )
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const body = await request.json()
     const { name, slug, genre } = body

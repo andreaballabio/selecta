@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -7,6 +8,7 @@ const supabase = createClient(
 )
 
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const labelId = searchParams.get('label_id')
@@ -87,6 +89,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const labelId = searchParams.get('label_id')

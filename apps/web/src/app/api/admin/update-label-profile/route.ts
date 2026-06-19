@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { buildLabelProfile } from '@/lib/label-profile'
 
 const supabase = createClient(
@@ -8,6 +9,7 @@ const supabase = createClient(
 )
 
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   const { searchParams } = new URL(request.url)
   const label_id = searchParams.get('label_id')
   if (!label_id) return NextResponse.json({ error: 'label_id required' }, { status: 400 })
@@ -23,6 +25,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { label_id } = await request.json()
     if (!label_id) return NextResponse.json({ error: 'label_id required' }, { status: 400 })

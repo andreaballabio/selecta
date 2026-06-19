@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 import { analyzeSingleTrack } from '@/lib/analyze-track'
 
@@ -9,6 +10,7 @@ const supabase = createClient(
 
 // GET: Ottieni statistiche analisi
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const labelId = searchParams.get('label_id')
@@ -52,6 +54,7 @@ export async function GET(request: NextRequest) {
 
 // POST: Analizza un batch di tracce
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const body = await request.json()
     const { track_id, label_id } = body

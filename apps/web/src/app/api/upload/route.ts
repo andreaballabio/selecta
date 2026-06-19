@@ -5,9 +5,12 @@ import { randomUUID } from 'crypto'
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    
-    // TEMP: Bypass authentication for testing
-    const userId = '00000000-0000-0000-0000-000000000001'
+
+    // Utente loggato (opzionale): se c'è, i file finiscono sotto il SUO id; se non
+    // c'è, l'upload anonimo resta permesso (cartella "anonymous") — è il gancio
+    // gratuito del /match. Niente più id fittizio condiviso da tutti.
+    const { data: { user } } = await supabase.auth.getUser()
+    const userId = user?.id ?? 'anonymous'
     
     const body = await request.json()
     const { fileName, fileSize, contentType } = body

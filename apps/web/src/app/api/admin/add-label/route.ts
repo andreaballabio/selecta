@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY
@@ -192,6 +193,7 @@ async function getChannelVideos(channelId: string, maxResults: number = 100) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const body = await request.json()
     const { name, slug, genre, youtubeChannelId, youtubeUrl } = body
@@ -330,6 +332,7 @@ export async function POST(request: NextRequest) {
 
 // GET: Cerca canali YouTube
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const query = searchParams.get('q')

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID
@@ -91,6 +92,7 @@ function calculateConfidence(spotifyTrack: any, queryArtist: string, queryTitle:
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const body = await request.json()
     const { label_id, batch_size = 5 } = body
@@ -263,6 +265,7 @@ export async function POST(request: NextRequest) {
 
 // GET: Ottieni statistiche
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { searchParams } = new URL(request.url)
     const labelId = searchParams.get('label_id')

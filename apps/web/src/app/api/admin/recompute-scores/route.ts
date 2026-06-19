@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 import { computeLabelScores } from '@/lib/label-scores'
 
@@ -13,6 +14,7 @@ const supabase = createClient(
 /** Ricalcola i punteggi A&R (reachability/openness/cadenza/artisti/ultima uscita)
  *  dai dati del catalogo. Una label sola con { label_id }, oppure tutte. */
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   let labelId: string | undefined
   try { labelId = (await request.json())?.label_id } catch { /* tutte */ }
 

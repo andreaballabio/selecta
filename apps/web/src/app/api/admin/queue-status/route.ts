@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,7 @@ const supabase = createClient(
 
 /** Stato globale + per-label della coda di analisi (per l'indicatore in navbar). */
 export async function GET() {
+  const denied = await requireAdminApi(); if (denied) return denied
   // PostgREST limita a 1000 righe per richiesta → con migliaia di tracce i
   // conteggi venivano TRONCATI (totale fermo a 1000, label mancanti). Paginiamo
   // con .range() finché non finiscono le righe, così contiamo TUTTO davvero.

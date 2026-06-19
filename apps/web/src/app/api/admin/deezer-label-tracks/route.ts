@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { dz, sleep, DZ_BATCH, DZ_THROTTLE_MS } from '@/lib/deezer'
 
@@ -105,6 +106,7 @@ async function collectTracks(
  *  il caricamento, poi { type:'result', tracks, count, total_albums }. Così l'UI
  *  mostra un contatore "x/y album" invece di uno spinner cieco. */
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   const label = (new URL(request.url).searchParams.get('label') ?? '').trim()
   if (!label) {
     return new Response(JSON.stringify({ type: 'error', message: 'label richiesta' }) + '\n', {

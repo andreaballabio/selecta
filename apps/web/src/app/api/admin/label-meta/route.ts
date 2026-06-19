@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,7 @@ const RICH = 'id, name, accepts_unsolicited_demos, demo_submission_url, website_
 const BASE = 'id, name, accepts_unsolicited_demos, demo_submission_url, website_url, response_time_days_avg, target_artist_level'
 
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   const id = new URL(request.url).searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id richiesto' }, { status: 400 })
   let res = await supabase.from('labels').select(RICH).eq('id', id).maybeSingle()
@@ -22,6 +24,7 @@ export async function GET(request: NextRequest) {
 
 // Salva solo i campi curati a mano (i punteggi sono calcolati, non editabili qui)
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   const body = await request.json()
   const { id } = body
   if (!id) return NextResponse.json({ error: 'id richiesto' }, { status: 400 })

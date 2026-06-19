@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { dz, sleep, DZ_BATCH, DZ_THROTTLE_MS } from '@/lib/deezer'
 
 /**
@@ -7,6 +8,7 @@ import { dz, sleep, DZ_BATCH, DZ_THROTTLE_MS } from '@/lib/deezer'
  * DISTINTE (dai dettagli album), così l'admin sceglie quella canonica.
  */
 export async function GET(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   const q = (new URL(request.url).searchParams.get('q') ?? '').trim()
   if (q.length < 2) return NextResponse.json({ error: 'Query troppo corta' }, { status: 400 })
 

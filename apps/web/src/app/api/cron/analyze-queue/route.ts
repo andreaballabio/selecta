@@ -17,9 +17,11 @@ export async function GET(request: NextRequest) {
   const ua = request.headers.get('user-agent') ?? ''
   const auth = request.headers.get('authorization') ?? ''
   const secret = process.env.CRON_SECRET
-  const isVercelCron = ua.includes('vercel-cron')
-  const hasSecret = !!secret && auth === `Bearer ${secret}`
-  if (!isVercelCron && !hasSecret) {
+  // Se CRON_SECRET è impostato lo ESIGIAMO (Vercel lo invia in automatico come
+  // Bearer): l'User-Agent da solo è falsificabile. Senza secret, fallback sull'UA
+  // del cron Vercel così la pianificazione continua a funzionare comunque.
+  const allowed = secret ? auth === `Bearer ${secret}` : ua.includes('vercel-cron')
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

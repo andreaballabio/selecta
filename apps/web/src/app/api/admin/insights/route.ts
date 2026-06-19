@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,7 @@ function pca2(vectors: number[][]): { x: number; y: number }[] {
 }
 
 export async function GET() {
+  const denied = await requireAdminApi(); if (denied) return denied
   // ── KPI (count queries leggere, niente lettura massiva) ──────────────────────
   const q = () => supabase.from('label_ingestion_queue').select('id', { count: 'exact', head: true })
   const [tracks, analyzed, analyzing, failed] = await Promise.all([

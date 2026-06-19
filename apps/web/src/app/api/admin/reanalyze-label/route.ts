@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminApi } from '@/lib/require-admin'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(
@@ -15,6 +16,7 @@ const supabase = createClient(
  * Tracks with no URL are reported as skipped — they need manual re-matching.
  */
 export async function POST(request: NextRequest) {
+  const denied = await requireAdminApi(); if (denied) return denied
   try {
     const { label_id } = await request.json()
     if (!label_id) {
