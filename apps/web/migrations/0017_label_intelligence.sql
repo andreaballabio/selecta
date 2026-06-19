@@ -16,3 +16,7 @@ CREATE TABLE IF NOT EXISTS label_intel_snapshots (
   payload  jsonb not null
 );
 CREATE INDEX IF NOT EXISTS label_intel_snapshots_run_idx ON label_intel_snapshots (run_at desc);
+
+-- Solo dati admin (scritti/letti dal service role, che bypassa la RLS). Abilitiamo
+-- la RLS senza policy → bloccata ai client anon/authenticated, aperta al service role.
+ALTER TABLE label_intel_snapshots ENABLE ROW LEVEL SECURITY;
