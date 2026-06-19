@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { isAdminEmail } from '@/lib/admin'
+import { computeLabelScores } from '@/lib/label-scores'
 
 const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
 
@@ -62,6 +63,9 @@ export async function POST(request: NextRequest) {
   // Allinea il contatore al numero reale di tracce in coda
   const { count } = await sb.from('label_ingestion_queue').select('id', { count: 'exact', head: true }).eq('label_id', labelId)
   await sb.from('labels').update({ cataloged_tracks: count ?? 0 }).eq('id', labelId)
+
+  // Punteggi A&R automatici: ricalcola subito alla fine dell'import (non bloccante)
+  try { await computeLabelScores(sb, labelId) } catch (e) { console.error('[import] scores:', e) }
 
   return NextResponse.json({ label_id: labelId, added: rows.length, skipped: tracks.length - rows.length })
 }
