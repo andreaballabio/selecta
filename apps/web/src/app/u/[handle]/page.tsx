@@ -8,6 +8,7 @@ import { deriveSoundDna } from '@/lib/sound-dna'
 import { FollowButton } from '@/components/social/follow-button'
 import { CatalogGrid, type CatalogTrack } from '@/components/catalog/catalog-grid'
 import { SimilarArtists } from '@/components/social/similar-artists'
+import { EpkShare } from '@/components/social/epk-share'
 
 interface ArtistProfile {
   user_id: string
@@ -110,6 +111,16 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
   const initials = (p.display_name || handle).trim().slice(0, 2).toUpperCase()
   const links = Object.entries(p.links ?? {}).filter(([, v]) => v)
 
+  // Testo EPK pronto da incollare nelle email/DM alle label.
+  const soundWords = [...(p.sound_descriptors ?? []), ...(dna?.descriptors ?? [])].slice(0, 6)
+  const epkText = [
+    `${p.display_name || handle}${p.tagline ? ` — ${p.tagline}` : ''}`,
+    [(p.genres ?? []).join(' · '), (p.bpm_range || dna?.bpmRange) ? `${p.bpm_range || dna?.bpmRange} BPM` : '', p.city].filter(Boolean).join(' · '),
+    soundWords.length ? `Suono: ${soundWords.join(', ')}` : '',
+    totals.tracks > 0 ? `${totals.tracks} tracce · ${totals.plays} ascolti · ${followersCount ?? 0} follower` : '',
+    p.contact_email ? `Contatto: ${p.contact_email}` : '',
+  ].filter(Boolean).join('\n')
+
   return (
     <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
@@ -177,6 +188,11 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             )}
           </>
         )}
+
+        {/* Condividi come EPK (link + testo pronto per le label) */}
+        <div className="mb-6">
+          <EpkShare handle={handle} text={epkText} />
+        </div>
 
         {/* Sound DNA — manuale + auto-derivato dalle analisi reali */}
         {((p.sound_descriptors ?? []).length > 0 || (dna && dna.descriptors.length > 0)) && (

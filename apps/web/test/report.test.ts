@@ -43,6 +43,15 @@ test('check assenti (analisi vecchia) → nessuna sezione pre-flight, niente cra
   assert.ok(r.pending.length >= 1)
 })
 
+test('intro: build positivo → ok, in calo → warn, e presente solo se c\'è il dato', () => {
+  const good = item(buildTrackReport({ lufs: -7, intro_build: 0.2 }), 'preflight', 'intro')!
+  assert.equal(good.tone, 'good')
+  assert.equal(good.value, 'in salita')
+  const bad = item(buildTrackReport({ lufs: -7, intro_build: -0.2 }), 'preflight', 'intro')!
+  assert.equal(bad.tone, 'warn')
+  assert.equal(item(buildTrackReport({ lufs: -7 }), 'preflight', 'intro'), undefined) // niente dato → niente item
+})
+
 test('clipping abbassa molto la readiness rispetto allo stesso brano pulito', () => {
   const base: ReportFeatures = { lufs: -7, sub_ratio: 0.3, spectral_centroid: 2600, crest_db: 10, stereo_correlation: 0.5, loopiness: 0.4 }
   const clean = buildTrackReport({ ...base, true_peak_dbtp: -1 }).readiness.score

@@ -204,6 +204,16 @@ function preflightItems(f: ReportFeatures): ReportItem[] {
     items.push({ id: 'structure', title: 'Struttura', value: `${Math.round((1 - lp) * 100)}/100`, tone, verdict, advice })
   }
 
+  if (f.intro_build != null && isFinite(f.intro_build)) {
+    const ib = f.intro_build
+    let tone: Tone = 'info', verdict = 'Intro con una leggera evoluzione.'
+    let advice: string | undefined
+    if (ib >= 0.08) { tone = 'good'; verdict = 'L’intro costruisce energia: ottima per il mix DJ e per agganciare nei primi secondi.' }
+    else if (ib <= -0.08) { tone = 'warn'; verdict = 'L’energia parte alta e poi cala: poca intro mixabile.'; advice = 'Aggiungi un’intro che sale (8/16 battute) per DJ e A&R.' }
+    else { tone = 'info'; verdict = 'Intro piuttosto piatta nei primi ~30s.'; advice = 'Un build iniziale aiuta ad agganciare nei primi 15 secondi, dove gli A&R decidono.' }
+    items.push({ id: 'intro', title: 'Intro / primi secondi', value: ib >= 0.08 ? 'in salita' : ib <= -0.08 ? 'in calo' : 'piatta', tone, verdict, advice })
+  }
+
   return items
 }
 
