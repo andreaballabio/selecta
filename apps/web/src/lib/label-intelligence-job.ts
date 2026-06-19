@@ -1,8 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { cosine, meanCenter } from './eval-matching'
+import { meanCenter } from './eval-matching'
 import { deriveIntel, bestAlpha, type LabelAgg, type ScoredQuery } from './label-intelligence'
 
-const MAX = 2500   // tetto per l'O(n²)
+// Catalogo INTERO → risultato deterministico (famiglie/numeri stabili a ogni run).
+// Sopra HARD_CAP si campiona in modo DETERMINISTICO (equispaziato, ordinato) per
+// non esplodere a scala (centinaia di label) restando comunque stabile.
+const HARD_CAP = 7000
 const TOPK = 5
 const MIN_TRACKS = 3
 
@@ -47,12 +50,18 @@ export async function runLabelIntelligence(sb: SupabaseClient): Promise<IntelSum
     if (data.length < 1000) break
   }
   let cat = rows.map((r) => ({ labelId: r.label_id, emb: parseEmb(r.audio_embedding) })).filter((t) => t.labelId && t.emb.length === 64)
-  if (cat.length > MAX) {
-    for (let i = cat.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[cat[i], cat[j]] = [cat[j], cat[i]] }
-    cat = cat.slice(0, MAX)
+  if (cat.length > HARD_CAP) {
+    // Deterministico: ordina e prendi equispaziato → stesso campione a ogni run.
+    cat = [...cat].sort((a, b) => (a.labelId < b.labelId ? -1 : a.labelId > b.labelId ? 1 : 0))
+    const step = cat.length / HARD_CAP
+    cat = Array.from({ length: HARD_CAP }, (_, k) => cat[Math.floor(k * step)])
   }
 
+  // Mean-center + L2-normalize UNA volta → il coseno diventa un semplice dot product
+  // (niente sqrt/norme per coppia): ~3× più veloce, regge il catalogo intero.
   const centered = meanCenter(cat.map((t) => t.emb)).centered
+  for (const v of centered) { let n = 0; for (const x of v) n += x * x; n = Math.sqrt(n) || 1; for (let i = 0; i < v.length; i++) v[i] /= n }
+  const dot = (a: number[], b: number[]) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s }
   const byLabel = new Map<string, number[]>()
   cat.forEach((t, i) => { const a = byLabel.get(t.labelId) ?? []; a.push(i); byLabel.set(t.labelId, a) })
   const eligible = [...byLabel.keys()].filter((l) => (byLabel.get(l)?.length ?? 0) >= MIN_TRACKS)
@@ -69,7 +78,7 @@ export async function runLabelIntelligence(sb: SupabaseClient): Promise<IntelSum
     for (const L of eligible) {
       const idxs = byLabel.get(L)!
       const sims: number[] = []
-      for (const j of idxs) { if (j === qi) continue; sims.push(cosine(qv, centered[j])) }
+      for (const j of idxs) { if (j === qi) continue; sims.push(dot(qv, centered[j])) }
       if (!sims.length) continue
       sims.sort((a, b) => b - a)
       const k = Math.min(TOPK, sims.length)
