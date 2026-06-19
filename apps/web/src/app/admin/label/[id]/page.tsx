@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
+import { AdminLabelTools } from '@/components/admin/admin-label-tools'
 
 interface Track {
   id: string
@@ -1028,6 +1029,9 @@ export default function LabelDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* A&R / invio demo + demo compatibili (Tier 1 + Tier 3) */}
+        <AdminLabelTools labelId={labelId} />
 
         {/* Tabs */}
         <div className="mb-6 flex gap-4 border-b border-line">

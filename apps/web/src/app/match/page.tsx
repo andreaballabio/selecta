@@ -7,6 +7,7 @@ import { DemoScore } from '@/components/report/demo-score'
 import { ReferenceComparison } from '@/components/reference/reference-comparison'
 import { PublishToCatalog } from '@/components/catalog/publish-to-catalog'
 import { createClient } from '@/lib/supabase/client'
+import { difficultyMeta, toneClass } from '@/lib/label-display'
 import Link from 'next/link'
 import {
   Loader2,
@@ -320,6 +321,18 @@ function ResultsView({
     return `${m}:${sec.toString().padStart(2, '0')}`
   }
 
+  // Arricchimento A&R: difficoltà + "accetta demo" + link label (Tier 2).
+  // Best-effort: se l'endpoint o la migrazione non ci sono, semplicemente non mostra i badge.
+  const [labelMeta, setLabelMeta] = useState<Map<string, any>>(new Map())
+  useEffect(() => {
+    fetch('/api/labels').then((r) => r.json()).then((d) => {
+      const m = new Map<string, any>()
+      for (const l of (d.labels ?? [])) m.set(l.id, l)
+      setLabelMeta(m)
+    }).catch(() => {})
+  }, [])
+  const hrefOut = (u?: string | null) => (!u ? null : u.startsWith('http') ? u : `https://${u}`)
+
   return (
     <div className="min-h-screen bg-bg">
       <div className="mx-auto max-w-xl px-4 py-12 sm:px-6">
@@ -456,12 +469,31 @@ function ResultsView({
                   />
                 </div>
 
+                {/* A&R: difficoltà + invio demo + link label (Tier 2) */}
+                {(() => {
+                  const lm = labelMeta.get(result.label_id)
+                  if (!lm) return null
+                  const dm = difficultyMeta(lm.reachability_score)
+                  const url = hrefOut(lm.demo_submission_url)
+                  return (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                      {lm.reachability_score != null && <span className={`rounded-full px-2 py-0.5 font-medium ${toneClass[dm.tone]}`}>{dm.label}</span>}
+                      {lm.accepts_unsolicited_demos
+                        ? (url
+                          ? <a href={url} target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">Manda la demo ↗</a>
+                          : <span className="text-accent">accetta demo</span>)
+                        : <span className="text-muted">su invito</span>}
+                      <Link href={`/labels/${lm.slug || lm.id}`} className="ml-auto text-muted hover:text-text">Vedi label →</Link>
+                    </div>
+                  )
+                })()}
+
                 {/* Traccia più simile trovata */}
                 {result.best_track_title && (
                   <div className={`mb-3 rounded-lg px-3 py-2 text-sm ${
                     isTop ? 'bg-surface-2 border border-accent/30' : 'bg-surface-2/60'
                   }`}>
-                    <span className="text-muted">Traccia più simile: </span>
+                    <span className="text-muted">Il tuo suono è vicino a: </span>
                     <span className="font-medium text-text">
                       {result.best_track_artist ? `${result.best_track_artist} — ` : ''}
                       {result.best_track_title}
