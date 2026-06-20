@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Users, Disc, ArrowLeft, Flag, DownloadCloud, BarChart3, Target } from 'lucide-react'
+import { LayoutDashboard, Users, Disc, ArrowLeft, Flag, DownloadCloud, BarChart3, Target, Music } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import QueueIndicator from '@/components/admin/queue-indicator'
 
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/admin/eval', label: 'Validazione', icon: Target },
   { href: '/admin/users', label: 'Utenti', icon: Users },
   { href: '/admin/labels', label: 'Label', icon: Disc },
+  { href: '/admin/catalog', label: 'Catalogo', icon: Music },
   { href: '/admin/import', label: 'Importa', icon: DownloadCloud },
   { href: '/admin/reports', label: 'Segnalazioni', icon: Flag },
 ]
