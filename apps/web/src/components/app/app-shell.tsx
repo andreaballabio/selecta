@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Search, Radio, TrendingUp, Users, Bookmark, User, Sparkles, Rss, MessageSquare, BarChart3, Download, Disc, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { FoundingBanner } from '@/components/social/founding-banner'
 
 const PRIMARY = [
   { href: '/', label: 'Home', icon: Home },
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Link>
       </aside>
 
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-w-0 flex-1"><FoundingBanner />{children}</main>
     </div>
   )
 }
