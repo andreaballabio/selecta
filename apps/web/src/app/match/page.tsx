@@ -418,6 +418,7 @@ function ResultsView({
               user={features as unknown as Record<string, number | null>}
               labelAvg={results[0].ref_features}
               labelName={results[0].label_name}
+              matchPct={Math.min(100, Math.round(results[0].score * 100))}
             />
           </div>
         )}

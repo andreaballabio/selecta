@@ -15,10 +15,12 @@ export function ReferenceComparison({
   user,
   labelAvg,
   labelName,
+  matchPct,
 }: {
   user: Record<string, number | null>
   labelAvg: Record<string, number>
   labelName: string
+  matchPct?: number // % del match sull'impronta sonora completa (per distinguerla dai fondamentali)
 }) {
   const axes = compareToReference(user as FeatureSet, labelAvg as FeatureSet)
   if (axes.length === 0) return null
@@ -32,8 +34,11 @@ export function ReferenceComparison({
         <h2 className="text-lg font-bold text-text">Come avvicinarti a {labelName}</h2>
       </div>
       <p className="mb-5 text-xs text-muted">
-        Il tuo suono vs il sound medio della label — <strong className="text-text">{close}% in linea</strong>
+        <strong className="text-text">{close}% in linea sui fondamentali</strong> (loudness, sub, brillantezza, groove, medi)
         {todo > 0 && <>, {todo} {todo === 1 ? 'ritocco' : 'ritocchi'} per avvicinarti</>}.
+        {matchPct != null && (
+          <> L’<strong className="text-text">impronta sonora completa</strong> (timbro, carattere) è al <strong className="text-text">{matchPct}%</strong>: i livelli sono in zona, il carattere del suono è {matchPct >= 70 ? 'molto vicino' : matchPct >= 45 ? 'moderatamente vicino' : 'ancora distante'}.</>
+        )}
       </p>
 
       <div className="space-y-4">
