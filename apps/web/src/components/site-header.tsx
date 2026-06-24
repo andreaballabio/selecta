@@ -32,7 +32,7 @@ export function SiteHeader() {
     return () => { subscription.unsubscribe(); window.removeEventListener('scroll', onScroll) }
   }, [])
 
-  if (pathname.startsWith('/admin') || pathname.startsWith('/u/') || pathname.startsWith('/preview')) return null
+  if (pathname === '/' || pathname.startsWith('/admin') || pathname.startsWith('/u/') || pathname.startsWith('/preview')) return null
 
   return (
     <header className={cn(
