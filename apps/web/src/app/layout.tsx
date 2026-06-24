@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
-import { Inter, Syne } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { PlayerProvider } from "@/components/player/player-context";
 import { PlayerBar } from "@/components/player/player-bar";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-});
+// Geist (sans + mono): grotesk pulito vicino alla "M Saans" di Mobbin,
+// e Geist Mono per i dati tecnici (key/bpm/durata) come nel catalogo.
 
-const syne = Syne({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-  variable: "--font-syne",
-});
+// Imposta il tema prima del paint per evitare il "flash" (default: chiaro).
+const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem('selecta-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();`;
 
 export const metadata: Metadata = {
   title: "Selecta — A&R AI e catalogo Tech House",
@@ -28,7 +24,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="it" className={`${inter.variable} ${syne.variable} h-full antialiased`}>
+    <html lang="it" className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-bg font-sans text-text">
         <PlayerProvider>
           <SiteHeader />

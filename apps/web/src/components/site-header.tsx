@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { NotifBell } from '@/components/notifications/notif-bell'
 import { AdminLink } from '@/components/admin/admin-link'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 const NAV = [
   { href: '/match', label: 'Analizza' },
@@ -31,7 +32,7 @@ export function SiteHeader() {
     return () => { subscription.unsubscribe(); window.removeEventListener('scroll', onScroll) }
   }, [])
 
-  if (pathname.startsWith('/admin') || pathname.startsWith('/u/')) return null
+  if (pathname.startsWith('/admin') || pathname.startsWith('/u/') || pathname.startsWith('/preview')) return null
 
   return (
     <header className={cn(
@@ -67,6 +68,8 @@ export function SiteHeader() {
               </Link>
             )
           })}
+
+          <ThemeToggle className="ml-1" />
 
           {authed ? (
             <>
