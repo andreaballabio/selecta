@@ -1,10 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import {
   Play, Pause, SkipBack, SkipForward, Download, ArrowRight, Heart,
-  Target, Radio, IdCard, Shield, Bell, Check,
+  Target, Radio, IdCard,
 } from 'lucide-react'
 import { TextReveal } from '@/components/ui/text-reveal'
 import { ConstellationStage } from '@/components/marketing/constellation-stage'
@@ -12,6 +12,7 @@ import { PremiumNav } from '@/components/marketing/premium-nav'
 import { SpotifyLogo, SoundCloudLogo, AppleMusicLogo, YouTubeLogo } from '@/components/ui/brand-logos'
 import { usePlayer } from '@/components/player/player-context'
 import { toPlayerTrack, type CatalogTrack } from '@/components/catalog/catalog-grid'
+import { StatCounter } from '@/components/marketing/stat-counter'
 
 /* ════════════════════════════════════════════════════════════════
    Homepage "Liquid Glass" (Apple iOS 26 + Mobbin) — hero Costellazione.
@@ -48,11 +49,20 @@ const FEATURES = [
   { icon: IdCard, t: 'Press Kit', b: 'Una pagina condivisibile, auto-popolata dal tuo Sound DNA.', from: '#ff9500', to: '#ffcc00' },
 ]
 
-export function HomeRedesign({ tracks }: { tracks?: CatalogTrack[] }) {
+const STEPS = [
+  { t: 'Carica la tua traccia', b: 'L’AI legge la tua firma timbrica — il Sound DNA — in pochi secondi.' },
+  { t: 'Scopri le label affini', b: 'Le etichette che suonano come te, con percentuali oneste e il perché.' },
+  { t: 'Pubblica e fatti trovare', b: 'Entri nel catalogo curato per suono, dove DJ e A&R cercano nuova musica.' },
+]
+
+export type HomeStats = { analyzed: number; published: number; artists: number }
+const DEFAULT_STATS: HomeStats = { analyzed: 1240, published: 320, artists: 180 } // solo per /preview offline
+
+export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats?: HomeStats }) {
   const data = tracks && tracks.length ? tracks : SAMPLE
   const ptracks = useMemo(() => data.map(toPlayerTrack), [data])
   const player = usePlayer()
-  const [autoRenew, setAutoRenew] = useState(true)
+  const st = stats ?? DEFAULT_STATS
 
   const liveIdx = data.findIndex((t) => t.id === player.current?.id)
   const feat = liveIdx >= 0 ? data[liveIdx] : data[0]
@@ -96,6 +106,23 @@ export function HomeRedesign({ tracks }: { tracks?: CatalogTrack[] }) {
           className="px-4"
           text="Il tuo modo di suonare è un’impronta. Selecta la legge, e ti dice esattamente dove può essere firmata."
         />
+
+        {/* ───── COME FUNZIONA (3 passi) ───── */}
+        <section className="mx-auto max-w-[900px] px-4 py-12">
+          <div className="mb-10 text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Come funziona</p>
+            <h2 className="mt-2 font-display display-tight text-3xl font-semibold tracking-tight sm:text-4xl">Dal tuo suono al contratto, in tre passi</h2>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <div key={s.t} className="glass rounded-[22px] p-6">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-text font-display text-sm font-bold text-bg">{i + 1}</span>
+                <h3 className="mt-4 font-display text-lg font-semibold tracking-tight">{s.t}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted">{s.b}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* ───── BLOCCO AUDIO (glassmorphism listen) — brano in evidenza reale ───── */}
         {feat && (
@@ -183,43 +210,15 @@ export function HomeRedesign({ tracks }: { tracks?: CatalogTrack[] }) {
           </div>
         </section>
 
-        {/* ───── ACCOUNT / SETTINGS (glass, adattato) ───── */}
+        {/* ───── NUMERI REALI ───── */}
         <section className="mx-auto max-w-[900px] px-4 py-12">
-          <div className="glass rounded-[28px] p-8 sm:p-10">
-            <div className="mb-8 flex items-start justify-between gap-4">
-              <div>
-                <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Il tuo account</p>
-                <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight sm:text-3xl">Tutto in un posto solo</h2>
+          <div className="glass grid grid-cols-3 gap-4 rounded-[28px] px-6 py-8 text-center sm:py-10">
+            {([[st.analyzed, 'Tracce analizzate'], [st.published, 'Nel catalogo'], [st.artists, 'Artisti']] as [number, string][]).map(([v, l]) => (
+              <div key={l}>
+                <p className="font-display text-3xl font-semibold tracking-tight sm:text-5xl"><StatCounter value={v} /></p>
+                <p className="mt-1.5 text-xs text-muted sm:text-sm">{l}</p>
               </div>
-              <span className="rounded-full px-3 py-1 text-xs font-bold text-white" style={{ background: 'linear-gradient(145deg, #bf5af2, #0a84ff)' }}>FOUNDING</span>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center gap-2 text-sm font-medium"><Shield className="h-4 w-4 text-muted" /> Sicurezza</div>
-                <div className="mt-4 space-y-4 text-sm">
-                  <div><p className="text-faint">Email</p><p className="mt-0.5 font-medium">alex@selecta.app</p></div>
-                  <label className="flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-muted"><Bell className="h-4 w-4" /> Email di aggiornamento</span>
-                    <button onClick={() => setAutoRenew((v) => !v)} className={`relative h-6 w-11 rounded-full transition-colors ${autoRenew ? 'bg-text' : 'bg-surface-2'}`}>
-                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-bg transition-transform ${autoRenew ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
-                    </button>
-                  </label>
-                </div>
-              </div>
-              <div className="glass rounded-2xl p-6">
-                <div className="flex items-center justify-between">
-                  <div><p className="text-sm font-medium">Piano attuale</p><p className="text-xs text-faint">Founding · a vita</p></div>
-                  <span className="font-display text-2xl font-semibold">€0</span>
-                </div>
-                <div className="mt-4 space-y-2.5 text-sm text-muted">
-                  {['Match con le label', 'Report PRO incluso', 'Badge a vita'].map((x) => (
-                    <p key={x} className="flex items-center gap-2">
-                      <span className="flex h-5 w-5 items-center justify-center rounded-full text-white" style={{ background: 'linear-gradient(145deg,#34c759,#a8e063)' }}><Check className="h-3 w-3" /></span>{x}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </section>
 
