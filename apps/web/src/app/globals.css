@@ -208,3 +208,9 @@ body {
   body { transition: none; }
   .glass-hover { transition: none; }
 }
+
+/* Focus visibile da tastiera (accessibilità) — mancava del tutto. */
+:where(a, button, [role="button"], input, textarea, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

@@ -44,9 +44,9 @@ const SAMPLE: CatalogTrack[] = [
 ]
 
 const FEATURES = [
-  { icon: Target, t: 'Match con le label', b: 'Le etichette che suonano come te, con percentuali oneste.', from: '#0a84ff', to: '#64d2ff' },
-  { icon: Radio, t: 'Catalogo curato', b: 'Pubblichi in una library organizzata per come suona.', from: '#34c759', to: '#a8e063' },
-  { icon: IdCard, t: 'Press Kit', b: 'Una pagina condivisibile, auto-popolata dal tuo Sound DNA.', from: '#ff9500', to: '#ffcc00' },
+  { icon: Target, t: 'Match con le label', b: 'Le etichette che suonano come te — dal tuo Sound DNA, con percentuali oneste e il perché.', from: '#0a84ff', to: '#64d2ff', href: '/match' },
+  { icon: Radio, t: 'Catalogo per suono', b: 'Un catalogo curato per come suoni, dove DJ e A&R cercano musica nuova.', from: '#34c759', to: '#a8e063', href: '/library' },
+  { icon: IdCard, t: 'Press Kit per le label', b: 'Una pagina condivisibile, auto-popolata dal tuo Sound DNA, pronta da mandare all’A&R.', from: '#ff9500', to: '#ffcc00', href: '/profile' },
 ]
 
 const STEPS = [
@@ -111,7 +111,8 @@ export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats
         <section className="mx-auto max-w-[900px] px-4 py-12">
           <div className="mb-10 text-center">
             <p className="font-mono text-xs uppercase tracking-[0.22em] text-muted">Come funziona</p>
-            <h2 className="mt-2 font-display display-tight text-3xl font-semibold tracking-tight sm:text-4xl">Dal tuo suono al contratto, in tre passi</h2>
+            <h2 className="mt-2 font-display display-tight text-3xl font-semibold tracking-tight sm:text-4xl">Dal tuo suono alla label giusta, in tre passi</h2>
+            <p className="mx-auto mt-3 max-w-[48ch] text-muted">Scopri le label giuste per il tuo suono <span className="text-text">prima</span> di spendere in promozione. Niente demo sparate nel mucchio.</p>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {STEPS.map((s, i) => (
@@ -139,7 +140,7 @@ export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats
                   <p className="mt-1 truncate font-display text-2xl font-semibold tracking-tight">{feat.display_title ?? 'Senza titolo'}</p>
                   <p className="truncate text-muted">{feat.display_artist ?? '—'}</p>
                 </div>
-                <button className="glass glass-hover hidden h-11 w-11 items-center justify-center rounded-full text-text sm:flex"><Heart className="h-5 w-5" /></button>
+                <button type="button" aria-label="Salva tra i preferiti" className="glass glass-hover hidden h-11 w-11 items-center justify-center rounded-full text-text sm:flex"><Heart className="h-5 w-5" /></button>
               </div>
 
               <div className="mt-6 flex h-12 items-center gap-[2px]">
@@ -150,11 +151,11 @@ export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats
               <div className="mt-2 flex items-center justify-between font-mono text-xs text-faint"><span>{fmt(curT)}</span><span>{durT ? fmt(durT) : '—'}</span></div>
 
               <div className="mt-5 flex items-center justify-center gap-4">
-                <button onClick={() => player.prev()} className="glass glass-hover flex h-12 w-12 items-center justify-center rounded-full text-text"><SkipBack className="h-5 w-5" /></button>
-                <button onClick={onPlayPause} className="flex h-16 w-16 items-center justify-center rounded-full bg-text text-bg transition-transform hover:scale-[1.04]">
+                <button type="button" aria-label="Traccia precedente" onClick={() => player.prev()} className="glass glass-hover flex h-12 w-12 items-center justify-center rounded-full text-text"><SkipBack className="h-5 w-5" /></button>
+                <button type="button" aria-label={playing ? 'Pausa' : 'Riproduci'} onClick={onPlayPause} className="flex h-16 w-16 items-center justify-center rounded-full bg-text text-bg transition-transform hover:scale-[1.04]">
                   {playing ? <Pause className="h-7 w-7" /> : <Play className="h-7 w-7 translate-x-0.5" />}
                 </button>
-                <button onClick={() => player.next()} className="glass glass-hover flex h-12 w-12 items-center justify-center rounded-full text-text"><SkipForward className="h-5 w-5" /></button>
+                <button type="button" aria-label="Traccia successiva" onClick={() => player.next()} className="glass glass-hover flex h-12 w-12 items-center justify-center rounded-full text-text"><SkipForward className="h-5 w-5" /></button>
               </div>
             </div>
           </section>
@@ -171,9 +172,12 @@ export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats
               {data.map((tr, i) => {
                 const isCur = tr.id === player.current?.id
                 return (
-                  <div key={tr.id} onClick={() => start(i)}
+                  <div key={tr.id} role="button" tabIndex={0}
+                    aria-label={`Riproduci ${tr.display_title ?? 'traccia'}`}
+                    onClick={() => start(i)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); start(i) } }}
                     className={`flex cursor-pointer items-center gap-4 rounded-2xl px-4 py-3 transition-colors ${isCur ? 'bg-text/[0.06]' : 'hover:bg-text/[0.04]'}`}>
-                    <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text">
+                    <button type="button" aria-label={isCur && player.playing ? 'Pausa' : 'Riproduci'} tabIndex={-1} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text">
                       {isCur && player.playing ? <Pause className="h-[18px] w-[18px]" /> : <Play className="h-[18px] w-[18px] translate-x-px" />}
                     </button>
                     <div className="min-w-0 flex-1">
@@ -186,7 +190,7 @@ export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats
                       {waveHeights(i * 9, 56).map((h, k) => <span key={k} className="w-px flex-1 rounded-full" style={{ height: `${h}%`, background: 'var(--color-wave)' }} />)}
                     </div>
                     {tr.file_url && (
-                      <a href={tr.file_url} download onClick={(e) => e.stopPropagation()} className="flex h-9 w-9 items-center justify-center rounded-full text-faint hover:text-text"><Download className="h-[18px] w-[18px]" /></a>
+                      <a href={tr.file_url} download aria-label={`Scarica ${tr.display_title ?? 'traccia'}`} onClick={(e) => e.stopPropagation()} className="flex h-9 w-9 items-center justify-center rounded-full text-faint hover:text-text"><Download className="h-[18px] w-[18px]" /></a>
                     )}
                   </div>
                 )
@@ -199,13 +203,13 @@ export function HomeRedesign({ tracks, stats }: { tracks?: CatalogTrack[]; stats
         <section className="mx-auto max-w-[900px] px-4 py-12">
           <div className="grid gap-4 sm:grid-cols-3">
             {FEATURES.map((f) => (
-              <div key={f.t} className="glass glass-hover rounded-[22px] p-6">
+              <Link key={f.t} href={f.href} className="glass glass-hover group rounded-[22px] p-6">
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg" style={{ background: `linear-gradient(145deg, ${f.from}, ${f.to})` }}>
                   <f.icon className="h-5 w-5" />
                 </div>
-                <h3 className="font-display text-lg font-semibold tracking-tight">{f.t}</h3>
+                <h3 className="flex items-center gap-1.5 font-display text-lg font-semibold tracking-tight">{f.t}<ArrowRight className="h-4 w-4 -translate-x-1 opacity-0 transition-all group-hover:translate-x-0 group-hover:opacity-100" /></h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted">{f.b}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </section>

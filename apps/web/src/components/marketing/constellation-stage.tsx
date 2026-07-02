@@ -275,8 +275,9 @@ export function ConstellationStage() {
                 </span>
                 <span className="text-sm text-faint">o scegli un file · MP3 · WAV</span>
               </button>
+              <p className="mt-3 text-xs text-faint">Gratis · nessun account · non pubblichiamo la tua traccia</p>
             </div>
-            <button onClick={analyze} className="a-in mt-7 inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-text"><Sparkles className="h-4 w-4" /> oppure prova con una demo</button>
+            <button onClick={analyze} className="a-in mt-6 inline-flex items-center gap-2 text-sm font-medium text-muted transition-colors hover:text-text"><Sparkles className="h-4 w-4" /> oppure prova con una demo</button>
           </>
         )}
         {phase === 'run' && <p className="a-in font-mono text-sm uppercase tracking-[0.2em] text-muted">Leggo la firma timbrica…</p>}
