@@ -50,7 +50,7 @@ export function TrackList({ tracks, numbered = false, onRemove }: { tracks: Cata
   const playerList = tracks.map(toPlayerTrack)
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-line">
+    <div className="glass overflow-hidden rounded-2xl">
       {tracks.map((t, i) => {
         const isCurrent = player.current?.id === t.id
         const isPlaying = isCurrent && player.playing

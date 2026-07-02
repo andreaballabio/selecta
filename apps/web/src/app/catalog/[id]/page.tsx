@@ -96,7 +96,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
   const waveComments = comments.filter((c) => c.position_sec != null).map((c) => ({ pos: c.position_sec as number, body: c.body, author: c.author_name ?? c.author_handle }))
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="relative min-h-screen">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <Link href="/library" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
           <ArrowLeft className="h-4 w-4" /> Library
@@ -165,7 +165,7 @@ export default async function CatalogTrackPage({ params }: { params: Promise<{ i
           </div>
         </div>
 
-        <div className="mt-8 rounded-2xl border border-line bg-surface/40 p-4">
+        <div className="mt-8 rounded-2xl glass p-4">
           <Waveform track={toPlayerTrack(main)} comments={waveComments} />
         </div>
 

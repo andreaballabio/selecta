@@ -91,14 +91,13 @@ export default async function ArtistsPage() {
     .map((a) => ({ ...a, affinity: undefined }))
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="relative min-h-screen">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
         <header className="mb-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1">
-            <Users className="h-3.5 w-3.5 text-accent" />
-            <span className="text-xs font-medium text-accent">Artisti</span>
-          </div>
-          <h1 className="font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">Chi fa Tech House qui</h1>
+          <span className="glass mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-muted">
+            <Users className="h-3.5 w-3.5" /> Artisti
+          </span>
+          <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text sm:text-5xl">Chi fa Tech House qui</h1>
           <p className="mt-2 text-muted">Scopri i producer e — se hai analizzato le tue tracce — trova chi suona come te.</p>
         </header>
 

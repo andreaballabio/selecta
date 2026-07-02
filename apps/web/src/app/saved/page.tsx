@@ -51,7 +51,7 @@ export default async function SavedPage() {
         </header>
 
         {tracks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-10 text-center text-muted">
+          <div className="rounded-2xl glass border-dashed p-10 text-center text-muted">
             Non hai ancora salvato tracce. <Link href="/library" className="text-accent hover:underline">Esplora la library.</Link>
           </div>
         ) : (

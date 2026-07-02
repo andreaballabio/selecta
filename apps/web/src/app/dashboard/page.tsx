@@ -136,7 +136,7 @@ export default function DashboardPage() {
               )}
             </div>
             <div>
-              <h1 className="font-display text-3xl font-bold tracking-tight text-text">Ciao, {firstName}</h1>
+              <h1 className="font-display display-tight text-3xl font-semibold tracking-tight text-text">Ciao, {firstName}</h1>
               <p className="mt-0.5 text-sm text-muted">
                 {profile?.handle ? <Link href={`/u/${profile.handle}`} className="hover:text-accent">@{profile.handle}</Link> : email}
               </p>
@@ -154,9 +154,9 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Statistiche ── */}
-        <div className="mb-8 grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-6">
+        <div className="glass mb-8 grid grid-cols-3 divide-x divide-y divide-line overflow-hidden rounded-2xl sm:grid-cols-6 sm:divide-y-0">
           {STATS.map((s) => (
-            <div key={s.label} className="bg-surface/60 p-4 text-center">
+            <div key={s.label} className="p-4 text-center">
               <p className="font-display text-2xl font-bold text-text tabular-nums">{s.value}</p>
               <p className="mt-0.5 text-xs text-muted">{s.label}</p>
             </div>
@@ -187,7 +187,7 @@ export default function DashboardPage() {
             { href: '/saved', icon: Bookmark, title: 'Salvati', sub: `${savedCount} tracce in crate` },
             { href: '/library', icon: Radio, title: 'Library', sub: 'Esplora il catalogo' },
           ].map((a) => (
-            <Link key={a.href} href={a.href} className="group rounded-2xl border border-line bg-surface/50 p-5 transition-colors hover:border-faint hover:bg-surface-2/60">
+            <Link key={a.href} href={a.href} className="group rounded-2xl glass glass-hover p-5">
               <a.icon className="mb-3 h-6 w-6 text-accent" />
               <p className="font-semibold text-text">{a.title}</p>
               <p className="mt-0.5 truncate text-sm text-muted">{a.sub}</p>
@@ -202,11 +202,11 @@ export default function DashboardPage() {
             <button onClick={createPlaylist} className="flex items-center gap-1.5 text-sm text-accent hover:underline"><Plus className="h-4 w-4" /> Nuova</button>
           </div>
           {playlists.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-line bg-surface/40 p-6 text-sm text-muted">Nessuna playlist. Creane una e aggiungi tracce dal catalogo.</p>
+            <p className="rounded-2xl glass border-dashed p-6 text-sm text-muted">Nessuna playlist. Creane una e aggiungi tracce dal catalogo.</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {playlists.map((pl) => (
-                <Link key={pl.id} href={`/playlist/${pl.id}`} className="flex items-center gap-3 rounded-2xl border border-line bg-surface/50 p-4 transition-colors hover:border-faint">
+                <Link key={pl.id} href={`/playlist/${pl.id}`} className="flex items-center gap-3 rounded-2xl glass glass-hover p-4">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-surface-2 text-accent"><ListMusic className="h-5 w-5" /></div>
                   <div className="min-w-0"><p className="truncate font-medium text-text">{pl.title}</p><p className="text-xs text-muted">{pl.is_public ? 'Pubblica' : 'Privata'}</p></div>
                 </Link>
@@ -221,7 +221,7 @@ export default function DashboardPage() {
             <Music className="h-4 w-4" /> Le mie tracce
           </h2>
           {subs.length === 0 ? (
-            <Link href="/match" className="flex items-center justify-between rounded-2xl border border-dashed border-line bg-surface/40 p-6 transition-colors hover:border-faint">
+            <Link href="/match" className="flex items-center justify-between rounded-2xl glass glass-hover border-dashed p-6">
               <span className="flex items-center gap-3 text-muted"><Music className="h-5 w-5 text-faint" /> Nessuna analisi ancora. Carica la tua prima traccia.</span>
               <ArrowRight className="h-4 w-4 text-faint" />
             </Link>
@@ -231,7 +231,7 @@ export default function DashboardPage() {
                 const top = s.match_results?.[0]
                 const title = s.display_title || s.title || 'Senza titolo'
                 return (
-                  <div key={s.id} className="flex items-center gap-4 rounded-2xl border border-line bg-surface/50 p-4">
+                  <div key={s.id} className="flex items-center gap-4 rounded-2xl glass p-4">
                     <div className="h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-2">
                       {s.cover_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -287,7 +287,7 @@ export default function DashboardPage() {
           <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted">
             <Settings className="h-4 w-4" /> Impostazioni
           </h2>
-          <div className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface/50">
+          <div className="divide-y divide-line overflow-hidden rounded-2xl glass">
             <Row label="Email" value={email} />
             <Row label="Press Kit" value={profile?.handle ? `selecta-eta.vercel.app/u/${profile.handle}` : 'Non ancora creata'}
               action={profile?.handle

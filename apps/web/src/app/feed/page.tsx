@@ -18,7 +18,7 @@ export default async function FeedPage() {
   if (!user) {
     return (
       <AppShell>
-        <div className="rounded-3xl border border-line bg-surface/40 p-12 text-center">
+        <div className="rounded-3xl glass p-12 text-center">
           <Rss className="mx-auto mb-3 h-7 w-7 text-accent" />
           <h1 className="font-display text-3xl font-bold text-text">Il tuo Feed</h1>
           <p className="mt-2 text-muted">Accedi e segui artisti per riempire il tuo feed con le loro uscite e i loro repost.</p>
@@ -36,7 +36,7 @@ export default async function FeedPage() {
     return (
       <AppShell>
         <header className="mb-6"><h1 className="font-display text-4xl font-bold tracking-tight text-text">Feed</h1></header>
-        <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-12 text-center text-muted">
+        <div className="rounded-2xl glass border-dashed p-12 text-center text-muted">
           Non segui ancora nessuno. <Link href="/artists" className="text-accent hover:underline">Trova artisti</Link> da seguire.
         </div>
       </AppShell>
@@ -67,7 +67,7 @@ export default async function FeedPage() {
         <p className="mt-2 flex items-center gap-1.5 text-sm text-muted"><Users className="h-4 w-4" /> Da {followingIds.length} {followingIds.length === 1 ? 'artista' : 'artisti'} che segui</p>
       </header>
       {tracks.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-12 text-center text-muted">Ancora niente di nuovo dai tuoi artisti.</div>
+        <div className="rounded-2xl glass border-dashed p-12 text-center text-muted">Ancora niente di nuovo dai tuoi artisti.</div>
       ) : <TrackList tracks={tracks} />}
     </AppShell>
   )

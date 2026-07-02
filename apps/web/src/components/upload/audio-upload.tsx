@@ -121,10 +121,10 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
 
   if (selectedFile && !uploading) {
     return (
-      <div className="rounded-lg border border-line bg-surface p-6">
+      <div className="glass rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-accent/10">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent/10">
               <FileAudio className="h-6 w-6 text-accent" />
             </div>
             <div>
@@ -136,9 +136,10 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
           </div>
           <button
             onClick={clearFile}
-            className="rounded-lg p-2 hover:bg-surface-2"
+            aria-label="Rimuovi file"
+            className="rounded-full p-2 text-muted transition-colors hover:bg-text/[0.06] hover:text-text"
           >
-            <X className="h-5 w-5 text-muted" />
+            <X className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -149,45 +150,44 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
     <div
       {...getRootProps()}
       className={cn(
-        'relative cursor-pointer rounded-xl border-2 border-dashed p-8 transition-colors',
-        isDragActive && !isDragReject && 'border-accent bg-accent/5',
-        isDragReject && 'border-red-500 bg-red-500/5',
-        !isDragActive && !isDragReject && 'border-line hover:border-faint',
-        uploading && 'cursor-not-allowed opacity-50'
+        'relative cursor-pointer overflow-hidden rounded-[28px] border border-dashed p-8 backdrop-blur-xl transition-all duration-300',
+        isDragActive && !isDragReject && 'scale-[1.02] border-accent bg-surface/60',
+        isDragReject && 'border-danger bg-danger/5',
+        !isDragActive && !isDragReject && 'border-line bg-surface/25 hover:-translate-y-0.5 hover:border-faint hover:bg-surface/45',
+        uploading && 'cursor-not-allowed opacity-60'
       )}
     >
       <input {...getInputProps()} />
-      
-      <div className="flex flex-col items-center gap-4 text-center">
+
+      <div className="flex flex-col items-center gap-3 text-center">
         {uploading ? (
           <>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2">
-              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-text/[0.06]">
+              <Loader2 className="h-7 w-7 animate-spin text-accent" />
             </div>
             <div>
-              <p className="font-medium text-text">Uploading...</p>
-              <p className="text-sm text-muted">{uploadProgress}%</p>
+              <p className="font-medium text-text">Carico la traccia…</p>
+              <p className="font-mono text-sm text-muted">{uploadProgress}%</p>
             </div>
-            <div className="h-2 w-48 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-1.5 w-48 overflow-hidden rounded-full bg-text/10">
               <div
-                className="h-full bg-accent transition-all"
+                className="h-full rounded-full bg-accent transition-all"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
           </>
         ) : (
           <>
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-surface-2">
-              <Upload className="h-8 w-8 text-muted" />
-            </div>
-            <div>
-              <p className="font-medium text-text">
-                {isDragActive ? 'Rilascia il file qui' : 'Trascina il tuo file audio'}
-              </p>
-              <p className="mt-1 text-sm text-muted">
-                o clicca per selezionare
-              </p>
-            </div>
+            <span aria-hidden className="flex h-8 items-end gap-[3px]">
+              {[12, 22, 30, 18, 26, 14, 22].map((h, i) => (
+                <span key={i} className="eq-bar w-[3px] rounded-full bg-text/75" style={{ height: h, animationDelay: `${i * 0.09}s` }} />
+              ))}
+            </span>
+            <p className="flex items-center gap-2 text-lg font-semibold text-text">
+              <Upload className="h-5 w-5" />
+              {isDragActive ? 'Rilascia la traccia qui' : 'Trascina la tua traccia'}
+            </p>
+            <p className="-mt-1 text-sm text-faint">o clicca per scegliere un file</p>
             <div className="flex items-center gap-4 text-xs text-faint">
               <span className="flex items-center gap-1">
                 <Music className="h-3 w-3" />

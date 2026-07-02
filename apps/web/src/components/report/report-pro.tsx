@@ -4,16 +4,16 @@ import { buildTrackReport, type ReportFeatures, type Tone } from '@/lib/report'
 import { CheckCircle2, AlertTriangle, XCircle, Info, Sparkles, Clock } from 'lucide-react'
 
 const TONE: Record<Tone, { ring: string; chip: string; icon: typeof Info; iconCls: string }> = {
-  good: { ring: 'border-accent/30 bg-surface-2', chip: 'text-accent', icon: CheckCircle2, iconCls: 'text-accent' },
-  warn: { ring: 'border-yellow-500/30 bg-yellow-950/15', chip: 'text-yellow-400', icon: AlertTriangle, iconCls: 'text-yellow-400' },
-  bad: { ring: 'border-red-500/30 bg-red-950/20', chip: 'text-red-400', icon: XCircle, iconCls: 'text-red-400' },
-  info: { ring: 'border-line bg-surface/40', chip: 'text-muted', icon: Info, iconCls: 'text-muted' },
+  good: { ring: 'border-ok/25 bg-ok/[0.06]', chip: 'text-ok', icon: CheckCircle2, iconCls: 'text-ok' },
+  warn: { ring: 'border-warn/25 bg-warn/[0.07]', chip: 'text-warn', icon: AlertTriangle, iconCls: 'text-warn' },
+  bad: { ring: 'border-danger/25 bg-danger/[0.07]', chip: 'text-danger', icon: XCircle, iconCls: 'text-danger' },
+  info: { ring: 'border-line bg-text/[0.03]', chip: 'text-muted', icon: Info, iconCls: 'text-muted' },
 }
 
 const READINESS = {
-  ready: { label: 'Pronta', cls: 'text-accent', bar: 'bg-accent' },
-  almost: { label: 'Quasi pronta', cls: 'text-yellow-400', bar: 'bg-yellow-500' },
-  not: { label: 'Da sistemare', cls: 'text-red-400', bar: 'bg-red-500' },
+  ready: { label: 'Pronta', cls: 'text-ok', bar: 'bg-ok' },
+  almost: { label: 'Quasi pronta', cls: 'text-warn', bar: 'bg-warn' },
+  not: { label: 'Da sistemare', cls: 'text-danger', bar: 'bg-danger' },
 }
 
 export function ReportPro({ features }: { features: ReportFeatures }) {
@@ -21,7 +21,7 @@ export function ReportPro({ features }: { features: ReportFeatures }) {
   const r = READINESS[report.readiness.level]
 
   return (
-    <section className="rounded-2xl border border-line bg-surface/60 p-6">
+    <section className="glass rounded-2xl p-6">
       {/* Header */}
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="flex items-center gap-2">
@@ -29,25 +29,25 @@ export function ReportPro({ features }: { features: ReportFeatures }) {
             <Sparkles className="h-4 w-4 text-accent" />
           </span>
           <div>
-            <h2 className="text-lg font-bold text-text">Report PRO</h2>
+            <h2 className="font-display text-lg font-semibold text-text">Report PRO</h2>
             <p className="text-xs text-muted">Analisi tecnica del tuo master</p>
           </div>
         </div>
-        <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-semibold text-accent">
+        <span className="rounded-full bg-accent px-2.5 py-1 text-xs font-bold text-accent-ink">
           PRO
         </span>
       </div>
 
       {/* Readiness */}
-      <div className="mb-6 rounded-xl border border-line bg-surface-2/40 p-4">
+      <div className="mb-6 rounded-xl bg-text/[0.04] p-4 ring-1 ring-text/10">
         <div className="mb-2 flex items-end justify-between">
           <div>
             <p className="text-xs uppercase tracking-wider text-muted">Pronta per la demo?</p>
-            <p className={`text-2xl font-bold ${r.cls}`}>{r.label}</p>
+            <p className={`font-display text-2xl font-semibold ${r.cls}`}>{r.label}</p>
           </div>
-          <p className="text-3xl font-bold text-text">{report.readiness.score}<span className="text-base text-faint">/100</span></p>
+          <p className="font-display text-3xl font-semibold text-text">{report.readiness.score}<span className="text-base text-faint">/100</span></p>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-text/10">
           <div className={`h-full rounded-full ${r.bar}`} style={{ width: `${report.readiness.score}%` }} />
         </div>
         <p className="mt-2 text-sm text-muted">{report.readiness.headline}</p>

@@ -22,7 +22,7 @@ export function FeaturedTrack({ track }: { track: CatalogTrack }) {
   }
 
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-line bg-surface/50">
+    <div className="glass-liquid relative overflow-hidden rounded-[2rem]">
       <div className="grid gap-6 p-5 sm:grid-cols-[minmax(0,260px)_1fr] sm:p-7">
         <div className="relative aspect-square overflow-hidden rounded-2xl bg-surface-2">
           {track.cover_url ? (

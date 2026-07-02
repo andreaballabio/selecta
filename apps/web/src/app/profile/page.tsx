@@ -115,19 +115,20 @@ export default function ProfilePage() {
     )
   }
 
-  const input = 'w-full rounded-lg border border-line bg-surface-2 px-4 py-2.5 text-text placeholder-faint focus:border-accent focus:outline-none'
+  const input = 'w-full rounded-xl border border-line bg-surface-2 px-4 py-2.5 text-text placeholder-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
   const label = 'mb-1.5 block text-sm font-medium text-text'
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="relative min-h-screen">
       <div className="mx-auto max-w-xl px-4 py-10 sm:px-6">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="a-in mb-8 flex items-end justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-text">La tua press kit</h1>
-            <p className="text-sm text-muted">La pagina che condividi con locali, PR e label</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-[0.22em] text-muted">Press kit</p>
+            <h1 className="font-display display-tight text-3xl font-semibold tracking-tight text-text">La tua press kit</h1>
+            <p className="mt-1 text-sm text-muted">La pagina che condividi con label, PR e locali</p>
           </div>
           {handle && id && (
-            <Link href={`/u/${handle}`} target="_blank" className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-2 text-sm text-text hover:text-text">
+            <Link href={`/u/${handle}`} target="_blank" className="glass glass-hover flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-text">
               Vedi <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           )}
@@ -209,7 +210,7 @@ export default function ProfilePage() {
           <button
             onClick={save}
             disabled={saving}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-6 py-3 font-semibold text-accent-ink transition-colors hover:bg-accent disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-accent px-6 py-3 font-semibold text-accent-ink shadow-lg transition-transform hover:scale-[1.01] disabled:opacity-50"
           >
             {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
             {saving ? 'Salvataggio...' : 'Salva press kit'}

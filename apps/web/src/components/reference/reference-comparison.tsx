@@ -9,7 +9,7 @@ import { compareToReference, closeness, type FeatureSet, type AxisStatus } from 
  * Riusa i dati già calcolati dal match (nessuna analisi extra). Barre divergenti:
  * centro = media label, destra (verde) = tu sopra, sinistra (giallo) = tu sotto.
  */
-const wordTone: Record<AxisStatus, string> = { ok: 'text-muted', low: 'text-yellow-400', high: 'text-accent' }
+const wordTone: Record<AxisStatus, string> = { ok: 'text-muted', low: 'text-warn', high: 'text-accent' }
 
 export function ReferenceComparison({
   user,
@@ -28,10 +28,10 @@ export function ReferenceComparison({
   const todo = axes.filter((a) => a.status !== 'ok').length
 
   return (
-    <section className="rounded-2xl border border-line bg-surface/60 p-6">
+    <section className="glass rounded-2xl p-6">
       <div className="mb-1 flex items-center gap-2">
         <GitCompareArrows className="h-5 w-5 text-accent" />
-        <h2 className="text-lg font-bold text-text">Come avvicinarti a {labelName}</h2>
+        <h2 className="font-display text-lg font-semibold text-text">Come avvicinarti a {labelName}</h2>
       </div>
       <p className="mb-5 text-xs text-muted">
         <strong className="text-text">{close}% in linea sui fondamentali</strong> (loudness, sub, brillantezza, groove, medi)
@@ -52,11 +52,11 @@ export function ReferenceComparison({
                 <span className={`text-xs ${wordTone[a.status]}`}>{a.word}</span>
               </div>
 
-              <div className="relative h-2 rounded-full bg-surface-2">
+              <div className="relative h-2 rounded-full bg-text/10">
                 <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-faint" />
                 {a.status !== 'ok' && (
                   <div
-                    className={`absolute top-0 h-full ${above ? 'rounded-r-full bg-accent' : 'rounded-l-full bg-yellow-500'}`}
+                    className={`absolute top-0 h-full ${above ? 'rounded-r-full bg-accent' : 'rounded-l-full bg-warn'}`}
                     style={above ? { left: '50%', width: `${halfPct}%` } : { right: '50%', width: `${halfPct}%` }}
                   />
                 )}

@@ -48,12 +48,12 @@ export function PublishToCatalog({
 
   if (published) {
     return (
-      <div className="rounded-2xl border border-accent/30 bg-surface-2 p-6 text-center">
-        <CheckCircle className="mx-auto mb-2 h-6 w-6 text-accent" />
+      <div className="glass-liquid rounded-2xl p-6 text-center">
+        <CheckCircle className="mx-auto mb-2 h-6 w-6 text-ok" />
         <p className="font-semibold text-text">Pubblicata nel catalogo 🎉</p>
         <p className="mt-1 text-sm text-muted">La tua traccia ora è ascoltabile da DJ e label.</p>
         <div className="mt-4 flex items-center justify-center gap-3">
-          <Link href={`/catalog/${submissionId}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent">
+          <Link href={`/catalog/${submissionId}`} target="_blank" className="inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink shadow-lg transition-transform hover:scale-[1.02]">
             Vedi la pagina <ExternalLink className="h-3.5 w-3.5" />
           </Link>
           <Link href="/library" className="text-sm text-muted hover:text-text">Vai alla library</Link>
@@ -66,23 +66,23 @@ export function PublishToCatalog({
 
   if (authed === false) {
     return (
-      <div className="rounded-2xl border border-line bg-surface/60 p-6 text-center">
+      <div className="glass rounded-2xl p-6 text-center">
         <Radio className="mx-auto mb-2 h-6 w-6 text-accent" />
         <p className="font-semibold text-text">Pubblica nel catalogo</p>
         <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
           Accedi per pubblicare la tua traccia: la ascolteranno DJ e label. L’analisi resta collegata al tuo account.
         </p>
-        <Link href="/auth/login" className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent">
+        <Link href="/auth/login" className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink shadow-lg transition-transform hover:scale-[1.02]">
           <LogIn className="h-4 w-4" /> Accedi per pubblicare
         </Link>
       </div>
     )
   }
 
-  const input = 'w-full rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm text-text placeholder-faint focus:border-accent focus:outline-none'
+  const input = 'w-full rounded-xl border border-line bg-surface-2 px-3 py-2 text-sm text-text placeholder-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20'
 
   return (
-    <div className="rounded-2xl border border-line bg-surface/60 p-6">
+    <div className="glass rounded-2xl p-6">
       <div className="mb-4 flex items-center gap-2">
         <Radio className="h-5 w-5 text-accent" />
         <h3 className="font-semibold text-text">Pubblica nel catalogo</h3>
@@ -102,12 +102,12 @@ export function PublishToCatalog({
         <span>Sono l’autore di questa traccia originale e accetto i termini (concedo a Selecta la licenza per ospitarla e farla ascoltare in streaming).</span>
       </label>
 
-      {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
+      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
       <button
         onClick={publish}
         disabled={busy}
-        className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2.5 font-semibold text-accent-ink transition-colors hover:bg-accent disabled:opacity-50"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-2.5 font-semibold text-accent-ink shadow-lg transition-transform hover:scale-[1.01] disabled:opacity-50"
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Radio className="h-4 w-4" />}
         {busy ? 'Pubblicazione…' : 'Pubblica nel catalogo'}

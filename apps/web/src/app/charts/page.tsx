@@ -35,7 +35,7 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
     return (
       <AppShell>
         <Chips active={bucket} />
-        <header className="mb-6"><h1 className="font-display text-4xl font-bold tracking-tight text-text">Top {b?.label ?? ''}</h1></header>
+        <header className="mb-6"><h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text">Top {b?.label ?? ''}</h1></header>
         {list.length > 0 ? <PlayAllList tracks={list} label="Riproduci la Top" /> : <Empty />}
       </AppShell>
     )
@@ -55,7 +55,7 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
     <AppShell>
       <Chips active={null} />
       <header className="mb-8">
-        <h1 className="font-display text-4xl font-bold tracking-tight text-text sm:text-5xl">Classifiche</h1>
+        <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text sm:text-5xl">Classifiche</h1>
         <p className="mt-2 max-w-xl text-muted">Cosa gira adesso nel catalogo, su ascolti, like e salvataggi reali.</p>
       </header>
 
@@ -110,5 +110,5 @@ function H({ icon, title, sub }: { icon: React.ReactNode; title: string; sub: st
   )
 }
 function Empty() {
-  return <div className="rounded-2xl border border-dashed border-line bg-surface/40 p-12 text-center text-muted">Ancora nessuna traccia in classifica.</div>
+  return <div className="rounded-2xl glass border-dashed p-12 text-center text-muted">Ancora nessuna traccia in classifica.</div>
 }

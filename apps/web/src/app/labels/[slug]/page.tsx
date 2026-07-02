@@ -61,7 +61,7 @@ export default async function LabelDetailPage({ params }: { params: Promise<{ sl
 
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Sound DNA */}
-          <section className="rounded-2xl border border-line bg-surface/50 p-5 lg:col-span-2">
+          <section className="rounded-2xl glass p-5 lg:col-span-2">
             <h2 className="mb-4 font-display text-lg font-bold text-text">Il sound della label</h2>
             {bars.length === 0 ? (
               <p className="text-sm text-muted">Profilo sonoro non ancora disponibile (label in analisi).</p>
@@ -90,7 +90,7 @@ export default async function LabelDetailPage({ params }: { params: Promise<{ sl
 
           {/* Reachability + invio */}
           <div className="space-y-6">
-            <section className="rounded-2xl border border-line bg-surface/50 p-5">
+            <section className="rounded-2xl glass p-5">
               <h2 className="mb-3 font-display text-lg font-bold text-text">Quanto è raggiungibile</h2>
               {l.reachability_score == null ? (
                 <p className="text-sm text-muted">In calcolo (serve l'analisi del catalogo).</p>
@@ -114,7 +114,7 @@ export default async function LabelDetailPage({ params }: { params: Promise<{ sl
               )}
             </section>
 
-            <section className="rounded-2xl border border-line bg-surface/50 p-5">
+            <section className="rounded-2xl glass p-5">
               <h2 className="mb-3 font-display text-lg font-bold text-text">Mandare la demo</h2>
               {l.accepts_unsolicited_demos === false ? (
                 <p className="text-sm text-muted">Questa label firma <strong className="text-text">su invito</strong> / contatti diretti.</p>

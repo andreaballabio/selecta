@@ -77,7 +77,7 @@ export function CatalogGrid({ tracks }: { tracks: CatalogTrack[] }) {
 
   if (tracks.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-line bg-surface/40 p-12 text-center text-muted">
+      <div className="glass rounded-3xl p-12 text-center text-muted">
         <Music className="mx-auto mb-3 h-6 w-6 text-faint" />
         Ancora nessuna traccia qui. Analizza la tua e pubblicala nel catalogo.
       </div>
@@ -123,7 +123,7 @@ function TrackCard({
   const play = () => { if (isCurrent) player.togglePlay(); else player.playQueue(list, index) }
 
   return (
-    <div className="group rounded-2xl border border-line bg-surface/50 p-2.5 transition-all duration-300 hover:border-faint hover:bg-surface-2/60">
+    <div className="group glass glass-hover rounded-2xl p-2.5">
       <div className="relative mb-3 aspect-square overflow-hidden rounded-xl bg-surface-2">
         {track.cover_url ? (
           // eslint-disable-next-line @next/next/no-img-element

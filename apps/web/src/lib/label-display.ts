@@ -12,8 +12,8 @@ export function difficultyMeta(reach?: number | null): { label: string; tone: To
 
 export const toneClass: Record<Tone, string> = {
   accent: 'bg-accent/15 text-accent',
-  yellow: 'bg-yellow-500/15 text-yellow-400',
-  red: 'bg-red-500/15 text-red-400',
+  yellow: 'bg-warn/10 text-warn',
+  red: 'bg-danger/10 text-danger',
   muted: 'bg-surface-2 text-muted',
 }
 

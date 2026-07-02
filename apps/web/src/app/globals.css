@@ -21,6 +21,10 @@
   --accent: #141414;        /* monocromo: l'accento È l'inchiostro */
   --accent-ink: #ffffff;
   --wave: rgba(20, 20, 20, 0.22);
+  /* semantici (leggibili su fondo CHIARO) */
+  --ok: #1f9d4d;
+  --warn: #b25e09;
+  --danger: #d70015;
 
   /* vetro — più marcato */
   --glass-bg: rgba(255, 255, 255, 0.6);
@@ -53,6 +57,10 @@
   --accent: #ffffff;
   --accent-ink: #000000;
   --wave: rgba(255, 255, 255, 0.32);
+  /* semantici (leggibili su fondo SCURO) */
+  --ok: #30d158;
+  --warn: #ff9f0a;
+  --danger: #ff453a;
 
   --glass-bg: rgba(255, 255, 255, 0.09);
   --glass-border: rgba(255, 255, 255, 0.20);
@@ -77,6 +85,9 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-wave: var(--wave);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
 
   --color-background: var(--bg);
   --color-foreground: var(--text);
@@ -208,6 +219,11 @@ body {
   body { transition: none; }
   .glass-hover { transition: none; }
 }
+
+/* Orbi ambientali dietro le pagine app: in scuro molto più tenui, perché tre
+   orbi bianchi sfocati sommati diventano una patina grigia sul nero puro. */
+.ambient-orbs { opacity: 0.9; }
+[data-theme="dark"] .ambient-orbs { opacity: 0.28; }
 
 /* Focus visibile da tastiera (accessibilità) — mancava del tutto. */
 :where(a, button, [role="button"], input, textarea, select, [tabindex]):focus-visible {

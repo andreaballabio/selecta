@@ -47,8 +47,8 @@ export default function PricingPage() {
 
   return (
     <div className="relative mx-auto max-w-6xl px-4 py-14 sm:px-8">
-      <div className="glass mx-auto mb-8 flex max-w-2xl items-center justify-center gap-2 rounded-full px-4 py-2 text-sm text-amber-500">
-        <AlertTriangle className="h-4 w-4 shrink-0" /> Pagamenti <strong>simulati</strong> (demo): l'attivazione è finta, nessun addebito. Stripe arriverà dopo.
+      <div className="glass mx-auto mb-8 flex max-w-2xl items-center justify-center gap-2 rounded-full px-4 py-2 text-sm text-warn">
+        <AlertTriangle className="h-4 w-4 shrink-0" /> Pagamenti <strong>simulati</strong> (demo): l’attivazione è finta, nessun addebito. Stripe arriverà dopo.
       </div>
 
       <div className="a-in mb-12 text-center">

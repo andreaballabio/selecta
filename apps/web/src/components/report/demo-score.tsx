@@ -13,7 +13,7 @@ export function DemoScore({ submissionId }: { submissionId: string }) {
     fetch(`/api/demo-score?submission_id=${submissionId}`).then((r) => r.json()).then((d) => { if (d.demoScore != null) setS(d); setLoading(false) }).catch(() => setLoading(false))
   }, [submissionId])
 
-  if (loading) return <div className="rounded-2xl border border-line bg-surface/40 p-6 text-center text-muted"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>
+  if (loading) return <div className="glass rounded-2xl p-6 text-center text-muted"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></div>
   if (!s) return null
 
   // Frase di confronto onesta (fascia se campione piccolo)
@@ -22,10 +22,10 @@ export function DemoScore({ submissionId }: { submissionId: string }) {
     if (s.small) compare = s.percentile >= 50 ? 'Sopra la media delle prime demo analizzate' : 'Campione ancora piccolo: dato indicativo'
     else compare = `Suona “firmabile” più del ${s.percentile}% delle ${s.sampleSize} demo analizzate`
   }
-  const color = s.demoScore >= 75 ? 'text-accent' : s.demoScore >= 55 ? 'text-amber-400' : 'text-red-400'
+  const color = s.demoScore >= 75 ? 'text-ok' : s.demoScore >= 55 ? 'text-warn' : 'text-danger'
 
   return (
-    <div className="rounded-2xl border border-line bg-surface/50 p-6">
+    <div className="glass rounded-2xl p-6">
       <div className="flex items-center gap-5">
         <div className="text-center">
           <p className={`font-display text-5xl font-bold tabular-nums ${color}`}>{s.demoScore}</p>
@@ -51,7 +51,7 @@ function Bar({ label, value }: { label: string; value: number }) {
   return (
     <div>
       <div className="mb-1 flex justify-between text-xs"><span className="text-muted">{label}</span><span className="tabular-nums text-text">{value}</span></div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-line"><div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, value)}%` }} /></div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-text/10"><div className="h-full rounded-full bg-accent" style={{ width: `${Math.min(100, value)}%` }} /></div>
     </div>
   )
 }

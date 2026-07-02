@@ -122,7 +122,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
   ].filter(Boolean).join('\n')
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="relative min-h-screen">
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
         {/* Hero */}
         <header className="mb-8 flex flex-col items-center text-center sm:flex-row sm:items-end sm:text-left">
@@ -151,7 +151,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             {!isSelf && (
               <Link
                 href={`/messages/${p.user_id}`}
-                className="inline-flex items-center gap-2 rounded-lg border border-faint px-4 py-2 text-sm font-semibold text-text transition-colors hover:text-text"
+                className="glass glass-hover inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold text-text"
               >
                 <MessageSquare className="h-4 w-4" /> Messaggio
               </Link>
@@ -159,7 +159,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
             {p.contact_email && (
               <a
                 href={`mailto:${p.contact_email}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent"
+                className="inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-ink shadow-lg transition-transform hover:scale-[1.02]"
               >
                 <Mail className="h-4 w-4" /> Contatta
               </a>
@@ -170,15 +170,15 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
         {/* Statistiche live */}
         {totals.tracks > 0 && (
           <>
-            <section className="mb-2 grid grid-cols-4 gap-px overflow-hidden rounded-2xl border border-line bg-line">
+            <section className="glass mb-2 grid grid-cols-4 divide-x divide-line overflow-hidden rounded-2xl">
               {[
                 { label: 'Tracce', value: totals.tracks },
                 { label: 'Ascolti', value: totals.plays },
                 { label: 'Like', value: totals.likes },
                 { label: 'Salvataggi', value: totals.saves },
               ].map((s) => (
-                <div key={s.label} className="bg-surface/60 p-3 text-center sm:p-4">
-                  <p className="font-display text-xl font-bold text-text tabular-nums sm:text-2xl">{s.value.toLocaleString('it-IT')}</p>
+                <div key={s.label} className="p-3 text-center sm:p-4">
+                  <p className="font-display text-xl font-semibold text-text tabular-nums sm:text-2xl">{s.value.toLocaleString('it-IT')}</p>
                   <p className="text-xs text-muted">{s.label}</p>
                 </div>
               ))}
@@ -196,7 +196,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
 
         {/* Sound DNA — manuale + auto-derivato dalle analisi reali */}
         {((p.sound_descriptors ?? []).length > 0 || (dna && dna.descriptors.length > 0)) && (
-          <section className="mb-6 rounded-2xl border border-line bg-surface/60 p-5">
+          <section className="mb-6 rounded-2xl glass p-5">
             <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted">
               <Sparkles className="h-3.5 w-3.5 text-accent" /> Il suono
             </p>
@@ -247,7 +247,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
 
         {/* Bio */}
         {p.bio && (
-          <section className="mb-6 rounded-2xl border border-line bg-surface/60 p-5">
+          <section className="mb-6 rounded-2xl glass p-5">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted">Bio</p>
             <p className="whitespace-pre-line text-text">{p.bio}</p>
           </section>
@@ -262,7 +262,7 @@ export default async function ArtistPressKit({ params }: { params: Promise<{ han
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between rounded-xl border border-line bg-surface/60 px-4 py-3 text-sm font-medium text-text transition-colors hover:border-faint hover:text-text"
+                className="flex items-center justify-between rounded-xl glass glass-hover px-4 py-3 text-sm font-medium text-text"
               >
                 {LINK_LABELS[k] ?? k}
                 <ExternalLink className="h-3.5 w-3.5 text-faint" />

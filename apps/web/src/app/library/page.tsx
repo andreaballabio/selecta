@@ -49,7 +49,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
           return (
             <>
               <header className="mb-6">
-                <h1 className="font-display text-4xl font-bold tracking-tight text-text">{b?.label ?? 'Sottogenere'}</h1>
+                <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text">{b?.label ?? 'Sottogenere'}</h1>
                 {b && <p className="mt-2 text-muted">{b.blurb}</p>}
               </header>
               {list.length > 0 ? <TrackList tracks={list} numbered /> : <CatalogGrid tracks={[]} />}
@@ -58,13 +58,13 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
         })()
       ) : all.length === 0 ? (
         <>
-          <h1 className="mb-6 font-display text-4xl font-bold tracking-tight text-text">Library</h1>
+          <h1 className="mb-6 font-display display-tight text-4xl font-semibold tracking-tight text-text">Library</h1>
           <CatalogGrid tracks={[]} />
         </>
       ) : (
         <div className="space-y-12">
           <header>
-            <h1 className="font-display text-4xl font-bold tracking-tight text-text">Library</h1>
+            <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text">Library</h1>
             <p className="mt-2 max-w-xl text-muted">Tech House non firmata, curata dall’AI per come suona.</p>
           </header>
 
