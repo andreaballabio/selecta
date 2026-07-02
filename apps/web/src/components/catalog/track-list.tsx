@@ -59,15 +59,19 @@ export function TrackList({ tracks, numbered = false, onRemove }: { tracks: Cata
         return (
           <div
             key={t.id}
-            className={`group grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-line px-3 py-2.5 last:border-0 sm:grid-cols-[2rem_minmax(0,1fr)_8rem_5rem_auto] sm:px-4 ${isCurrent ? 'bg-surface-2/60' : 'hover:bg-surface/60'}`}
+            className={`group grid ${numbered ? 'grid-cols-[3rem_1fr_auto] sm:grid-cols-[3.5rem_minmax(0,1fr)_8rem_5rem_auto]' : 'grid-cols-[2rem_1fr_auto] sm:grid-cols-[2rem_minmax(0,1fr)_8rem_5rem_auto]'} items-center gap-3 border-b border-line px-3 py-3 last:border-0 sm:px-4 ${isCurrent ? 'bg-surface-2/60' : 'hover:bg-surface/60'}`}
           >
-            {/* indice / play */}
-            <button onClick={play} className="flex h-8 w-8 items-center justify-center text-sm tabular-nums text-muted" aria-label={isPlaying ? 'Pausa' : 'Play'}>
-              <span className={`${isCurrent ? 'hidden' : 'group-hover:hidden'}`}>{numbered ? i + 1 : ''}</span>
+            {/* rank editoriale / play */}
+            <button onClick={play} className="flex h-10 items-center justify-center" aria-label={isPlaying ? 'Pausa' : 'Play'}>
+              {numbered && (
+                <span className={`font-display display-tight text-2xl font-semibold tabular-nums text-faint transition-colors group-hover:hidden sm:text-3xl ${isCurrent ? 'hidden' : ''}`}>
+                  {i + 1}
+                </span>
+              )}
               <span className={`${isCurrent ? 'block text-accent' : 'hidden group-hover:block text-text'}`}>
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
               </span>
-              {!numbered && !isCurrent && <Play className="h-4 w-4 group-hover:hidden" />}
+              {!numbered && !isCurrent && <Play className="h-4 w-4 text-muted group-hover:hidden" />}
             </button>
 
             {/* cover + titolo */}

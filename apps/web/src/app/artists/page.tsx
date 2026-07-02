@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Users, Sparkles } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient as createSsrClient } from '@/lib/supabase/server'
 import { deriveSoundDna } from '@/lib/sound-dna'
@@ -93,19 +92,16 @@ export default async function ArtistsPage() {
   return (
     <div className="relative min-h-screen">
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <header className="mb-8">
-          <span className="glass mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium text-muted">
-            <Users className="h-3.5 w-3.5" /> Artisti
-          </span>
-          <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text sm:text-5xl">Chi fa Tech House qui</h1>
-          <p className="mt-2 text-muted">Scopri i producer e — se hai analizzato le tue tracce — trova chi suona come te.</p>
+        <header className="a-in mb-10">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted">Community · producer</p>
+          <h1 className="mt-2 font-display display-tight text-5xl font-semibold tracking-tight text-text sm:text-7xl">Chi fa Tech House qui</h1>
+          <p className="mt-3 max-w-xl text-muted">Scopri i producer e — se hai analizzato le tue tracce — trova chi suona come te.</p>
         </header>
 
         {similar.length > 0 && (
           <section className="mb-10">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-accent/80">
-              <Sparkles className="h-3.5 w-3.5" /> Simili a te
-            </h2>
+            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted">Dal tuo Sound DNA</p>
+            <h2 className="mb-4 mt-1 font-display display-tight text-3xl font-semibold tracking-tight text-text">Simili a te</h2>
             <ArtistsList artists={similar} />
           </section>
         )}

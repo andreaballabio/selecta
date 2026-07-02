@@ -1,6 +1,5 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
-import { Trophy, Flame, Rocket, BadgeCheck, Gem } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { BUCKETS } from '@/lib/sound-bucket'
 import { hotScore } from '@/lib/social'
@@ -34,8 +33,11 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
     const b = BUCKETS.find((x) => x.key === bucket)
     return (
       <AppShell>
-        <Chips active={bucket} />
-        <header className="mb-6"><h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text">Top {b?.label ?? ''}</h1></header>
+        <header className="a-in mb-8">
+          <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted">Classifica · sottogenere</p>
+          <h1 className="mt-2 font-display display-tight text-5xl font-semibold tracking-tight text-text sm:text-6xl">Top {b?.label ?? ''}</h1>
+          <div className="mt-6"><Chips active={bucket} /></div>
+        </header>
         {list.length > 0 ? <PlayAllList tracks={list} label="Riproduci la Top" /> : <Empty />}
       </AppShell>
     )
@@ -53,35 +55,43 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
 
   return (
     <AppShell>
-      <Chips active={null} />
-      <header className="mb-8">
-        <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text sm:text-5xl">Classifiche</h1>
-        <p className="mt-2 max-w-xl text-muted">Cosa gira adesso nel catalogo, su ascolti, like e salvataggi reali.</p>
+      <header className="a-in mb-10">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted">Ascolti · like · salvataggi reali</p>
+            <h1 className="mt-2 font-display display-tight text-5xl font-semibold tracking-tight text-text sm:text-7xl">Classifiche</h1>
+          </div>
+          <p className="pb-1 text-right font-mono text-sm text-muted">
+            <span className="text-2xl font-medium text-text">{all.length}</span> tracce in gara
+          </p>
+        </div>
+        <p className="mt-3 max-w-xl text-muted">Cosa gira adesso nel catalogo. Niente numeri comprati.</p>
+        <div className="mt-6"><Chips active={null} /></div>
       </header>
 
       {all.length === 0 ? <Empty /> : (
-        <div className="space-y-12">
+        <div className="space-y-14">
           <section>
-            <H icon={<Trophy className="h-5 w-5 text-accent" />} title="Top della settimana" sub="Le più forti su engagement recente" />
+            <H eyebrow="Engagement recente" title="Top della settimana" />
             <PlayAllList tracks={top} label="Riproduci la Top" />
           </section>
           <section>
-            <H icon={<Flame className="h-5 w-5 text-accent" />} title="New & Hot" sub="Uscite recenti in salita" />
+            <H eyebrow="Uscite recenti in salita" title="New & Hot" />
             <TrackList tracks={newHot} />
           </section>
           <section>
-            <H icon={<Rocket className="h-5 w-5 text-accent" />} title="Emergenti" sub="Talenti con pochi follower che stanno spingendo" />
+            <H eyebrow="Pochi follower, tanta spinta" title="Emergenti" />
             <TrackList tracks={emerging} />
           </section>
           {labelReady.length > 0 && (
             <section>
-              <H icon={<BadgeCheck className="h-5 w-5 text-accent" />} title="Pronte da firmare" sub="Il sound più vicino a quello che le label firmano" />
+              <H eyebrow="Il suono che le label firmano" title="Pronte da firmare" />
               <TrackList tracks={labelReady} />
             </section>
           )}
           {hiddenGems.length > 0 && (
             <section>
-              <H icon={<Gem className="h-5 w-5 text-accent" />} title="Gemme nascoste" sub="Suono forte ma ancora pochi ascolti" />
+              <H eyebrow="Suono forte, pochi ascolti" title="Gemme nascoste" />
               <TrackList tracks={hiddenGems} />
             </section>
           )}
@@ -93,7 +103,7 @@ export default async function ChartsPage({ searchParams }: { searchParams: Promi
 
 function Chips({ active }: { active: string | null }) {
   return (
-    <div className="mb-7 flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2">
       <Link href="/charts" className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${!active ? 'bg-accent text-accent-ink' : 'border border-line text-muted hover:text-text'}`}>Tutto</Link>
       {BUCKETS.map((b) => (
         <Link key={b.key} href={`/charts?bucket=${b.key}`} className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${active === b.key ? 'bg-accent text-accent-ink' : 'border border-line text-muted hover:text-text'}`}>{b.label}</Link>
@@ -101,11 +111,11 @@ function Chips({ active }: { active: string | null }) {
     </div>
   )
 }
-function H({ icon, title, sub }: { icon: React.ReactNode; title: string; sub: string }) {
+function H({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
-    <div className="mb-4">
-      <h2 className="flex items-center gap-2 font-display text-2xl font-bold text-text">{icon}{title}</h2>
-      <p className="mt-1 text-sm text-muted">{sub}</p>
+    <div className="mb-5">
+      <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-muted">{eyebrow}</p>
+      <h2 className="mt-1 font-display display-tight text-3xl font-semibold tracking-tight text-text">{title}</h2>
     </div>
   )
 }
