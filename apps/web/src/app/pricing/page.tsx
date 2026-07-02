@@ -46,22 +46,22 @@ export default function PricingPage() {
   const activeTier = sub?.status === 'active' ? sub.tier : null
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-14 sm:px-8">
-      <div className="mb-8 flex items-center justify-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-300">
-        <AlertTriangle className="h-4 w-4" /> Pagamenti <strong>simulati</strong> (demo): l'attivazione è finta, nessun addebito. Stripe arriverà dopo.
+    <div className="relative mx-auto max-w-6xl px-4 py-14 sm:px-8">
+      <div className="glass mx-auto mb-8 flex max-w-2xl items-center justify-center gap-2 rounded-full px-4 py-2 text-sm text-amber-500">
+        <AlertTriangle className="h-4 w-4 shrink-0" /> Pagamenti <strong>simulati</strong> (demo): l'attivazione è finta, nessun addebito. Stripe arriverà dopo.
       </div>
 
-      <div className="mb-12 text-center">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.2em] text-accent">Prezzi</p>
-        <h1 className="font-display text-4xl font-bold text-text sm:text-5xl">Scegli il tuo piano</h1>
-        {activeTier && <p className="mt-3 text-muted">Piano attivo: <span className="font-semibold text-accent">{TIERS.find((t) => t.key === activeTier)?.name}</span> · <button onClick={cancel} className="text-muted underline hover:text-text">disdici</button></p>}
+      <div className="a-in mb-12 text-center">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-muted">Prezzi</p>
+        <h1 className="font-display display-tight text-4xl font-semibold tracking-tight text-text sm:text-5xl">Scegli il tuo piano</h1>
+        {activeTier && <p className="mt-3 text-muted">Piano attivo: <span className="font-semibold text-text">{TIERS.find((t) => t.key === activeTier)?.name}</span> · <button onClick={cancel} className="text-muted underline hover:text-text">disdici</button></p>}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-4">
         {TIERS.map((t) => {
           const isActive = activeTier === t.key
           return (
-            <div key={t.key} className={`flex flex-col rounded-3xl border p-6 ${t.highlight ? 'border-accent/40 bg-accent/[0.04] accent-glow' : 'border-line bg-surface/40'}`}>
+            <div key={t.key} className={`flex flex-col rounded-3xl p-6 transition-all ${t.highlight ? 'glass-liquid glass-hover ring-1 ring-text/10' : 'glass glass-hover'}`}>
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-xl font-bold text-text">{t.name}</h3>
                 {t.highlight && <span className="rounded-full bg-accent px-2.5 py-0.5 text-xs font-bold text-accent-ink">Popolare</span>}

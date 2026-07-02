@@ -5,6 +5,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { PlayerProvider } from "@/components/player/player-context";
 import { PlayerBar } from "@/components/player/player-bar";
+import { AmbientBackground } from "@/components/ui/ambient-background";
 
 // Geist (sans + mono): grotesk pulito vicino alla "M Saans" di Mobbin,
 // e Geist Mono per i dati tecnici (key/bpm/durata) come nel catalogo.
@@ -29,6 +30,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="flex min-h-full flex-col bg-bg font-sans text-text">
+        <AmbientBackground />
         <PlayerProvider>
           <SiteHeader />
           {children}
