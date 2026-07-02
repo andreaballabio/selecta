@@ -44,9 +44,9 @@ const SAMPLE: CatalogTrack[] = [
 ]
 
 const FEATURES = [
-  { icon: Target, t: 'Match con le label', b: 'Le etichette che suonano come te — dal tuo Sound DNA, con percentuali oneste e il perché.', from: '#0a84ff', to: '#64d2ff', href: '/match' },
-  { icon: Radio, t: 'Catalogo per suono', b: 'Un catalogo curato per come suoni, dove DJ e A&R cercano musica nuova.', from: '#34c759', to: '#a8e063', href: '/library' },
-  { icon: IdCard, t: 'Press Kit per le label', b: 'Una pagina condivisibile, auto-popolata dal tuo Sound DNA, pronta da mandare all’A&R.', from: '#ff9500', to: '#ffcc00', href: '/profile' },
+  { icon: Target, t: 'Match con le label', b: 'Il motore che confronta il tuo Sound DNA con i cataloghi delle etichette — con report e affinità.', from: '#0a84ff', to: '#64d2ff', href: '/match' },
+  { icon: Radio, t: 'Catalogo per suono', b: 'La library dove pubblichi e dove DJ e A&R scoprono per come suoni.', from: '#34c759', to: '#a8e063', href: '/library' },
+  { icon: IdCard, t: 'Press Kit per le label', b: 'La tua pagina pubblica, auto-popolata dal Sound DNA, pronta per l’A&R.', from: '#ff9500', to: '#ffcc00', href: '/profile' },
 ]
 
 const STEPS = [
