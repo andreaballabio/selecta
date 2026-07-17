@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   // La submission deve essere dell'utente ed essere stata analizzata.
   const { data: sub } = await supabase
     .from('user_submissions')
-    .select('id, user_id, analysis_status, title, artist, onset_strength, sub_ratio, spectral_centroid, mid_presence, bpm')
+    .select('id, user_id, analysis_status, file_url, title, artist, onset_strength, sub_ratio, spectral_centroid, mid_presence, bpm')
     .eq('id', submissionId)
     .maybeSingle()
 
@@ -57,6 +57,11 @@ export async function POST(request: NextRequest) {
   }
   if (sub.analysis_status !== 'analyzed') {
     return NextResponse.json({ error: 'Analisi non completata' }, { status: 400 })
+  }
+  // L'audio non viene conservato dopo l'analisi (a meno di pubblicazione):
+  // se è già stato scartato, la traccia non è più pubblicabile così com'è.
+  if (!(sub as { file_url?: string | null }).file_url) {
+    return NextResponse.json({ error: 'L’audio di questa analisi non è più disponibile: rianalizza la traccia per pubblicarla.' }, { status: 400 })
   }
 
   const bucket = deriveSoundBucket(sub)

@@ -158,8 +158,31 @@ export default function MatchPage() {
     }
   }
 
+  // Regola di prodotto: l'audio NON si conserva. Se l'utente riparte o lascia
+  // la pagina senza pubblicare, il file viene scartato (fire-and-forget; il
+  // server rifiuta da solo se nel frattempo la traccia è stata pubblicata o
+  // se l'analisi è ancora in corso).
+  const discardAudio = (id: string | null) => {
+    if (!id || typeof navigator === 'undefined') return
+    try {
+      if (!navigator.sendBeacon(`/api/match/${id}/discard`)) throw new Error('beacon rifiutato')
+    } catch {
+      fetch(`/api/match/${id}/discard`, { method: 'POST', keepalive: true }).catch(() => {})
+    }
+  }
+
+  useEffect(() => {
+    if (pageStatus !== 'done' && pageStatus !== 'failed') return
+    const id = submissionId
+    const onHide = () => discardAudio(id)
+    window.addEventListener('pagehide', onHide)
+    // il cleanup copre anche la navigazione interna (unmount del componente)
+    return () => { window.removeEventListener('pagehide', onHide); discardAudio(id) }
+  }, [pageStatus, submissionId])
+
   const handleReset = () => {
     if (pollRef.current) clearInterval(pollRef.current)
+    if (pageStatus === 'done' || pageStatus === 'failed') discardAudio(submissionId)
     setPageStatus('idle')
     setUploadedFile(null)
     setTitle('')
