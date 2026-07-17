@@ -16,6 +16,9 @@
     },
     "app/api/cron/label-intelligence/route.ts": {
       "maxDuration": 120
+    },
+    "app/api/cron/cleanup-audio/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -34,6 +37,10 @@
     {
       "path": "/api/cron/label-intelligence",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-audio",
+      "schedule": "30 3 * * *"
     }
   ]
 }

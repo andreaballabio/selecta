@@ -18,7 +18,7 @@ const ACCEPTED_FORMATS = {
   'audio/flac': ['.flac'],
 }
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024 // 100MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB (protegge la quota Storage)
 
 export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
   const [uploading, setUploading] = useState(false)
@@ -34,7 +34,7 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
     }
     
     if (file.size > MAX_FILE_SIZE) {
-      return `File troppo grande. Max: 100MB`
+      return `File troppo grande. Max: 50MB`
     }
     
     return null
@@ -193,7 +193,7 @@ export function AudioUpload({ onUploadComplete, onError }: AudioUploadProps) {
                 <Music className="h-3 w-3" />
                 WAV, MP3, AIFF, FLAC
               </span>
-              <span>Max 100MB</span>
+              <span>Max 50MB</span>
             </div>
           </>
         )}

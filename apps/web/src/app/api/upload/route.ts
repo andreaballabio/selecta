@@ -22,10 +22,10 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Validate file size (100MB max)
-    if (fileSize > 100 * 1024 * 1024) {
+    // Limite dimensione (50MB: copre un WAV di ~5 min; protegge la quota Storage)
+    if (fileSize > 50 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'File too large. Max 100MB.' },
+        { error: 'File troppo grande. Max 50MB (per i WAV lunghi usa un MP3 320).' },
         { status: 400 }
       )
     }
